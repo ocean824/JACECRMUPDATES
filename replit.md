@@ -22,7 +22,7 @@ Preferred communication style: Simple, everyday language.
 - **Runtime**: Node.js with Express.js server
 - **Language**: TypeScript with ESM modules
 - **API Design**: RESTful JSON API with user-scoped endpoints
-- **Authentication**: Replit Auth integration with OpenID Connect, Passport.js for session management
+- **Authentication**: Local username/password authentication with bcrypt hashing (12 rounds)
 - **Session Storage**: PostgreSQL-backed sessions via connect-pg-simple
 
 ### Data Storage
@@ -32,10 +32,12 @@ Preferred communication style: Simple, everyday language.
 - **Migrations**: Drizzle Kit with `db:push` command for schema synchronization
 
 ### Authentication & Authorization
-- **Provider**: Replit Auth (OpenID Connect)
+- **Provider**: Local authentication with username/password (bcrypt hashing)
 - **Session Management**: Express sessions with PostgreSQL store
 - **User Scoping**: All business data (investors, accounts, journal entries, tasks) is scoped to authenticated user ID
 - **Protected Routes**: `isAuthenticated` middleware guards all `/api/*` endpoints
+- **Auth Endpoints**: `/api/auth/register`, `/api/auth/login`, `/api/auth/logout`, `/api/auth/me`
+- **Auth Pages**: `/register`, `/login`, `/admin-login`
 
 ### Project Structure
 ```
@@ -67,15 +69,13 @@ Preferred communication style: Simple, everyday language.
 - **PostgreSQL**: Primary data store, connection via `DATABASE_URL` environment variable
 
 ### Authentication
-- **Replit Auth**: OpenID Connect provider for user authentication
+- **Local Auth**: Username/password authentication with bcrypt password hashing
 - **Required Environment Variables**:
   - `DATABASE_URL`: PostgreSQL connection string
   - `SESSION_SECRET`: Express session encryption key
-  - `ISSUER_URL`: Replit OIDC issuer (defaults to https://replit.com/oidc)
-  - `REPL_ID`: Replit environment identifier
 
 ### Third-Party Libraries
-- **openid-client**: OIDC client for Replit Auth
+- **bcrypt**: Password hashing with secure salt rounds
 - **passport / passport-local**: Authentication middleware
 - **drizzle-orm / drizzle-kit**: Database ORM and migration tooling
 - **zod**: Runtime schema validation
