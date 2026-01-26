@@ -1,7 +1,8 @@
-import type { Express, Request, Response } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage, logAudit } from "./storage";
-import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
+import { getSession } from "./replit_integrations/auth";
+import { setupLocalAuth, isLocalAuthenticated } from "./local-auth";
 import { handleHelpChat } from "./help-assistant";
 import multer from "multer";
 import path from "path";
@@ -35,8 +36,12 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  await setupAuth(app);
-  registerAuthRoutes(app);
+  app.set("trust proxy", 1);
+  app.use(getSession());
+  setupLocalAuth(app);
+
+  // Alias for middleware
+  const isAuthenticated = isLocalAuthenticated;
 
   // AI Help Assistant
   app.post("/api/help-chat", isAuthenticated, handleHelpChat);
