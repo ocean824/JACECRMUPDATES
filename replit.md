@@ -104,6 +104,26 @@ Preferred communication style: Simple, everyday language.
 7. **Task Management**: Task CRUD with priorities (Low, Medium, High), due dates, and investor association
 8. **Settings**: Theme toggle for light/dark mode
 
+### Phase 1 Features (January 2026)
+1. **User Role Management**: Role-based access control with admin, accounting, investor_relations, and ops roles
+   - Admin page at `/admin` for role assignment
+   - Role checking middleware on sensitive endpoints
+   - Admin-only access to user role management API
+2. **Audit Logging**: Comprehensive activity tracking across all CRUD operations
+   - Audit log viewer at `/audit-logs`
+   - Tracks create/update/delete actions on investors, accounts, tasks, journal entries, documents
+   - Stores user ID, action type, entity type, entity ID, and description
+3. **Document Repository**: File upload and management system
+   - Document upload with multer (10MB limit)
+   - Category classification (KYC Documents, Contracts, Financial Statements, etc.)
+   - Association with investors
+   - Upload/download/delete functionality at `/documents`
+4. **Investor Segmentation**: Type-based investor classification
+   - Investor types: Individual, Institutional, Fund
+   - Type selector in investor form
+   - Type filter in investors list
+   - Type badge display in investor table
+
 ### Design System
 - Professional blue primary color theme
 - Full dark mode support with proper contrast ratios

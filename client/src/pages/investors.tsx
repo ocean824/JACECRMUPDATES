@@ -49,7 +49,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { insertInvestorSchema, pipelineStages, type Investor } from "@shared/schema";
+import { insertInvestorSchema, pipelineStages, investorTypes, type Investor } from "@shared/schema";
 
 const formSchema = insertInvestorSchema.extend({
   firstName: z.string().min(1, "First name is required"),
@@ -57,6 +57,7 @@ const formSchema = insertInvestorSchema.extend({
   email: z.string().email("Invalid email address"),
   phone: z.string().optional(),
   company: z.string().optional(),
+  investorType: z.string().optional(),
   investmentAmount: z.string().optional(),
   notes: z.string().optional(),
 });
@@ -92,6 +93,7 @@ function InvestorFormDialog({
       email: investor?.email || "",
       phone: investor?.phone || "",
       company: investor?.company || "",
+      investorType: investor?.investorType || "individual",
       pipelineStage: investor?.pipelineStage || "lead",
       investmentAmount: investor?.investmentAmount?.toString() || "",
       notes: investor?.notes || "",
@@ -221,6 +223,30 @@ function InvestorFormDialog({
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
+                name="investorType"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Investor Type</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-investor-type">
+                          <SelectValue placeholder="Select type" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {investorTypes.map((type) => (
+                          <SelectItem key={type.value} value={type.value}>
+                            {type.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
                 name="pipelineStage"
                 render={({ field }) => (
                   <FormItem>
@@ -243,20 +269,21 @@ function InvestorFormDialog({
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="investmentAmount"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Investment Amount</FormLabel>
-                    <FormControl>
-                      <Input type="number" placeholder="100000" {...field} data-testid="input-investment" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
             </div>
+
+            <FormField
+              control={form.control}
+              name="investmentAmount"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Investment Amount</FormLabel>
+                  <FormControl>
+                    <Input type="number" placeholder="100000" {...field} data-testid="input-investment" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <FormField
               control={form.control}
@@ -291,8 +318,15 @@ function InvestorFormDialog({
   );
 }
 
+const investorTypeColors: Record<string, string> = {
+  individual: "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300",
+  institutional: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300",
+  fund: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900 dark:text-cyan-300",
+};
+
 export default function InvestorsPage() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedInvestor, setSelectedInvestor] = useState<Investor | undefined>();
   const { toast } = useToast();
@@ -316,12 +350,15 @@ export default function InvestorsPage() {
 
   const filteredInvestors = investors?.filter((investor) => {
     const search = searchQuery.toLowerCase();
-    return (
+    const matchesSearch = 
       investor.firstName.toLowerCase().includes(search) ||
       investor.lastName.toLowerCase().includes(search) ||
       investor.email.toLowerCase().includes(search) ||
-      investor.company?.toLowerCase().includes(search)
-    );
+      investor.company?.toLowerCase().includes(search);
+    
+    const matchesType = typeFilter === "all" || investor.investorType === typeFilter;
+    
+    return matchesSearch && matchesType;
   });
 
   const handleEdit = (investor: Investor) => {
@@ -361,15 +398,30 @@ export default function InvestorsPage() {
                 </Badge>
               )}
             </CardTitle>
-            <div className="relative w-full sm:w-72">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search investors..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-                data-testid="input-search-investors"
-              />
+            <div className="flex items-center gap-3">
+              <Select value={typeFilter} onValueChange={setTypeFilter}>
+                <SelectTrigger className="w-36" data-testid="select-filter-type">
+                  <SelectValue placeholder="All Types" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  {investorTypes.map((type) => (
+                    <SelectItem key={type.value} value={type.value}>
+                      {type.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="relative w-full sm:w-72">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search investors..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9"
+                  data-testid="input-search-investors"
+                />
+              </div>
             </div>
           </div>
         </CardHeader>
@@ -395,6 +447,7 @@ export default function InvestorsPage() {
                     <TableHead>Name</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Company</TableHead>
+                    <TableHead>Type</TableHead>
                     <TableHead>Stage</TableHead>
                     <TableHead className="text-right">Investment</TableHead>
                     <TableHead className="w-12"></TableHead>
@@ -416,6 +469,11 @@ export default function InvestorsPage() {
                       </TableCell>
                       <TableCell className="text-muted-foreground">{investor.email}</TableCell>
                       <TableCell>{investor.company || "-"}</TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className={investorTypeColors[investor.investorType]}>
+                          {investorTypes.find(t => t.value === investor.investorType)?.label}
+                        </Badge>
+                      </TableCell>
                       <TableCell>
                         <Badge variant="secondary" className={pipelineColors[investor.pipelineStage]}>
                           {pipelineStages.find(s => s.value === investor.pipelineStage)?.label}

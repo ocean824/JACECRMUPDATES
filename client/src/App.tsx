@@ -17,6 +17,9 @@ import PipelinePage from "@/pages/pipeline";
 import AccountsPage from "@/pages/accounts";
 import JournalPage from "@/pages/journal";
 import TasksPage from "@/pages/tasks";
+import DocumentsPage from "@/pages/documents";
+import AuditLogsPage from "@/pages/audit-logs";
+import AdminPage from "@/pages/admin";
 import SettingsPage from "@/pages/settings";
 import NotFound from "@/pages/not-found";
 
@@ -54,6 +57,9 @@ function AuthenticatedRoutes() {
         <Route path="/accounts" component={AccountsPage} />
         <Route path="/journal" component={JournalPage} />
         <Route path="/tasks" component={TasksPage} />
+        <Route path="/documents" component={DocumentsPage} />
+        <Route path="/audit-logs" component={AuditLogsPage} />
+        <Route path="/admin" component={AdminPage} />
         <Route path="/settings" component={SettingsPage} />
         <Route component={NotFound} />
       </Switch>

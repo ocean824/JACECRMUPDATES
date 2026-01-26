@@ -9,6 +9,9 @@ import {
   Settings,
   LogOut,
   Building2,
+  FolderOpen,
+  History,
+  Shield,
 } from "lucide-react";
 import {
   Sidebar,
@@ -38,6 +41,12 @@ const accountingItems = [
 
 const managementItems = [
   { title: "Tasks", url: "/tasks", icon: CheckSquare },
+  { title: "Documents", url: "/documents", icon: FolderOpen },
+];
+
+const systemItems = [
+  { title: "Audit Logs", url: "/audit-logs", icon: History },
+  { title: "Admin", url: "/admin", icon: Shield },
 ];
 
 export function AppSidebar() {
@@ -127,6 +136,30 @@ export function AppSidebar() {
                     className="h-10"
                   >
                     <Link href={item.url} data-testid={`nav-${item.title.toLowerCase()}`}>
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-3 py-2">
+            System
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {systemItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location === item.url}
+                    className="h-10"
+                  >
+                    <Link href={item.url} data-testid={`nav-${item.title.toLowerCase().replace(/\s+/g, "-")}`}>
                       <item.icon className="h-4 w-4" />
                       <span>{item.title}</span>
                     </Link>
