@@ -39,6 +39,7 @@ export function HelpChat() {
     if (!input.trim() || isLoading) return;
 
     const userMessage = input.trim();
+    const currentHistory = [...messages];
     setInput("");
     setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
     setIsLoading(true);
@@ -49,7 +50,7 @@ export function HelpChat() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: userMessage,
-          history: messages.slice(-10),
+          history: currentHistory.slice(-10),
         }),
       });
 
