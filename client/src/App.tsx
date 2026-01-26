@@ -3,27 +3,106 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ThemeProvider } from "@/components/theme-provider";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/app-sidebar";
+import { useAuth } from "@/hooks/use-auth";
+import { Skeleton } from "@/components/ui/skeleton";
+
+import LandingPage from "@/pages/landing";
+import DashboardPage from "@/pages/dashboard";
+import InvestorsPage from "@/pages/investors";
+import PipelinePage from "@/pages/pipeline";
+import AccountsPage from "@/pages/accounts";
+import JournalPage from "@/pages/journal";
+import TasksPage from "@/pages/tasks";
+import SettingsPage from "@/pages/settings";
 import NotFound from "@/pages/not-found";
 
-function Router() {
+function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
+  const style = {
+    "--sidebar-width": "16rem",
+    "--sidebar-width-icon": "3rem",
+  };
+
   return (
-    <Switch>
-      {/* Add pages below */}
-      {/* <Route path="/" component={Home}/> */}
-      {/* Fallback to 404 */}
-      <Route component={NotFound} />
-    </Switch>
+    <SidebarProvider style={style as React.CSSProperties}>
+      <div className="flex h-screen w-full">
+        <AppSidebar />
+        <div className="flex flex-col flex-1 min-w-0">
+          <header className="flex items-center justify-between gap-2 px-4 h-14 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-40">
+            <SidebarTrigger data-testid="button-sidebar-toggle" />
+            <ThemeToggle />
+          </header>
+          <main className="flex-1 overflow-auto">
+            {children}
+          </main>
+        </div>
+      </div>
+    </SidebarProvider>
   );
+}
+
+function AuthenticatedRoutes() {
+  return (
+    <AuthenticatedLayout>
+      <Switch>
+        <Route path="/" component={DashboardPage} />
+        <Route path="/investors" component={InvestorsPage} />
+        <Route path="/pipeline" component={PipelinePage} />
+        <Route path="/accounts" component={AccountsPage} />
+        <Route path="/journal" component={JournalPage} />
+        <Route path="/tasks" component={TasksPage} />
+        <Route path="/settings" component={SettingsPage} />
+        <Route component={NotFound} />
+      </Switch>
+    </AuthenticatedLayout>
+  );
+}
+
+function LoadingScreen() {
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="flex flex-col items-center gap-4">
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground animate-pulse">
+          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+          </svg>
+        </div>
+        <div className="space-y-2 text-center">
+          <Skeleton className="h-4 w-32 mx-auto" />
+          <Skeleton className="h-3 w-24 mx-auto" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AppRouter() {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
+
+  if (!user) {
+    return <LandingPage />;
+  }
+
+  return <AuthenticatedRoutes />;
 }
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Router />
-      </TooltipProvider>
-    </QueryClientProvider>
+    <ThemeProvider defaultTheme="system" storageKey="jace-crm-theme">
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <AppRouter />
+          <Toaster />
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 }
 

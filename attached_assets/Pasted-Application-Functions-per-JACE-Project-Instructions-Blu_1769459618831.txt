@@ -1,0 +1,64 @@
+Application Functions (per JACE Project Instructions / Blueprint)
+Module Functions
+Platform & Security • Multi-tenant workspace
+• user/role management
+• protected routes
+• authentication (login/signup, password reset, OTP/2FA option)
+• role-based permissions (Accounting, Investor Relations, Admin/Ops)
+• audit logs
+• idempotency controls for webhooks
+• standardized error handling
+• real-time updates via SSE event stream.
+Dashboards & Analytics • Role-based KPI dashboards
+• pipeline/settlement/payment status panels
+• reporting center
+• account/profile settings
+• exportable views.
+CRM & Office Management • Customer & contact management
+• tasks, notes, reminders
+• activity timeline by customer/investor
+• document repository (upload/store/download)
+• billing/records management aligned to accounting workflows.
+Investor Pipeline & KYC Tracking • Investor profiles
+• segmentation (individual/institutional/fund)
+• pipeline stages (lead®contacted®KYC®documents®ready®closed)
+• KYC/document status tracking with approvals
+• onboarding automation hooks
+• investor communications log.
+Gmail Investor Relations Hub • Gmail OAuth connect
+• email/thread ingestion + logging
+• thread viewer and investor linking
+• search/filter
+• email activity timeline integration
+• webhook support for updates (where applicable).
+BondAI Integration (Judgement Bond
+AI)
+• BondAI onboarding completion webhook ingest
+• investor record creation/update
+• status sync
+• integration health/status
+• manual re-sync trigger
+• audit trail of all inbound events.
+Payments & Escrow (Bids) • Escrow account registry (bank/credit union)
+• bid payment initiation + tracking
+• webhook confirmations (confirmed/failed/reversed)
+• idempotent processing and replay protection
+• reconciliation job baseline (escrow vs ledger).
+Settlements & Document Generation • Settlement workflow (allocation/confirmation/closeout)
+• settlement records
+• automated ledger postings from settlements
+• generated settlement documents (PDF) saved to investor record with download links.
+Accounting / Double-Entry Ledger • Chart of accounts
+• journal entries with balanced debit/credit lines
+• ledger entries and trial balance
+• postings from payments and settlements (idempotent)
+• financial statements (balance sheet, income statement, cash flow)
+• cash position and escrow views.
+Invoices / Quotes / Expenses
+(Baseline Module)
+• Invoice management
+• quote management
+• expense tracking
+• payment management workflows consistent with accounting suite patterns.
+AI Assistant (Permission-Aware) • In-app AI chat assistant for reporting, accounting queries, workflow drafting, and smart recommendations (respecting
+roles/permissions).
