@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -52,7 +52,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { insertBondSettlementSchema, bondStatuses, type BondSettlement, type Investor } from "@shared/schema";
+import { insertBondSettlementSchema, bondStatuses, defaultCurrencies, type BondSettlement, type Investor, type Currency } from "@shared/schema";
 
 const formSchema = insertBondSettlementSchema.extend({
   bondName: z.string().min(1, "Bond name is required"),
@@ -61,6 +61,7 @@ const formSchema = insertBondSettlementSchema.extend({
   faceValue: z.string().min(1, "Face value is required"),
   purchasePrice: z.string().optional(),
   couponRate: z.string().optional(),
+  currencyCode: z.string().default("USD"),
   purchaseDate: z.date().optional().nullable(),
   settlementDate: z.date().optional().nullable(),
   maturityDate: z.date().optional().nullable(),
@@ -80,11 +81,13 @@ const statusColors: Record<string, string> = {
 function BondFormDialog({
   bond,
   investors,
+  currencies,
   open,
   onOpenChange,
 }: {
   bond?: BondSettlement;
   investors: Investor[];
+  currencies: Currency[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -100,6 +103,7 @@ function BondFormDialog({
       faceValue: bond?.faceValue?.toString() || "",
       purchasePrice: bond?.purchasePrice?.toString() || "",
       couponRate: bond?.couponRate?.toString() || "",
+      currencyCode: bond?.currencyCode || "USD",
       purchaseDate: bond?.purchaseDate ? new Date(bond.purchaseDate) : null,
       settlementDate: bond?.settlementDate ? new Date(bond.settlementDate) : null,
       maturityDate: bond?.maturityDate ? new Date(bond.maturityDate) : null,
@@ -248,7 +252,31 @@ function BondFormDialog({
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
+              <FormField
+                control={form.control}
+                name="currencyCode"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Currency</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value || "USD"}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-bond-currency">
+                          <SelectValue placeholder="Select currency" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {currencies.map((currency) => (
+                          <SelectItem key={currency.code} value={currency.code}>
+                            {currency.code} ({currency.symbol})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <FormField
                 control={form.control}
                 name="couponRate"
@@ -443,6 +471,27 @@ export default function BondsPage() {
     queryKey: ["/api/investors"],
   });
 
+  const { data: currencies, isLoading: currenciesLoading } = useQuery<Currency[]>({
+    queryKey: ["/api/currencies"],
+  });
+
+  const seedCurrenciesMutation = useMutation({
+    mutationFn: async (currencyData: typeof defaultCurrencies[number]) => {
+      return apiRequest("POST", "/api/currencies", currencyData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/currencies"] });
+    },
+  });
+
+  useEffect(() => {
+    if (!currenciesLoading && currencies && currencies.length === 0) {
+      defaultCurrencies.forEach((currency) => {
+        seedCurrenciesMutation.mutate(currency);
+      });
+    }
+  }, [currencies, currenciesLoading]);
+
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       return apiRequest("DELETE", `/api/bond-settlements/${id}`);
@@ -485,13 +534,20 @@ export default function BondsPage() {
     return investor ? `${investor.firstName} ${investor.lastName}` : "-";
   };
 
-  const formatCurrency = (value: string | null | undefined) => {
+  const getCurrencySymbol = (currencyCode: string | null | undefined) => {
+    if (!currencyCode) return "$";
+    const currency = currencies?.find((c) => c.code === currencyCode);
+    return currency?.symbol || "$";
+  };
+
+  const formatCurrencyValue = (value: string | null | undefined, currencyCode: string | null | undefined) => {
     if (!value) return "-";
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
+    const symbol = getCurrencySymbol(currencyCode);
+    const formattedNumber = new Intl.NumberFormat("en-US", {
       minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
     }).format(parseFloat(value));
+    return `${symbol}${formattedNumber}`;
   };
 
   const formatDate = (date: Date | string | null | undefined) => {
@@ -500,8 +556,20 @@ export default function BondsPage() {
   };
 
   const totalBonds = bonds?.length || 0;
-  const totalFaceValue = bonds?.reduce((sum, b) => sum + parseFloat(b.faceValue || "0"), 0) || 0;
   const pendingCount = bonds?.filter((b) => b.status === "pending").length || 0;
+  
+  const currencyBreakdown = bonds?.reduce((acc, bond) => {
+    const code = bond.currencyCode || "USD";
+    if (!acc[code]) {
+      acc[code] = { total: 0, count: 0, symbol: getCurrencySymbol(code) };
+    }
+    acc[code].total += parseFloat(bond.faceValue || "0");
+    acc[code].count += 1;
+    return acc;
+  }, {} as Record<string, { total: number; count: number; symbol: string }>) || {};
+
+  const currencyCodes = Object.keys(currencyBreakdown);
+  const hasMultipleCurrencies = currencyCodes.length > 1;
   
   const thirtyDaysFromNow = new Date();
   thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
@@ -545,9 +613,22 @@ export default function BondsPage() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold" data-testid="text-total-face-value">
-              {formatCurrency(totalFaceValue.toString())}
-            </div>
+            {hasMultipleCurrencies ? (
+              <div className="space-y-1" data-testid="text-total-face-value">
+                {currencyCodes.map((code) => (
+                  <div key={code} className="flex items-center justify-between text-lg font-semibold">
+                    <span className="text-muted-foreground text-sm">{code}:</span>
+                    <span>{currencyBreakdown[code].symbol}{new Intl.NumberFormat("en-US", { minimumFractionDigits: 2 }).format(currencyBreakdown[code].total)}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-2xl font-bold" data-testid="text-total-face-value">
+                {currencyCodes.length > 0 
+                  ? `${currencyBreakdown[currencyCodes[0]].symbol}${new Intl.NumberFormat("en-US", { minimumFractionDigits: 2 }).format(currencyBreakdown[currencyCodes[0]].total)}`
+                  : "$0.00"}
+              </div>
+            )}
           </CardContent>
         </Card>
         <Card>
@@ -626,7 +707,7 @@ export default function BondsPage() {
                         {getInvestorName(bond.investorId)}
                       </TableCell>
                       <TableCell className="text-right" data-testid={`text-face-value-${bond.id}`}>
-                        {formatCurrency(bond.faceValue)}
+                        {formatCurrencyValue(bond.faceValue, bond.currencyCode)}
                       </TableCell>
                       <TableCell className="text-right" data-testid={`text-coupon-rate-${bond.id}`}>
                         {bond.couponRate ? `${bond.couponRate}%` : "-"}
@@ -677,6 +758,7 @@ export default function BondsPage() {
       <BondFormDialog
         bond={selectedBond}
         investors={investors || []}
+        currencies={currencies || []}
         open={dialogOpen}
         onOpenChange={setDialogOpen}
       />

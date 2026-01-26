@@ -32,7 +32,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Search, CheckSquare, Calendar, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { Plus, Search, CheckSquare, Square, Calendar, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -252,20 +262,28 @@ function TaskFormDialog({
   );
 }
 
-function TaskCard({ task, onEdit, onToggle, onDelete }: { 
+function TaskCard({ task, onEdit, onToggle, onDelete, isSelected, onSelect }: { 
   task: Task; 
   onEdit: () => void; 
   onToggle: () => void;
   onDelete: () => void;
+  isSelected: boolean;
+  onSelect: () => void;
 }) {
   const isCompleted = task.status === "completed";
   const priorityColor = priorityOptions.find(p => p.value === task.priority)?.color || "";
   const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && !isCompleted;
 
   return (
-    <Card className={`group ${isCompleted ? 'opacity-60' : ''}`}>
+    <Card className={`group ${isCompleted ? 'opacity-60' : ''} ${isSelected ? 'ring-2 ring-primary' : ''}`}>
       <CardContent className="p-4">
         <div className="flex items-start gap-3">
+          <Checkbox
+            checked={isSelected}
+            onCheckedChange={onSelect}
+            className="mt-1"
+            data-testid={`checkbox-select-task-${task.id}`}
+          />
           <Checkbox
             checked={isCompleted}
             onCheckedChange={onToggle}
@@ -320,11 +338,19 @@ function TaskCard({ task, onEdit, onToggle, onDelete }: {
   );
 }
 
+const statusOptions = [
+  { value: "pending", label: "Pending" },
+  { value: "in_progress", label: "In Progress" },
+  { value: "completed", label: "Completed" },
+];
+
 export default function TasksPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | undefined>();
   const [filter, setFilter] = useState<"all" | "pending" | "completed">("all");
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
   const { toast } = useToast();
 
   const { data: tasks, isLoading } = useQuery<Task[]>({
@@ -356,6 +382,35 @@ export default function TasksPage() {
     },
   });
 
+  const bulkUpdateMutation = useMutation({
+    mutationFn: async ({ ids, updates }: { ids: string[]; updates: Record<string, any> }) => {
+      return apiRequest("PATCH", "/api/tasks/bulk", { ids, updates });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      setSelectedIds([]);
+      toast({ title: "Success", description: "Tasks updated successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update tasks", variant: "destructive" });
+    },
+  });
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      return apiRequest("DELETE", "/api/tasks/bulk", { ids });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      setSelectedIds([]);
+      setBulkDeleteDialogOpen(false);
+      toast({ title: "Success", description: "Tasks deleted successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to delete tasks", variant: "destructive" });
+    },
+  });
+
   const filteredTasks = tasks?.filter((task) => {
     const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       task.description?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -377,6 +432,32 @@ export default function TasksPage() {
     const newStatus = task.status === "completed" ? "pending" : "completed";
     updateMutation.mutate({ id: task.id, status: newStatus });
   };
+
+  const toggleSelection = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (filteredTasks) {
+      if (selectedIds.length === filteredTasks.length) {
+        setSelectedIds([]);
+      } else {
+        setSelectedIds(filteredTasks.map((t) => t.id));
+      }
+    }
+  };
+
+  const handleBulkStatusUpdate = (status: string) => {
+    bulkUpdateMutation.mutate({ ids: selectedIds, updates: { status } });
+  };
+
+  const handleBulkPriorityUpdate = (priority: string) => {
+    bulkUpdateMutation.mutate({ ids: selectedIds, updates: { priority } });
+  };
+
+  const isAllSelected = filteredTasks && filteredTasks.length > 0 && selectedIds.length === filteredTasks.length;
 
   const pendingCount = tasks?.filter(t => t.status === "pending").length || 0;
   const completedCount = tasks?.filter(t => t.status === "completed").length || 0;
@@ -439,19 +520,69 @@ export default function TasksPage() {
               <CheckSquare className="h-5 w-5" />
               Task List
             </CardTitle>
-            <div className="relative w-full sm:w-72">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search tasks..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-                data-testid="input-search-tasks"
-              />
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  checked={isAllSelected}
+                  onCheckedChange={toggleSelectAll}
+                  data-testid="checkbox-select-all-tasks"
+                />
+                <span className="text-sm text-muted-foreground">Select All</span>
+              </div>
+              <div className="relative w-full sm:w-72">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search tasks..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9"
+                  data-testid="input-search-tasks"
+                />
+              </div>
             </div>
           </div>
         </CardHeader>
         <CardContent>
+          {selectedIds.length > 0 && (
+            <div className="flex flex-wrap items-center gap-3 p-3 mb-4 bg-muted rounded-lg" data-testid="bulk-actions-toolbar-tasks">
+              <span className="text-sm font-medium" data-testid="text-selected-count-tasks">
+                {selectedIds.length} selected
+              </span>
+              <Select onValueChange={handleBulkStatusUpdate}>
+                <SelectTrigger className="w-36" data-testid="select-bulk-status">
+                  <SelectValue placeholder="Update Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  {statusOptions.map((status) => (
+                    <SelectItem key={status.value} value={status.value}>
+                      {status.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select onValueChange={handleBulkPriorityUpdate}>
+                <SelectTrigger className="w-36" data-testid="select-bulk-priority">
+                  <SelectValue placeholder="Update Priority" />
+                </SelectTrigger>
+                <SelectContent>
+                  {priorityOptions.map((priority) => (
+                    <SelectItem key={priority.value} value={priority.value}>
+                      {priority.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setBulkDeleteDialogOpen(true)}
+                data-testid="button-bulk-delete-tasks"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete Selected
+              </Button>
+            </div>
+          )}
           {isLoading ? (
             <div className="space-y-4">
               {[1, 2, 3, 4].map((i) => (
@@ -481,6 +612,8 @@ export default function TasksPage() {
                   onEdit={() => handleEdit(task)}
                   onToggle={() => handleToggle(task)}
                   onDelete={() => deleteMutation.mutate(task.id)}
+                  isSelected={selectedIds.includes(task.id)}
+                  onSelect={() => toggleSelection(task.id)}
                 />
               ))}
             </div>
@@ -507,6 +640,27 @@ export default function TasksPage() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
       />
+
+      <AlertDialog open={bulkDeleteDialogOpen} onOpenChange={setBulkDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selectedIds.length} tasks?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the selected tasks.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-bulk-delete-tasks">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => bulkDeleteMutation.mutate(selectedIds)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-bulk-delete-tasks"
+            >
+              {bulkDeleteMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

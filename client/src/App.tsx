@@ -8,17 +8,20 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { NotificationsDropdown } from "@/components/notifications";
+import { GlobalSearch } from "@/components/global-search";
 import { useAuth } from "@/hooks/use-auth";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import LandingPage from "@/pages/landing";
 import DashboardPage from "@/pages/dashboard";
 import InvestorsPage from "@/pages/investors";
+import InvestorDetailPage from "@/pages/investor-detail";
 import PipelinePage from "@/pages/pipeline";
 import AccountsPage from "@/pages/accounts";
 import JournalPage from "@/pages/journal";
 import BondsPage from "@/pages/bonds";
 import TasksPage from "@/pages/tasks";
+import RecurringTasksPage from "@/pages/recurring-tasks";
 import KycPage from "@/pages/kyc";
 import DocumentsPage from "@/pages/documents";
 import CommunicationsPage from "@/pages/communications";
@@ -26,6 +29,11 @@ import AnalyticsPage from "@/pages/analytics";
 import AuditLogsPage from "@/pages/audit-logs";
 import AdminPage from "@/pages/admin";
 import SettingsPage from "@/pages/settings";
+import CustomFieldsPage from "@/pages/custom-fields";
+import CalendarPage from "@/pages/calendar";
+import EmailPage from "@/pages/email";
+import ImportPage from "@/pages/import";
+import InvestorPortalPage from "@/pages/investor-portal";
 import NotFound from "@/pages/not-found";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
@@ -40,7 +48,10 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
         <AppSidebar />
         <div className="flex flex-col flex-1 min-w-0">
           <header className="flex items-center justify-between gap-2 px-4 h-14 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-40">
-            <SidebarTrigger data-testid="button-sidebar-toggle" />
+            <div className="flex items-center gap-2">
+              <SidebarTrigger data-testid="button-sidebar-toggle" />
+              <GlobalSearch />
+            </div>
             <div className="flex items-center gap-2">
               <NotificationsDropdown />
               <ThemeToggle />
@@ -61,18 +72,25 @@ function AuthenticatedRoutes() {
       <Switch>
         <Route path="/" component={DashboardPage} />
         <Route path="/investors" component={InvestorsPage} />
+        <Route path="/investors/:id" component={InvestorDetailPage} />
         <Route path="/pipeline" component={PipelinePage} />
         <Route path="/accounts" component={AccountsPage} />
         <Route path="/journal" component={JournalPage} />
         <Route path="/bonds" component={BondsPage} />
         <Route path="/tasks" component={TasksPage} />
+        <Route path="/recurring-tasks" component={RecurringTasksPage} />
+        <Route path="/calendar" component={CalendarPage} />
         <Route path="/kyc" component={KycPage} />
         <Route path="/documents" component={DocumentsPage} />
         <Route path="/communications" component={CommunicationsPage} />
+        <Route path="/email" component={EmailPage} />
         <Route path="/analytics" component={AnalyticsPage} />
         <Route path="/audit-logs" component={AuditLogsPage} />
         <Route path="/admin" component={AdminPage} />
         <Route path="/settings" component={SettingsPage} />
+        <Route path="/custom-fields" component={CustomFieldsPage} />
+        <Route path="/import" component={ImportPage} />
+        <Route path="/investor-portal" component={InvestorPortalPage} />
         <Route component={NotFound} />
       </Switch>
     </AuthenticatedLayout>

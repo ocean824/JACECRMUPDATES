@@ -16,6 +16,12 @@ import {
   ClipboardCheck,
   Landmark,
   MessageSquare,
+  CalendarDays,
+  SlidersHorizontal,
+  Mail,
+  RefreshCw,
+  Upload,
+  Eye,
 } from "lucide-react";
 import {
   Sidebar,
@@ -46,14 +52,20 @@ const accountingItems = [
 
 const managementItems = [
   { title: "Tasks", url: "/tasks", icon: CheckSquare },
+  { title: "Recurring Tasks", url: "/recurring-tasks", icon: RefreshCw },
+  { title: "Calendar", url: "/calendar", icon: CalendarDays },
   { title: "KYC Workflow", url: "/kyc", icon: ClipboardCheck },
   { title: "Documents", url: "/documents", icon: FolderOpen },
   { title: "Communications", url: "/communications", icon: MessageSquare },
+  { title: "Email", url: "/email", icon: Mail },
   { title: "Analytics", url: "/analytics", icon: BarChart3 },
 ];
 
 const systemItems = [
+  { title: "Investor Portal", url: "/investor-portal", icon: Eye },
   { title: "Audit Logs", url: "/audit-logs", icon: History },
+  { title: "Custom Fields", url: "/custom-fields", icon: SlidersHorizontal },
+  { title: "Data Import", url: "/import", icon: Upload },
   { title: "Admin", url: "/admin", icon: Shield },
 ];
 

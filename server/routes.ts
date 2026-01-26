@@ -290,6 +290,60 @@ export async function registerRoutes(
     }
   });
 
+  // Bulk Investors API
+  app.patch("/api/investors/bulk", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const { ids, updates } = req.body;
+      
+      if (!ids || !Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ message: "No investor IDs provided" });
+      }
+      
+      const results = [];
+      for (const id of ids) {
+        const investor = await storage.updateInvestor(id, userId, updates);
+        if (investor) {
+          results.push(investor);
+          await logAudit(userId, "update", "investor", id, 
+            `Bulk updated investor ${investor.firstName} ${investor.lastName}`);
+        }
+      }
+      
+      res.json({ updated: results.length, investors: results });
+    } catch (error) {
+      console.error("Error bulk updating investors:", error);
+      res.status(500).json({ message: "Failed to bulk update investors" });
+    }
+  });
+
+  app.delete("/api/investors/bulk", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const { ids } = req.body;
+      
+      if (!ids || !Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ message: "No investor IDs provided" });
+      }
+      
+      let deleted = 0;
+      for (const id of ids) {
+        const investor = await storage.getInvestor(id, userId);
+        if (investor) {
+          await storage.deleteInvestor(id, userId);
+          await logAudit(userId, "delete", "investor", id, 
+            `Bulk deleted investor ${investor.firstName} ${investor.lastName}`);
+          deleted++;
+        }
+      }
+      
+      res.json({ deleted });
+    } catch (error) {
+      console.error("Error bulk deleting investors:", error);
+      res.status(500).json({ message: "Failed to bulk delete investors" });
+    }
+  });
+
   // Accounts API
   app.get("/api/accounts", isAuthenticated, async (req, res) => {
     try {
@@ -564,6 +618,60 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting task:", error);
       res.status(500).json({ message: "Failed to delete task" });
+    }
+  });
+
+  // Bulk Tasks API
+  app.patch("/api/tasks/bulk", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const { ids, updates } = req.body;
+      
+      if (!ids || !Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ message: "No task IDs provided" });
+      }
+      
+      const results = [];
+      for (const id of ids) {
+        const task = await storage.updateTask(id, userId, updates);
+        if (task) {
+          results.push(task);
+          await logAudit(userId, "update", "task", id, 
+            `Bulk updated task: ${task.title}`);
+        }
+      }
+      
+      res.json({ updated: results.length, tasks: results });
+    } catch (error) {
+      console.error("Error bulk updating tasks:", error);
+      res.status(500).json({ message: "Failed to bulk update tasks" });
+    }
+  });
+
+  app.delete("/api/tasks/bulk", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const { ids } = req.body;
+      
+      if (!ids || !Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ message: "No task IDs provided" });
+      }
+      
+      let deleted = 0;
+      for (const id of ids) {
+        const task = await storage.getTask(id, userId);
+        if (task) {
+          await storage.deleteTask(id, userId);
+          await logAudit(userId, "delete", "task", id, 
+            `Bulk deleted task: ${task.title}`);
+          deleted++;
+        }
+      }
+      
+      res.json({ deleted });
+    } catch (error) {
+      console.error("Error bulk deleting tasks:", error);
+      res.status(500).json({ message: "Failed to bulk delete tasks" });
     }
   });
 
@@ -1520,6 +1628,164 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error creating portal user:", error);
       res.status(500).json({ message: "Failed to create portal user" });
+    }
+  });
+
+  // CSV Import API for investors
+  app.post("/api/import/investors", isAuthenticated, upload.single("file"), async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      const file = req.file;
+      
+      if (!file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+      
+      const mappingsStr = req.body.mappings;
+      if (!mappingsStr) {
+        return res.status(400).json({ message: "Column mappings are required" });
+      }
+      
+      let mappings: Array<{ csvColumn: string; mappedTo: string }>;
+      try {
+        mappings = JSON.parse(mappingsStr);
+      } catch {
+        return res.status(400).json({ message: "Invalid mappings format" });
+      }
+      
+      const fileContent = fs.readFileSync(file.path, "utf-8");
+      const lines = fileContent.split(/\r?\n/).filter((line: string) => line.trim());
+      
+      if (lines.length < 2) {
+        fs.unlinkSync(file.path);
+        return res.status(400).json({ message: "CSV file must have headers and at least one data row" });
+      }
+      
+      const parseRow = (row: string): string[] => {
+        const result: string[] = [];
+        let current = "";
+        let inQuotes = false;
+        
+        for (let i = 0; i < row.length; i++) {
+          const char = row[i];
+          if (char === '"') {
+            if (inQuotes && row[i + 1] === '"') {
+              current += '"';
+              i++;
+            } else {
+              inQuotes = !inQuotes;
+            }
+          } else if (char === "," && !inQuotes) {
+            result.push(current.trim());
+            current = "";
+          } else {
+            current += char;
+          }
+        }
+        result.push(current.trim());
+        return result;
+      };
+      
+      const headers = parseRow(lines[0]);
+      const dataRows = lines.slice(1).map(parseRow);
+      
+      const columnIndexMap: Record<string, number> = {};
+      mappings.forEach((m) => {
+        if (m.mappedTo !== "skip") {
+          const idx = headers.indexOf(m.csvColumn);
+          if (idx !== -1) {
+            columnIndexMap[m.mappedTo] = idx;
+          }
+        }
+      });
+      
+      let successCount = 0;
+      const errors: string[] = [];
+      
+      for (let i = 0; i < dataRows.length; i++) {
+        const row = dataRows[i];
+        const rowNum = i + 2;
+        
+        try {
+          const firstName = columnIndexMap.firstName !== undefined ? row[columnIndexMap.firstName]?.trim() : "";
+          const lastName = columnIndexMap.lastName !== undefined ? row[columnIndexMap.lastName]?.trim() : "";
+          const email = columnIndexMap.email !== undefined ? row[columnIndexMap.email]?.trim() : "";
+          
+          if (!firstName || !lastName || !email) {
+            errors.push(`Row ${rowNum}: Missing required field (firstName, lastName, or email)`);
+            continue;
+          }
+          
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailRegex.test(email)) {
+            errors.push(`Row ${rowNum}: Invalid email format "${email}"`);
+            continue;
+          }
+          
+          const investorData: any = {
+            firstName,
+            lastName,
+            email,
+            phone: columnIndexMap.phone !== undefined ? row[columnIndexMap.phone]?.trim() || null : null,
+            company: columnIndexMap.company !== undefined ? row[columnIndexMap.company]?.trim() || null : null,
+            investorType: "individual",
+            pipelineStage: "lead",
+            kycStatus: "pending",
+            investmentAmount: null,
+            notes: columnIndexMap.notes !== undefined ? row[columnIndexMap.notes]?.trim() || null : null,
+          };
+          
+          if (columnIndexMap.investorType !== undefined) {
+            const typeValue = row[columnIndexMap.investorType]?.trim().toLowerCase();
+            if (["individual", "institutional", "fund"].includes(typeValue)) {
+              investorData.investorType = typeValue;
+            }
+          }
+          
+          if (columnIndexMap.pipelineStage !== undefined) {
+            const stageValue = row[columnIndexMap.pipelineStage]?.trim().toLowerCase().replace(/\s+/g, "_");
+            if (["lead", "contacted", "kyc_pending", "documents", "ready", "closed"].includes(stageValue)) {
+              investorData.pipelineStage = stageValue;
+            }
+          }
+          
+          if (columnIndexMap.investmentAmount !== undefined) {
+            const amountStr = row[columnIndexMap.investmentAmount]?.trim().replace(/[,$]/g, "");
+            const amount = parseFloat(amountStr);
+            if (!isNaN(amount) && amount > 0) {
+              investorData.investmentAmount = amountStr;
+            }
+          }
+          
+          await storage.createInvestor(userId, investorData);
+          successCount++;
+        } catch (error: any) {
+          if (error.code === "23505") {
+            errors.push(`Row ${rowNum}: Email already exists`);
+          } else {
+            errors.push(`Row ${rowNum}: ${error.message || "Unknown error"}`);
+          }
+        }
+      }
+      
+      fs.unlinkSync(file.path);
+      
+      await logAudit(
+        userId,
+        "create",
+        "import",
+        null,
+        `Imported ${successCount} investors from CSV (${errors.length} failed)`
+      );
+      
+      res.json({
+        success: successCount,
+        failed: errors.length,
+        errors,
+      });
+    } catch (error) {
+      console.error("Error importing investors:", error);
+      res.status(500).json({ message: "Failed to import investors" });
     }
   });
 

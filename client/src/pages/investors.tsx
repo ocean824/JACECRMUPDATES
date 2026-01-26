@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,7 +41,18 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Search, Users, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { Plus, Search, Users, MoreHorizontal, Pencil, Trash2, CheckSquare, Square } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -329,6 +341,8 @@ export default function InvestorsPage() {
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedInvestor, setSelectedInvestor] = useState<Investor | undefined>();
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
   const { toast } = useToast();
 
   const { data: investors, isLoading } = useQuery<Investor[]>({
@@ -345,6 +359,35 @@ export default function InvestorsPage() {
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to delete investor", variant: "destructive" });
+    },
+  });
+
+  const bulkUpdateMutation = useMutation({
+    mutationFn: async ({ ids, updates }: { ids: string[]; updates: Record<string, any> }) => {
+      return apiRequest("PATCH", "/api/investors/bulk", { ids, updates });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/investors"] });
+      setSelectedIds([]);
+      toast({ title: "Success", description: "Investors updated successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update investors", variant: "destructive" });
+    },
+  });
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      return apiRequest("DELETE", "/api/investors/bulk", { ids });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/investors"] });
+      setSelectedIds([]);
+      setBulkDeleteDialogOpen(false);
+      toast({ title: "Success", description: "Investors deleted successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to delete investors", variant: "destructive" });
     },
   });
 
@@ -370,6 +413,32 @@ export default function InvestorsPage() {
     setSelectedInvestor(undefined);
     setDialogOpen(true);
   };
+
+  const toggleSelection = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (filteredInvestors) {
+      if (selectedIds.length === filteredInvestors.length) {
+        setSelectedIds([]);
+      } else {
+        setSelectedIds(filteredInvestors.map((i) => i.id));
+      }
+    }
+  };
+
+  const handleBulkPipelineUpdate = (stage: string) => {
+    bulkUpdateMutation.mutate({ ids: selectedIds, updates: { pipelineStage: stage } });
+  };
+
+  const handleBulkTypeUpdate = (type: string) => {
+    bulkUpdateMutation.mutate({ ids: selectedIds, updates: { investorType: type } });
+  };
+
+  const isAllSelected = filteredInvestors && filteredInvestors.length > 0 && selectedIds.length === filteredInvestors.length;
 
   return (
     <div className="p-6 lg:p-8 space-y-6">
@@ -426,6 +495,46 @@ export default function InvestorsPage() {
           </div>
         </CardHeader>
         <CardContent>
+          {selectedIds.length > 0 && (
+            <div className="flex flex-wrap items-center gap-3 p-3 mb-4 bg-muted rounded-lg" data-testid="bulk-actions-toolbar">
+              <span className="text-sm font-medium" data-testid="text-selected-count">
+                {selectedIds.length} selected
+              </span>
+              <Select onValueChange={handleBulkPipelineUpdate}>
+                <SelectTrigger className="w-44" data-testid="select-bulk-pipeline-stage">
+                  <SelectValue placeholder="Update Pipeline Stage" />
+                </SelectTrigger>
+                <SelectContent>
+                  {pipelineStages.map((stage) => (
+                    <SelectItem key={stage.value} value={stage.value}>
+                      {stage.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select onValueChange={handleBulkTypeUpdate}>
+                <SelectTrigger className="w-36" data-testid="select-bulk-investor-type">
+                  <SelectValue placeholder="Update Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {investorTypes.map((type) => (
+                    <SelectItem key={type.value} value={type.value}>
+                      {type.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setBulkDeleteDialogOpen(true)}
+                data-testid="button-bulk-delete"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete Selected
+              </Button>
+            </div>
+          )}
           {isLoading ? (
             <div className="space-y-4">
               {[1, 2, 3, 4, 5].map((i) => (
@@ -444,6 +553,13 @@ export default function InvestorsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-12">
+                      <Checkbox
+                        checked={isAllSelected}
+                        onCheckedChange={toggleSelectAll}
+                        data-testid="checkbox-select-all"
+                      />
+                    </TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Company</TableHead>
@@ -457,15 +573,24 @@ export default function InvestorsPage() {
                   {filteredInvestors.map((investor) => (
                     <TableRow key={investor.id} data-testid={`row-investor-${investor.id}`}>
                       <TableCell>
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary text-sm font-medium">
-                            {investor.firstName[0]}{investor.lastName[0]}
+                        <Checkbox
+                          checked={selectedIds.includes(investor.id)}
+                          onCheckedChange={() => toggleSelection(investor.id)}
+                          data-testid={`checkbox-investor-${investor.id}`}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Link href={`/investors/${investor.id}`}>
+                          <div className="flex items-center gap-3 hover-elevate rounded-md cursor-pointer">
+                            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary text-sm font-medium">
+                              {investor.firstName[0]}{investor.lastName[0]}
+                            </div>
+                            <div>
+                              <p className="font-medium" data-testid={`link-investor-${investor.id}`}>{investor.firstName} {investor.lastName}</p>
+                              <p className="text-xs text-muted-foreground">{investor.phone}</p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="font-medium">{investor.firstName} {investor.lastName}</p>
-                            <p className="text-xs text-muted-foreground">{investor.phone}</p>
-                          </div>
-                        </div>
+                        </Link>
                       </TableCell>
                       <TableCell className="text-muted-foreground">{investor.email}</TableCell>
                       <TableCell>{investor.company || "-"}</TableCell>
@@ -532,6 +657,27 @@ export default function InvestorsPage() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
       />
+
+      <AlertDialog open={bulkDeleteDialogOpen} onOpenChange={setBulkDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selectedIds.length} investors?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the selected investors and all their associated data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-bulk-delete">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => bulkDeleteMutation.mutate(selectedIds)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-bulk-delete"
+            >
+              {bulkDeleteMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
