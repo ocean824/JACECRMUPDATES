@@ -154,7 +154,7 @@ export default function AdminPage() {
         </CardHeader>
         <CardContent>
           {isError ? (
-            <div className="flex items-center gap-2 text-destructive p-4">
+            <div className="flex items-center gap-2 text-destructive p-4" data-testid="error-roles">
               <AlertCircle className="h-5 w-5" />
               <span>Failed to load user roles. Please try again later.</span>
             </div>

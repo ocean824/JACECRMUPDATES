@@ -302,7 +302,7 @@ export default function AccountsPage() {
     return (
       <div className="p-6 lg:p-8">
         <Card className="p-6">
-          <div className="flex items-center gap-2 text-destructive">
+          <div className="flex items-center gap-2 text-destructive" data-testid="error-accounts">
             <AlertCircle className="h-5 w-5" />
             <span>Failed to load accounts. Please try again later.</span>
           </div>
