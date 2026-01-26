@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import type { ComponentType } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -17,7 +18,7 @@ import {
 } from "lucide-react";
 import type { ActivityTimelineEntry } from "@shared/schema";
 
-const activityIcons: Record<string, React.ComponentType<{ className?: string }>> = {
+const activityIcons: Record<string, ComponentType<{ className?: string }>> = {
   investor_created: UserPlus,
   investor_updated: UserCog,
   pipeline_changed: TrendingUp,

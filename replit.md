@@ -156,9 +156,65 @@ Preferred communication style: Simple, everyday language.
    - Export accounts at /api/export/accounts
    - Export bonds at /api/export/bonds
 
+### Phase 3 Features (January 2026)
+1. **Email Integration**: Email management at `/email`
+   - Email templates with variable placeholders ({{firstName}}, {{lastName}})
+   - Send emails to investors with template selection
+   - Sent emails log with status tracking
+   - Activity timeline integration for sent emails
+2. **Calendar & Scheduling**: Event management at `/calendar`
+   - Monthly calendar grid with event dots
+   - Event types: meeting, call, deadline, reminder, other
+   - Investor association for events
+   - Upcoming events sidebar
+   - CRUD operations with confirmation dialogs
+3. **Advanced Search**: Global search component (Ctrl+K)
+   - Search across investors, tasks, bonds, documents
+   - Debounced input (300ms)
+   - Grouped results by entity type
+   - Quick navigation to results
+4. **Bulk Operations**: Multi-select on investors and tasks
+   - Checkbox selection with select-all
+   - Bulk update pipeline stage/type for investors
+   - Bulk update status/priority for tasks
+   - Bulk delete with confirmation
+5. **Recurring Tasks**: Task automation at `/recurring-tasks`
+   - Recurrence frequencies: daily, weekly, biweekly, monthly, quarterly, yearly
+   - Template title and description
+   - Start/end date configuration
+   - Investor association
+   - Active/inactive toggle
+6. **Data Import**: CSV import wizard at `/import`
+   - Multi-step wizard: Upload → Preview → Import
+   - Sample template download
+   - Column mapping with auto-detection
+   - Validation and error reporting
+7. **Multi-currency Support**: Currency handling on bonds
+   - Default currencies seeded: USD, EUR, GBP, JPY, CHF, etc.
+   - Currency selector in bond form
+   - Formatted display with currency symbols
+   - Currency breakdown in summary cards
+8. **Investor Portal**: Read-only investor dashboard at `/investor-portal`
+   - Investor selection dropdown
+   - Profile, investment, bonds, documents, communications view
+   - KYC checklist status
+   - Portal access management (enable/disable per investor)
+9. **Custom Fields**: Dynamic field management at `/custom-fields`
+   - Field types: text, number, date, boolean, select, multiselect
+   - Required/optional configuration
+   - Active/inactive toggle
+   - Investor detail integration
+10. **Activity Timeline**: Comprehensive activity tracking
+    - Timeline component in investor detail page
+    - Activity types: investor_created, investor_updated, pipeline_changed, task_assigned, task_completed, document_uploaded, communication_logged, bond_added, kyc_updated, email_sent, meeting_scheduled
+    - Relative timestamps
+    - Entity type badges
+
 ### Design System
 - Professional blue primary color theme
 - Full dark mode support with proper contrast ratios
 - Consistent spacing and typography using Tailwind CSS utilities
 - Accessible components using Radix UI primitives via shadcn/ui
 - Recharts library for data visualization
+- Lucide icons for all UI elements (no emojis)
+- data-testid attributes on all interactive elements
