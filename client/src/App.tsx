@@ -35,6 +35,9 @@ import CalendarPage from "@/pages/calendar";
 import EmailPage from "@/pages/email";
 import ImportPage from "@/pages/import";
 import InvestorPortalPage from "@/pages/investor-portal";
+import RegisterPage from "@/pages/register";
+import LoginPage from "@/pages/login";
+import AdminLoginPage from "@/pages/admin-login";
 import NotFound from "@/pages/not-found";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
@@ -124,11 +127,16 @@ function AppRouter() {
     return <LoadingScreen />;
   }
 
-  if (!user) {
-    return <LandingPage />;
-  }
-
-  return <AuthenticatedRoutes />;
+  return (
+    <Switch>
+      <Route path="/register" component={RegisterPage} />
+      <Route path="/login" component={LoginPage} />
+      <Route path="/admin-login" component={AdminLoginPage} />
+      <Route>
+        {user ? <AuthenticatedRoutes /> : <LandingPage />}
+      </Route>
+    </Switch>
+  );
 }
 
 function App() {
