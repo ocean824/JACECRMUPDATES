@@ -37,7 +37,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Shield, Plus, Users } from "lucide-react";
+import { Shield, Plus, Users, AlertCircle } from "lucide-react";
 
 type UserRole = {
   id: string;
@@ -78,7 +78,7 @@ export default function AdminPage() {
     queryKey: ["/api/user/role"],
   });
 
-  const { data: roles, isLoading } = useQuery<UserRole[]>({
+  const { data: roles, isLoading, isError, error } = useQuery<UserRole[]>({
     queryKey: ["/api/admin/roles"],
     enabled: currentRole?.role === "admin",
   });
@@ -153,7 +153,12 @@ export default function AdminPage() {
           </Button>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
+          {isError ? (
+            <div className="flex items-center gap-2 text-destructive p-4">
+              <AlertCircle className="h-5 w-5" />
+              <span>Failed to load user roles. Please try again later.</span>
+            </div>
+          ) : isLoading ? (
             <div className="space-y-2">
               {Array.from({ length: 3 }).map((_, i) => (
                 <Skeleton key={i} className="h-12 w-full" />

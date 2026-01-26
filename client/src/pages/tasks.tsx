@@ -32,7 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Search, CheckSquare, Square, Calendar, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { Plus, Search, CheckSquare, Square, Calendar, MoreHorizontal, Pencil, Trash2, AlertCircle } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -129,7 +129,7 @@ function TaskFormDialog({
   const onSubmit = (data: FormValues) => {
     const submitData = {
       ...data,
-      investorId: data.investorId === "_none" ? null : data.investorId,
+      investorId: data.investorId === "_none" ? undefined : data.investorId,
     };
     if (isEditing) {
       updateMutation.mutate(submitData);
@@ -353,7 +353,7 @@ export default function TasksPage() {
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
   const { toast } = useToast();
 
-  const { data: tasks, isLoading } = useQuery<Task[]>({
+  const { data: tasks, isLoading, isError, error } = useQuery<Task[]>({
     queryKey: ["/api/tasks"],
   });
 
@@ -461,6 +461,19 @@ export default function TasksPage() {
 
   const pendingCount = tasks?.filter(t => t.status === "pending").length || 0;
   const completedCount = tasks?.filter(t => t.status === "completed").length || 0;
+
+  if (isError) {
+    return (
+      <div className="p-6 lg:p-8">
+        <Card className="p-6">
+          <div className="flex items-center gap-2 text-destructive">
+            <AlertCircle className="h-5 w-5" />
+            <span>Failed to load tasks. Please try again later.</span>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 lg:p-8 space-y-6">

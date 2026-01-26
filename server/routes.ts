@@ -1605,7 +1605,8 @@ export async function registerRoutes(
   // Investor Portal Users
   app.get("/api/investor-portal-users", isAuthenticated, async (req, res) => {
     try {
-      res.json([]);
+      const portalUsers = await storage.getAllInvestorPortalUsers();
+      res.json(portalUsers);
     } catch (error) {
       console.error("Error fetching portal users:", error);
       res.status(500).json({ message: "Failed to fetch portal users" });

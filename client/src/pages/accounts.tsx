@@ -39,7 +39,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Search, Wallet, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { Plus, Search, Wallet, MoreHorizontal, Pencil, Trash2, AlertCircle } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -246,7 +246,7 @@ export default function AccountsPage() {
   const [selectedAccount, setSelectedAccount] = useState<Account | undefined>();
   const { toast } = useToast();
 
-  const { data: accounts, isLoading } = useQuery<Account[]>({
+  const { data: accounts, isLoading, isError, error } = useQuery<Account[]>({
     queryKey: ["/api/accounts"],
   });
 
@@ -297,6 +297,19 @@ export default function AccountsPage() {
   const totalAssets = groupedAccounts.asset.reduce((sum, a) => sum + parseFloat(String(a.balance || 0)), 0);
   const totalLiabilities = groupedAccounts.liability.reduce((sum, a) => sum + parseFloat(String(a.balance || 0)), 0);
   const totalEquity = groupedAccounts.equity.reduce((sum, a) => sum + parseFloat(String(a.balance || 0)), 0);
+
+  if (isError) {
+    return (
+      <div className="p-6 lg:p-8">
+        <Card className="p-6">
+          <div className="flex items-center gap-2 text-destructive">
+            <AlertCircle className="h-5 w-5" />
+            <span>Failed to load accounts. Please try again later.</span>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 lg:p-8 space-y-6">

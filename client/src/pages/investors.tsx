@@ -41,7 +41,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Search, Users, MoreHorizontal, Pencil, Trash2, CheckSquare, Square } from "lucide-react";
+import { Plus, Search, Users, MoreHorizontal, Pencil, Trash2, CheckSquare, Square, AlertCircle } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   AlertDialog,
@@ -345,7 +345,7 @@ export default function InvestorsPage() {
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
   const { toast } = useToast();
 
-  const { data: investors, isLoading } = useQuery<Investor[]>({
+  const { data: investors, isLoading, isError, error } = useQuery<Investor[]>({
     queryKey: ["/api/investors"],
   });
 
@@ -439,6 +439,19 @@ export default function InvestorsPage() {
   };
 
   const isAllSelected = filteredInvestors && filteredInvestors.length > 0 && selectedIds.length === filteredInvestors.length;
+
+  if (isError) {
+    return (
+      <div className="p-6 lg:p-8">
+        <Card className="p-6">
+          <div className="flex items-center gap-2 text-destructive">
+            <AlertCircle className="h-5 w-5" />
+            <span>Failed to load investors. Please try again later.</span>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 lg:p-8 space-y-6">

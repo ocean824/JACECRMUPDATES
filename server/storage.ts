@@ -215,6 +215,7 @@ export interface IStorage {
   createEmailLog(userId: string, log: InsertEmailLog): Promise<EmailLog>;
 
   // Investor Portal Users
+  getAllInvestorPortalUsers(): Promise<InvestorPortalUser[]>;
   getInvestorPortalUser(id: string): Promise<InvestorPortalUser | undefined>;
   getInvestorPortalUserByEmail(email: string): Promise<InvestorPortalUser | undefined>;
   getInvestorPortalUserByInvestor(investorId: string): Promise<InvestorPortalUser | undefined>;
@@ -917,6 +918,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Investor Portal Users
+  async getAllInvestorPortalUsers(): Promise<InvestorPortalUser[]> {
+    return db.select().from(investorPortalUsers).orderBy(desc(investorPortalUsers.createdAt));
+  }
+
   async getInvestorPortalUser(id: string): Promise<InvestorPortalUser | undefined> {
     const [user] = await db.select().from(investorPortalUsers).where(eq(investorPortalUsers.id, id));
     return user;

@@ -9,6 +9,7 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   FileText,
+  AlertCircle,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { Investor, Account, Task, JournalEntry } from "@shared/schema";
@@ -212,27 +213,41 @@ function RecentTasksCard({ tasks, isLoading }: { tasks?: Task[], isLoading: bool
 }
 
 export default function DashboardPage() {
-  const { data: investors, isLoading: investorsLoading } = useQuery<Investor[]>({
+  const { data: investors, isLoading: investorsLoading, isError: investorsError } = useQuery<Investor[]>({
     queryKey: ["/api/investors"],
   });
 
-  const { data: accounts, isLoading: accountsLoading } = useQuery<Account[]>({
+  const { data: accounts, isLoading: accountsLoading, isError: accountsError } = useQuery<Account[]>({
     queryKey: ["/api/accounts"],
   });
 
-  const { data: tasks, isLoading: tasksLoading } = useQuery<Task[]>({
+  const { data: tasks, isLoading: tasksLoading, isError: tasksError } = useQuery<Task[]>({
     queryKey: ["/api/tasks"],
   });
 
-  const { data: journalEntries, isLoading: entriesLoading } = useQuery<JournalEntry[]>({
+  const { data: journalEntries, isLoading: entriesLoading, isError: entriesError } = useQuery<JournalEntry[]>({
     queryKey: ["/api/journal-entries"],
   });
 
   const isLoading = investorsLoading || accountsLoading || tasksLoading || entriesLoading;
+  const hasError = investorsError || accountsError || tasksError || entriesError;
 
   const pendingTasks = tasks?.filter(t => t.status === 'pending') || [];
   const closedInvestors = investors?.filter(i => i.pipelineStage === 'closed') || [];
   const totalInvestment = investors?.reduce((sum, i) => sum + (parseFloat(String(i.investmentAmount || 0))), 0) || 0;
+
+  if (hasError) {
+    return (
+      <div className="p-6 lg:p-8">
+        <Card className="p-6">
+          <div className="flex items-center gap-2 text-destructive">
+            <AlertCircle className="h-5 w-5" />
+            <span>Failed to load dashboard data. Please try again later.</span>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 lg:p-8 space-y-6">
