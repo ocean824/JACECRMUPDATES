@@ -11,6 +11,16 @@ import {
   bondSettlements,
   communications,
   notifications,
+  // Phase 3 tables
+  currencies,
+  calendarEvents,
+  taskRecurrences,
+  customFields,
+  customFieldValues,
+  activityTimeline,
+  emailTemplates,
+  emailLogs,
+  investorPortalUsers,
   type Investor,
   type InsertInvestor,
   type Account,
@@ -35,6 +45,25 @@ import {
   type InsertCommunication,
   type Notification,
   type InsertNotification,
+  // Phase 3 types
+  type Currency,
+  type InsertCurrency,
+  type CalendarEvent,
+  type InsertCalendarEvent,
+  type TaskRecurrence,
+  type InsertTaskRecurrence,
+  type CustomField,
+  type InsertCustomField,
+  type CustomFieldValue,
+  type InsertCustomFieldValue,
+  type ActivityTimelineEntry,
+  type InsertActivityTimelineEntry,
+  type EmailTemplate,
+  type InsertEmailTemplate,
+  type EmailLog,
+  type InsertEmailLog,
+  type InvestorPortalUser,
+  type InsertInvestorPortalUser,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql, count, sum, gte, lte } from "drizzle-orm";
@@ -131,6 +160,81 @@ export interface IStorage {
     bondsByStatus: { status: string; count: number; totalValue: number }[];
     recentActivity: AuditLog[];
   }>;
+
+  // ============ PHASE 3 ============
+
+  // Currencies
+  getCurrencies(): Promise<Currency[]>;
+  getCurrency(id: string): Promise<Currency | undefined>;
+  getCurrencyByCode(code: string): Promise<Currency | undefined>;
+  createCurrency(currency: InsertCurrency): Promise<Currency>;
+  updateCurrency(id: string, currency: Partial<InsertCurrency>): Promise<Currency | undefined>;
+  deleteCurrency(id: string): Promise<boolean>;
+
+  // Calendar Events (user-scoped)
+  getCalendarEvents(userId: string): Promise<CalendarEvent[]>;
+  getCalendarEventsByDateRange(userId: string, startDate: Date, endDate: Date): Promise<CalendarEvent[]>;
+  getCalendarEvent(id: string, userId: string): Promise<CalendarEvent | undefined>;
+  createCalendarEvent(userId: string, event: InsertCalendarEvent): Promise<CalendarEvent>;
+  updateCalendarEvent(id: string, userId: string, event: Partial<InsertCalendarEvent>): Promise<CalendarEvent | undefined>;
+  deleteCalendarEvent(id: string, userId: string): Promise<boolean>;
+
+  // Task Recurrences (user-scoped)
+  getTaskRecurrences(userId: string): Promise<TaskRecurrence[]>;
+  getTaskRecurrence(id: string, userId: string): Promise<TaskRecurrence | undefined>;
+  createTaskRecurrence(userId: string, recurrence: InsertTaskRecurrence): Promise<TaskRecurrence>;
+  updateTaskRecurrence(id: string, userId: string, recurrence: Partial<InsertTaskRecurrence>): Promise<TaskRecurrence | undefined>;
+  deleteTaskRecurrence(id: string, userId: string): Promise<boolean>;
+
+  // Custom Fields (user-scoped)
+  getCustomFields(userId: string): Promise<CustomField[]>;
+  getCustomField(id: string, userId: string): Promise<CustomField | undefined>;
+  createCustomField(userId: string, field: InsertCustomField): Promise<CustomField>;
+  updateCustomField(id: string, userId: string, field: Partial<InsertCustomField>): Promise<CustomField | undefined>;
+  deleteCustomField(id: string, userId: string): Promise<boolean>;
+
+  // Custom Field Values (user-scoped)
+  getCustomFieldValues(investorId: string, userId: string): Promise<CustomFieldValue[]>;
+  setCustomFieldValue(userId: string, value: InsertCustomFieldValue): Promise<CustomFieldValue>;
+  deleteCustomFieldValue(id: string, userId: string): Promise<boolean>;
+
+  // Activity Timeline (user-scoped)
+  getActivityTimeline(investorId: string, userId: string): Promise<ActivityTimelineEntry[]>;
+  createActivityTimelineEntry(userId: string, entry: InsertActivityTimelineEntry): Promise<ActivityTimelineEntry>;
+
+  // Email Templates (user-scoped)
+  getEmailTemplates(userId: string): Promise<EmailTemplate[]>;
+  getEmailTemplate(id: string, userId: string): Promise<EmailTemplate | undefined>;
+  createEmailTemplate(userId: string, template: InsertEmailTemplate): Promise<EmailTemplate>;
+  updateEmailTemplate(id: string, userId: string, template: Partial<InsertEmailTemplate>): Promise<EmailTemplate | undefined>;
+  deleteEmailTemplate(id: string, userId: string): Promise<boolean>;
+
+  // Email Logs (user-scoped)
+  getEmailLogs(userId: string): Promise<EmailLog[]>;
+  getEmailLogsByInvestor(investorId: string, userId: string): Promise<EmailLog[]>;
+  createEmailLog(userId: string, log: InsertEmailLog): Promise<EmailLog>;
+
+  // Investor Portal Users
+  getInvestorPortalUser(id: string): Promise<InvestorPortalUser | undefined>;
+  getInvestorPortalUserByEmail(email: string): Promise<InvestorPortalUser | undefined>;
+  getInvestorPortalUserByInvestor(investorId: string): Promise<InvestorPortalUser | undefined>;
+  createInvestorPortalUser(user: InsertInvestorPortalUser): Promise<InvestorPortalUser>;
+  updateInvestorPortalUser(id: string, user: Partial<InsertInvestorPortalUser>): Promise<InvestorPortalUser | undefined>;
+  deleteInvestorPortalUser(id: string): Promise<boolean>;
+
+  // Global Search
+  globalSearch(userId: string, query: string): Promise<{
+    investors: Investor[];
+    tasks: Task[];
+    bonds: BondSettlement[];
+    documents: Document[];
+  }>;
+
+  // Bulk Operations
+  bulkUpdateInvestors(userId: string, ids: string[], updates: Partial<InsertInvestor>): Promise<number>;
+  bulkUpdateTasks(userId: string, ids: string[], updates: Partial<InsertTask>): Promise<number>;
+  bulkDeleteInvestors(userId: string, ids: string[]): Promise<number>;
+  bulkDeleteTasks(userId: string, ids: string[]): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -588,6 +692,350 @@ export class DatabaseStorage implements IStorage {
       })),
       recentActivity,
     };
+  }
+
+  // ============ PHASE 3 IMPLEMENTATIONS ============
+
+  // Currencies
+  async getCurrencies(): Promise<Currency[]> {
+    return db.select().from(currencies).where(eq(currencies.isActive, true)).orderBy(currencies.code);
+  }
+
+  async getCurrency(id: string): Promise<Currency | undefined> {
+    const [currency] = await db.select().from(currencies).where(eq(currencies.id, id));
+    return currency;
+  }
+
+  async getCurrencyByCode(code: string): Promise<Currency | undefined> {
+    const [currency] = await db.select().from(currencies).where(eq(currencies.code, code));
+    return currency;
+  }
+
+  async createCurrency(currency: InsertCurrency): Promise<Currency> {
+    const [created] = await db.insert(currencies).values(currency).returning();
+    return created;
+  }
+
+  async updateCurrency(id: string, currency: Partial<InsertCurrency>): Promise<Currency | undefined> {
+    const [updated] = await db
+      .update(currencies)
+      .set({ ...currency, updatedAt: new Date() })
+      .where(eq(currencies.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteCurrency(id: string): Promise<boolean> {
+    const result = await db.delete(currencies).where(eq(currencies.id, id));
+    return true;
+  }
+
+  // Calendar Events
+  async getCalendarEvents(userId: string): Promise<CalendarEvent[]> {
+    return db.select().from(calendarEvents).where(eq(calendarEvents.userId, userId)).orderBy(desc(calendarEvents.startTime));
+  }
+
+  async getCalendarEventsByDateRange(userId: string, startDate: Date, endDate: Date): Promise<CalendarEvent[]> {
+    return db
+      .select()
+      .from(calendarEvents)
+      .where(and(eq(calendarEvents.userId, userId), gte(calendarEvents.startTime, startDate), lte(calendarEvents.endTime, endDate)))
+      .orderBy(calendarEvents.startTime);
+  }
+
+  async getCalendarEvent(id: string, userId: string): Promise<CalendarEvent | undefined> {
+    const [event] = await db.select().from(calendarEvents).where(and(eq(calendarEvents.id, id), eq(calendarEvents.userId, userId)));
+    return event;
+  }
+
+  async createCalendarEvent(userId: string, event: InsertCalendarEvent): Promise<CalendarEvent> {
+    const [created] = await db.insert(calendarEvents).values({ ...event, userId }).returning();
+    return created;
+  }
+
+  async updateCalendarEvent(id: string, userId: string, event: Partial<InsertCalendarEvent>): Promise<CalendarEvent | undefined> {
+    const [updated] = await db
+      .update(calendarEvents)
+      .set({ ...event, updatedAt: new Date() })
+      .where(and(eq(calendarEvents.id, id), eq(calendarEvents.userId, userId)))
+      .returning();
+    return updated;
+  }
+
+  async deleteCalendarEvent(id: string, userId: string): Promise<boolean> {
+    await db.delete(calendarEvents).where(and(eq(calendarEvents.id, id), eq(calendarEvents.userId, userId)));
+    return true;
+  }
+
+  // Task Recurrences
+  async getTaskRecurrences(userId: string): Promise<TaskRecurrence[]> {
+    return db.select().from(taskRecurrences).where(eq(taskRecurrences.userId, userId)).orderBy(desc(taskRecurrences.createdAt));
+  }
+
+  async getTaskRecurrence(id: string, userId: string): Promise<TaskRecurrence | undefined> {
+    const [recurrence] = await db.select().from(taskRecurrences).where(and(eq(taskRecurrences.id, id), eq(taskRecurrences.userId, userId)));
+    return recurrence;
+  }
+
+  async createTaskRecurrence(userId: string, recurrence: InsertTaskRecurrence): Promise<TaskRecurrence> {
+    const [created] = await db.insert(taskRecurrences).values({ ...recurrence, userId }).returning();
+    return created;
+  }
+
+  async updateTaskRecurrence(id: string, userId: string, recurrence: Partial<InsertTaskRecurrence>): Promise<TaskRecurrence | undefined> {
+    const [updated] = await db
+      .update(taskRecurrences)
+      .set({ ...recurrence, updatedAt: new Date() })
+      .where(and(eq(taskRecurrences.id, id), eq(taskRecurrences.userId, userId)))
+      .returning();
+    return updated;
+  }
+
+  async deleteTaskRecurrence(id: string, userId: string): Promise<boolean> {
+    await db.delete(taskRecurrences).where(and(eq(taskRecurrences.id, id), eq(taskRecurrences.userId, userId)));
+    return true;
+  }
+
+  // Custom Fields
+  async getCustomFields(userId: string): Promise<CustomField[]> {
+    return db.select().from(customFields).where(eq(customFields.userId, userId)).orderBy(customFields.sortOrder);
+  }
+
+  async getCustomField(id: string, userId: string): Promise<CustomField | undefined> {
+    const [field] = await db.select().from(customFields).where(and(eq(customFields.id, id), eq(customFields.userId, userId)));
+    return field;
+  }
+
+  async createCustomField(userId: string, field: InsertCustomField): Promise<CustomField> {
+    const [created] = await db.insert(customFields).values({ ...field, userId }).returning();
+    return created;
+  }
+
+  async updateCustomField(id: string, userId: string, field: Partial<InsertCustomField>): Promise<CustomField | undefined> {
+    const [updated] = await db
+      .update(customFields)
+      .set({ ...field, updatedAt: new Date() })
+      .where(and(eq(customFields.id, id), eq(customFields.userId, userId)))
+      .returning();
+    return updated;
+  }
+
+  async deleteCustomField(id: string, userId: string): Promise<boolean> {
+    await db.delete(customFields).where(and(eq(customFields.id, id), eq(customFields.userId, userId)));
+    return true;
+  }
+
+  // Custom Field Values
+  async getCustomFieldValues(investorId: string, userId: string): Promise<CustomFieldValue[]> {
+    return db.select().from(customFieldValues).where(and(eq(customFieldValues.investorId, investorId), eq(customFieldValues.userId, userId)));
+  }
+
+  async setCustomFieldValue(userId: string, value: InsertCustomFieldValue): Promise<CustomFieldValue> {
+    const existing = await db
+      .select()
+      .from(customFieldValues)
+      .where(and(eq(customFieldValues.customFieldId, value.customFieldId), eq(customFieldValues.investorId, value.investorId), eq(customFieldValues.userId, userId)));
+
+    if (existing.length > 0) {
+      const [updated] = await db
+        .update(customFieldValues)
+        .set({ value: value.value, updatedAt: new Date() })
+        .where(eq(customFieldValues.id, existing[0].id))
+        .returning();
+      return updated;
+    }
+
+    const [created] = await db.insert(customFieldValues).values({ ...value, userId }).returning();
+    return created;
+  }
+
+  async deleteCustomFieldValue(id: string, userId: string): Promise<boolean> {
+    await db.delete(customFieldValues).where(and(eq(customFieldValues.id, id), eq(customFieldValues.userId, userId)));
+    return true;
+  }
+
+  // Activity Timeline
+  async getActivityTimeline(investorId: string, userId: string): Promise<ActivityTimelineEntry[]> {
+    return db
+      .select()
+      .from(activityTimeline)
+      .where(and(eq(activityTimeline.investorId, investorId), eq(activityTimeline.userId, userId)))
+      .orderBy(desc(activityTimeline.createdAt))
+      .limit(100);
+  }
+
+  async createActivityTimelineEntry(userId: string, entry: InsertActivityTimelineEntry): Promise<ActivityTimelineEntry> {
+    const [created] = await db.insert(activityTimeline).values({ ...entry, userId }).returning();
+    return created;
+  }
+
+  // Email Templates
+  async getEmailTemplates(userId: string): Promise<EmailTemplate[]> {
+    return db.select().from(emailTemplates).where(eq(emailTemplates.userId, userId)).orderBy(emailTemplates.name);
+  }
+
+  async getEmailTemplate(id: string, userId: string): Promise<EmailTemplate | undefined> {
+    const [template] = await db.select().from(emailTemplates).where(and(eq(emailTemplates.id, id), eq(emailTemplates.userId, userId)));
+    return template;
+  }
+
+  async createEmailTemplate(userId: string, template: InsertEmailTemplate): Promise<EmailTemplate> {
+    const [created] = await db.insert(emailTemplates).values({ ...template, userId }).returning();
+    return created;
+  }
+
+  async updateEmailTemplate(id: string, userId: string, template: Partial<InsertEmailTemplate>): Promise<EmailTemplate | undefined> {
+    const [updated] = await db
+      .update(emailTemplates)
+      .set({ ...template, updatedAt: new Date() })
+      .where(and(eq(emailTemplates.id, id), eq(emailTemplates.userId, userId)))
+      .returning();
+    return updated;
+  }
+
+  async deleteEmailTemplate(id: string, userId: string): Promise<boolean> {
+    await db.delete(emailTemplates).where(and(eq(emailTemplates.id, id), eq(emailTemplates.userId, userId)));
+    return true;
+  }
+
+  // Email Logs
+  async getEmailLogs(userId: string): Promise<EmailLog[]> {
+    return db.select().from(emailLogs).where(eq(emailLogs.userId, userId)).orderBy(desc(emailLogs.sentAt));
+  }
+
+  async getEmailLogsByInvestor(investorId: string, userId: string): Promise<EmailLog[]> {
+    return db
+      .select()
+      .from(emailLogs)
+      .where(and(eq(emailLogs.investorId, investorId), eq(emailLogs.userId, userId)))
+      .orderBy(desc(emailLogs.sentAt));
+  }
+
+  async createEmailLog(userId: string, log: InsertEmailLog): Promise<EmailLog> {
+    const [created] = await db.insert(emailLogs).values({ ...log, userId }).returning();
+    return created;
+  }
+
+  // Investor Portal Users
+  async getInvestorPortalUser(id: string): Promise<InvestorPortalUser | undefined> {
+    const [user] = await db.select().from(investorPortalUsers).where(eq(investorPortalUsers.id, id));
+    return user;
+  }
+
+  async getInvestorPortalUserByEmail(email: string): Promise<InvestorPortalUser | undefined> {
+    const [user] = await db.select().from(investorPortalUsers).where(eq(investorPortalUsers.email, email));
+    return user;
+  }
+
+  async getInvestorPortalUserByInvestor(investorId: string): Promise<InvestorPortalUser | undefined> {
+    const [user] = await db.select().from(investorPortalUsers).where(eq(investorPortalUsers.investorId, investorId));
+    return user;
+  }
+
+  async createInvestorPortalUser(user: InsertInvestorPortalUser): Promise<InvestorPortalUser> {
+    const [created] = await db.insert(investorPortalUsers).values(user).returning();
+    return created;
+  }
+
+  async updateInvestorPortalUser(id: string, user: Partial<InsertInvestorPortalUser>): Promise<InvestorPortalUser | undefined> {
+    const [updated] = await db
+      .update(investorPortalUsers)
+      .set({ ...user, updatedAt: new Date() })
+      .where(eq(investorPortalUsers.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteInvestorPortalUser(id: string): Promise<boolean> {
+    await db.delete(investorPortalUsers).where(eq(investorPortalUsers.id, id));
+    return true;
+  }
+
+  // Global Search
+  async globalSearch(userId: string, query: string): Promise<{
+    investors: Investor[];
+    tasks: Task[];
+    bonds: BondSettlement[];
+    documents: Document[];
+  }> {
+    const searchPattern = `%${query.toLowerCase()}%`;
+
+    const investorResults = await db
+      .select()
+      .from(investors)
+      .where(
+        and(
+          eq(investors.userId, userId),
+          sql`(LOWER(${investors.firstName}) LIKE ${searchPattern} OR LOWER(${investors.lastName}) LIKE ${searchPattern} OR LOWER(${investors.email}) LIKE ${searchPattern} OR LOWER(${investors.company}) LIKE ${searchPattern})`
+        )
+      )
+      .limit(20);
+
+    const taskResults = await db
+      .select()
+      .from(tasks)
+      .where(and(eq(tasks.userId, userId), sql`LOWER(${tasks.title}) LIKE ${searchPattern}`))
+      .limit(20);
+
+    const bondResults = await db
+      .select()
+      .from(bondSettlements)
+      .where(
+        and(
+          eq(bondSettlements.userId, userId),
+          sql`(LOWER(${bondSettlements.bondName}) LIKE ${searchPattern} OR LOWER(${bondSettlements.isin}) LIKE ${searchPattern})`
+        )
+      )
+      .limit(20);
+
+    const documentResults = await db
+      .select()
+      .from(documents)
+      .where(
+        and(
+          eq(documents.userId, userId),
+          sql`(LOWER(${documents.originalName}) LIKE ${searchPattern} OR LOWER(${documents.description}) LIKE ${searchPattern})`
+        )
+      )
+      .limit(20);
+
+    return {
+      investors: investorResults,
+      tasks: taskResults,
+      bonds: bondResults,
+      documents: documentResults,
+    };
+  }
+
+  // Bulk Operations
+  async bulkUpdateInvestors(userId: string, ids: string[], updates: Partial<InsertInvestor>): Promise<number> {
+    if (ids.length === 0) return 0;
+    const result = await db
+      .update(investors)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(and(eq(investors.userId, userId), sql`${investors.id} = ANY(${ids})`));
+    return ids.length;
+  }
+
+  async bulkUpdateTasks(userId: string, ids: string[], updates: Partial<InsertTask>): Promise<number> {
+    if (ids.length === 0) return 0;
+    await db
+      .update(tasks)
+      .set(updates)
+      .where(and(eq(tasks.userId, userId), sql`${tasks.id} = ANY(${ids})`));
+    return ids.length;
+  }
+
+  async bulkDeleteInvestors(userId: string, ids: string[]): Promise<number> {
+    if (ids.length === 0) return 0;
+    await db.delete(investors).where(and(eq(investors.userId, userId), sql`${investors.id} = ANY(${ids})`));
+    return ids.length;
+  }
+
+  async bulkDeleteTasks(userId: string, ids: string[]): Promise<number> {
+    if (ids.length === 0) return 0;
+    await db.delete(tasks).where(and(eq(tasks.userId, userId), sql`${tasks.id} = ANY(${ids})`));
+    return ids.length;
   }
 }
 

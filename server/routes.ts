@@ -993,5 +993,535 @@ export async function registerRoutes(
     }
   });
 
+  // ============ PHASE 3 ROUTES ============
+
+  // Currencies
+  app.get("/api/currencies", isAuthenticated, async (req, res) => {
+    try {
+      const currenciesList = await storage.getCurrencies();
+      res.json(currenciesList);
+    } catch (error) {
+      console.error("Error fetching currencies:", error);
+      res.status(500).json({ message: "Failed to fetch currencies" });
+    }
+  });
+
+  app.post("/api/currencies", isAuthenticated, async (req, res) => {
+    try {
+      const currency = await storage.createCurrency(req.body);
+      res.status(201).json(currency);
+    } catch (error) {
+      console.error("Error creating currency:", error);
+      res.status(500).json({ message: "Failed to create currency" });
+    }
+  });
+
+  // Calendar Events
+  app.get("/api/calendar-events", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const { startDate, endDate } = req.query;
+      
+      let events;
+      if (startDate && endDate) {
+        events = await storage.getCalendarEventsByDateRange(
+          userId,
+          new Date(startDate as string),
+          new Date(endDate as string)
+        );
+      } else {
+        events = await storage.getCalendarEvents(userId);
+      }
+      res.json(events);
+    } catch (error) {
+      console.error("Error fetching calendar events:", error);
+      res.status(500).json({ message: "Failed to fetch calendar events" });
+    }
+  });
+
+  app.get("/api/calendar-events/:id", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const event = await storage.getCalendarEvent(req.params.id, userId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      res.json(event);
+    } catch (error) {
+      console.error("Error fetching calendar event:", error);
+      res.status(500).json({ message: "Failed to fetch calendar event" });
+    }
+  });
+
+  app.post("/api/calendar-events", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const event = await storage.createCalendarEvent(userId, req.body);
+      await logAudit(userId, "create", "calendar_event", event.id, `Created event: ${event.title}`);
+      res.status(201).json(event);
+    } catch (error) {
+      console.error("Error creating calendar event:", error);
+      res.status(500).json({ message: "Failed to create calendar event" });
+    }
+  });
+
+  app.patch("/api/calendar-events/:id", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const event = await storage.updateCalendarEvent(req.params.id, userId, req.body);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      await logAudit(userId, "update", "calendar_event", event.id, `Updated event: ${event.title}`);
+      res.json(event);
+    } catch (error) {
+      console.error("Error updating calendar event:", error);
+      res.status(500).json({ message: "Failed to update calendar event" });
+    }
+  });
+
+  app.delete("/api/calendar-events/:id", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      await storage.deleteCalendarEvent(req.params.id, userId);
+      await logAudit(userId, "delete", "calendar_event", req.params.id, "Deleted calendar event");
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting calendar event:", error);
+      res.status(500).json({ message: "Failed to delete calendar event" });
+    }
+  });
+
+  // Task Recurrences
+  app.get("/api/task-recurrences", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const recurrences = await storage.getTaskRecurrences(userId);
+      res.json(recurrences);
+    } catch (error) {
+      console.error("Error fetching task recurrences:", error);
+      res.status(500).json({ message: "Failed to fetch task recurrences" });
+    }
+  });
+
+  app.post("/api/task-recurrences", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const recurrence = await storage.createTaskRecurrence(userId, req.body);
+      await logAudit(userId, "create", "task_recurrence", recurrence.id, `Created recurring task: ${recurrence.taskTemplateTitle}`);
+      res.status(201).json(recurrence);
+    } catch (error) {
+      console.error("Error creating task recurrence:", error);
+      res.status(500).json({ message: "Failed to create task recurrence" });
+    }
+  });
+
+  app.patch("/api/task-recurrences/:id", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const recurrence = await storage.updateTaskRecurrence(req.params.id, userId, req.body);
+      if (!recurrence) {
+        return res.status(404).json({ message: "Recurrence not found" });
+      }
+      res.json(recurrence);
+    } catch (error) {
+      console.error("Error updating task recurrence:", error);
+      res.status(500).json({ message: "Failed to update task recurrence" });
+    }
+  });
+
+  app.delete("/api/task-recurrences/:id", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      await storage.deleteTaskRecurrence(req.params.id, userId);
+      await logAudit(userId, "delete", "task_recurrence", req.params.id, "Deleted recurring task");
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting task recurrence:", error);
+      res.status(500).json({ message: "Failed to delete task recurrence" });
+    }
+  });
+
+  // Custom Fields
+  app.get("/api/custom-fields", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const fields = await storage.getCustomFields(userId);
+      res.json(fields);
+    } catch (error) {
+      console.error("Error fetching custom fields:", error);
+      res.status(500).json({ message: "Failed to fetch custom fields" });
+    }
+  });
+
+  app.post("/api/custom-fields", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const field = await storage.createCustomField(userId, req.body);
+      await logAudit(userId, "create", "custom_field", field.id, `Created custom field: ${field.label}`);
+      res.status(201).json(field);
+    } catch (error) {
+      console.error("Error creating custom field:", error);
+      res.status(500).json({ message: "Failed to create custom field" });
+    }
+  });
+
+  app.patch("/api/custom-fields/:id", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const field = await storage.updateCustomField(req.params.id, userId, req.body);
+      if (!field) {
+        return res.status(404).json({ message: "Custom field not found" });
+      }
+      res.json(field);
+    } catch (error) {
+      console.error("Error updating custom field:", error);
+      res.status(500).json({ message: "Failed to update custom field" });
+    }
+  });
+
+  app.delete("/api/custom-fields/:id", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      await storage.deleteCustomField(req.params.id, userId);
+      await logAudit(userId, "delete", "custom_field", req.params.id, "Deleted custom field");
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting custom field:", error);
+      res.status(500).json({ message: "Failed to delete custom field" });
+    }
+  });
+
+  // Custom Field Values
+  app.get("/api/investors/:investorId/custom-fields", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const values = await storage.getCustomFieldValues(req.params.investorId, userId);
+      res.json(values);
+    } catch (error) {
+      console.error("Error fetching custom field values:", error);
+      res.status(500).json({ message: "Failed to fetch custom field values" });
+    }
+  });
+
+  app.post("/api/custom-field-values", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const value = await storage.setCustomFieldValue(userId, req.body);
+      res.status(201).json(value);
+    } catch (error) {
+      console.error("Error setting custom field value:", error);
+      res.status(500).json({ message: "Failed to set custom field value" });
+    }
+  });
+
+  // Activity Timeline
+  app.get("/api/investors/:investorId/timeline", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const timeline = await storage.getActivityTimeline(req.params.investorId, userId);
+      res.json(timeline);
+    } catch (error) {
+      console.error("Error fetching activity timeline:", error);
+      res.status(500).json({ message: "Failed to fetch activity timeline" });
+    }
+  });
+
+  app.post("/api/activity-timeline", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const entry = await storage.createActivityTimelineEntry(userId, req.body);
+      res.status(201).json(entry);
+    } catch (error) {
+      console.error("Error creating timeline entry:", error);
+      res.status(500).json({ message: "Failed to create timeline entry" });
+    }
+  });
+
+  // Email Templates
+  app.get("/api/email-templates", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const templates = await storage.getEmailTemplates(userId);
+      res.json(templates);
+    } catch (error) {
+      console.error("Error fetching email templates:", error);
+      res.status(500).json({ message: "Failed to fetch email templates" });
+    }
+  });
+
+  app.get("/api/email-templates/:id", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const template = await storage.getEmailTemplate(req.params.id, userId);
+      if (!template) {
+        return res.status(404).json({ message: "Template not found" });
+      }
+      res.json(template);
+    } catch (error) {
+      console.error("Error fetching email template:", error);
+      res.status(500).json({ message: "Failed to fetch email template" });
+    }
+  });
+
+  app.post("/api/email-templates", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const template = await storage.createEmailTemplate(userId, req.body);
+      await logAudit(userId, "create", "email_template", template.id, `Created email template: ${template.name}`);
+      res.status(201).json(template);
+    } catch (error) {
+      console.error("Error creating email template:", error);
+      res.status(500).json({ message: "Failed to create email template" });
+    }
+  });
+
+  app.patch("/api/email-templates/:id", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const template = await storage.updateEmailTemplate(req.params.id, userId, req.body);
+      if (!template) {
+        return res.status(404).json({ message: "Template not found" });
+      }
+      res.json(template);
+    } catch (error) {
+      console.error("Error updating email template:", error);
+      res.status(500).json({ message: "Failed to update email template" });
+    }
+  });
+
+  app.delete("/api/email-templates/:id", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      await storage.deleteEmailTemplate(req.params.id, userId);
+      await logAudit(userId, "delete", "email_template", req.params.id, "Deleted email template");
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting email template:", error);
+      res.status(500).json({ message: "Failed to delete email template" });
+    }
+  });
+
+  // Email Logs
+  app.get("/api/email-logs", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const logs = await storage.getEmailLogs(userId);
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching email logs:", error);
+      res.status(500).json({ message: "Failed to fetch email logs" });
+    }
+  });
+
+  app.post("/api/send-email", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const { investorId, templateId, toEmail, subject, body } = req.body;
+      
+      const log = await storage.createEmailLog(userId, {
+        investorId: investorId || null,
+        templateId: templateId || null,
+        toEmail,
+        subject,
+        body,
+        status: "sent",
+      });
+      
+      await logAudit(userId, "create", "email", log.id, `Sent email to ${toEmail}: ${subject}`);
+      
+      if (investorId) {
+        await storage.createActivityTimelineEntry(userId, {
+          investorId,
+          activityType: "email_sent",
+          title: `Email sent: ${subject}`,
+          description: `Email sent to ${toEmail}`,
+          entityType: "email",
+          entityId: log.id,
+        });
+      }
+      
+      res.status(201).json(log);
+    } catch (error) {
+      console.error("Error sending email:", error);
+      res.status(500).json({ message: "Failed to send email" });
+    }
+  });
+
+  // Global Search
+  app.get("/api/search", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const query = req.query.q as string;
+      
+      if (!query || query.length < 2) {
+        return res.json({ investors: [], tasks: [], bonds: [], documents: [] });
+      }
+      
+      const results = await storage.globalSearch(userId, query);
+      res.json(results);
+    } catch (error) {
+      console.error("Error performing search:", error);
+      res.status(500).json({ message: "Failed to perform search" });
+    }
+  });
+
+  // Bulk Operations
+  app.patch("/api/investors/bulk", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const { ids, updates } = req.body;
+      
+      if (!ids || !Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ message: "No IDs provided" });
+      }
+      
+      const count = await storage.bulkUpdateInvestors(userId, ids, updates);
+      await logAudit(userId, "update", "investors", null, `Bulk updated ${count} investors`);
+      res.json({ updated: count });
+    } catch (error) {
+      console.error("Error bulk updating investors:", error);
+      res.status(500).json({ message: "Failed to bulk update investors" });
+    }
+  });
+
+  app.patch("/api/tasks/bulk", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const { ids, updates } = req.body;
+      
+      if (!ids || !Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ message: "No IDs provided" });
+      }
+      
+      const count = await storage.bulkUpdateTasks(userId, ids, updates);
+      await logAudit(userId, "update", "tasks", null, `Bulk updated ${count} tasks`);
+      res.json({ updated: count });
+    } catch (error) {
+      console.error("Error bulk updating tasks:", error);
+      res.status(500).json({ message: "Failed to bulk update tasks" });
+    }
+  });
+
+  app.delete("/api/investors/bulk", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const { ids } = req.body;
+      
+      if (!ids || !Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ message: "No IDs provided" });
+      }
+      
+      const count = await storage.bulkDeleteInvestors(userId, ids);
+      await logAudit(userId, "delete", "investors", null, `Bulk deleted ${count} investors`);
+      res.json({ deleted: count });
+    } catch (error) {
+      console.error("Error bulk deleting investors:", error);
+      res.status(500).json({ message: "Failed to bulk delete investors" });
+    }
+  });
+
+  app.delete("/api/tasks/bulk", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const { ids } = req.body;
+      
+      if (!ids || !Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ message: "No IDs provided" });
+      }
+      
+      const count = await storage.bulkDeleteTasks(userId, ids);
+      await logAudit(userId, "delete", "tasks", null, `Bulk deleted ${count} tasks`);
+      res.json({ deleted: count });
+    } catch (error) {
+      console.error("Error bulk deleting tasks:", error);
+      res.status(500).json({ message: "Failed to bulk delete tasks" });
+    }
+  });
+
+  // Data Import (CSV)
+  app.post("/api/import/investors", isAuthenticated, upload.single("file"), async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const file = req.file;
+      
+      if (!file) {
+        return res.status(400).json({ message: "No file provided" });
+      }
+      
+      const content = fs.readFileSync(file.path, "utf-8");
+      const lines = content.split("\n").filter(line => line.trim());
+      
+      if (lines.length < 2) {
+        fs.unlinkSync(file.path);
+        return res.status(400).json({ message: "CSV file must have headers and at least one data row" });
+      }
+      
+      const headers = lines[0].split(",").map(h => h.trim().toLowerCase().replace(/"/g, ""));
+      const results = { success: 0, errors: [] as string[] };
+      
+      for (let i = 1; i < lines.length; i++) {
+        try {
+          const values = lines[i].split(",").map(v => v.trim().replace(/^"|"$/g, ""));
+          const row: Record<string, string> = {};
+          headers.forEach((h, idx) => {
+            row[h] = values[idx] || "";
+          });
+          
+          await storage.createInvestor(userId, {
+            firstName: row["first name"] || row["firstname"] || row["first_name"] || "",
+            lastName: row["last name"] || row["lastname"] || row["last_name"] || "",
+            email: row["email"] || "",
+            phone: row["phone"] || null,
+            company: row["company"] || null,
+            investorType: (row["type"] || row["investor_type"] || "individual") as any,
+            pipelineStage: (row["stage"] || row["pipeline_stage"] || "lead") as any,
+            investmentAmount: row["investment"] || row["investment_amount"] || null,
+            notes: row["notes"] || null,
+          });
+          results.success++;
+        } catch (err: any) {
+          results.errors.push(`Row ${i + 1}: ${err.message}`);
+        }
+      }
+      
+      fs.unlinkSync(file.path);
+      await logAudit(userId, "create", "import", null, `Imported ${results.success} investors from CSV`);
+      res.json(results);
+    } catch (error) {
+      console.error("Error importing investors:", error);
+      res.status(500).json({ message: "Failed to import investors" });
+    }
+  });
+
+  // Investor Portal Users
+  app.get("/api/investor-portal-users", isAuthenticated, async (req, res) => {
+    try {
+      res.json([]);
+    } catch (error) {
+      console.error("Error fetching portal users:", error);
+      res.status(500).json({ message: "Failed to fetch portal users" });
+    }
+  });
+
+  app.post("/api/investor-portal-users", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const { investorId, email } = req.body;
+      
+      const portalUser = await storage.createInvestorPortalUser({
+        investorId,
+        email,
+        isActive: true,
+      });
+      
+      await logAudit(userId, "create", "portal_user", portalUser.id, `Created portal access for ${email}`);
+      res.status(201).json(portalUser);
+    } catch (error) {
+      console.error("Error creating portal user:", error);
+      res.status(500).json({ message: "Failed to create portal user" });
+    }
+  });
+
   return httpServer;
 }
