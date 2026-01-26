@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation, Link } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -12,6 +12,8 @@ import { GlobalSearch } from "@/components/global-search";
 import { HelpChat } from "@/components/help-chat";
 import { useAuth } from "@/hooks/use-auth";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft } from "lucide-react";
 
 import LandingPage from "@/pages/landing";
 import DashboardPage from "@/pages/dashboard";
@@ -41,6 +43,9 @@ import AdminLoginPage from "@/pages/admin-login";
 import NotFound from "@/pages/not-found";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
+  const [location] = useLocation();
+  const isNotDashboard = location !== "/";
+  
   const style = {
     "--sidebar-width": "16rem",
     "--sidebar-width-icon": "3rem",
@@ -54,6 +59,14 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
           <header className="flex items-center justify-between gap-2 px-4 h-14 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-40">
             <div className="flex items-center gap-2">
               <SidebarTrigger data-testid="button-sidebar-toggle" />
+              {isNotDashboard && (
+                <Button variant="ghost" size="sm" asChild data-testid="button-back-to-dashboard">
+                  <Link href="/">
+                    <ArrowLeft className="h-4 w-4 mr-1" />
+                    Dashboard
+                  </Link>
+                </Button>
+              )}
               <GlobalSearch />
             </div>
             <div className="flex items-center gap-2">
