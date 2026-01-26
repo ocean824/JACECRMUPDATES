@@ -9,6 +9,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { NotificationsDropdown } from "@/components/notifications";
 import { GlobalSearch } from "@/components/global-search";
+import { HelpChat } from "@/components/help-chat";
 import { useAuth } from "@/hooks/use-auth";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -60,6 +61,7 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
           <main className="flex-1 overflow-auto">
             {children}
           </main>
+          <HelpChat />
         </div>
       </div>
     </SidebarProvider>

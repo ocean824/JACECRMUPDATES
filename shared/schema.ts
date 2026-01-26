@@ -6,6 +6,9 @@ import { z } from "zod";
 // Re-export auth models
 export * from "./models/auth";
 
+// Re-export chat models
+export * from "./models/chat";
+
 // Role enum for user permissions
 export const userRoleEnum = pgEnum("user_role", [
   "admin",

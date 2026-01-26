@@ -2,6 +2,7 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage, logAudit } from "./storage";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
+import { handleHelpChat } from "./help-assistant";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -36,6 +37,9 @@ export async function registerRoutes(
 ): Promise<Server> {
   await setupAuth(app);
   registerAuthRoutes(app);
+
+  // AI Help Assistant
+  app.post("/api/help-chat", isAuthenticated, handleHelpChat);
 
   // User Role API
   app.get("/api/user/role", isAuthenticated, async (req, res) => {
