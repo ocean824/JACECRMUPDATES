@@ -1,0 +1,59 @@
+JACE CRM — Enterprise Accounting + Investor Relations + Bond Settlement Platform (Replit + GitHub)
+Build an enterprise, multi-tenant CRM and real-time financial management system for an accounting, bond settlement, and investor relations company. The platform runs on Replit and integrates with Judgement Bond AI (BondAI) as the transaction + escrow agent to sync investor onboarding data, track KYC status, manage bid payment acceptance, run settlements, post real-time double-entry ledger entries, and generate settlement documents (PDF) saved to investor/customer records.
+
+JACE_CRM_Proposal_ONE_PAGE_$160…
+
+JACE_CRM_Proposal_ONE_PAGE_$160…
+
+Core modules & deliverables:
+
+Platform & Security: multi-tenant workspace, user/role management, protected routes, auth (login/signup, reset, OTP/2FA option), RBAC (Accounting / Investor Relations / Admin/Ops), audit logs, idempotency controls for webhooks, standardized error handling, and real-time updates via SSE event stream.
+
+JACE_CRM_Proposal_ONE_PAGE_$160…
+
+Dashboards & Analytics: role-based KPI dashboards, pipeline/settlement/payment status panels, reporting center, exportable views.
+
+JACE_CRM_Proposal_ONE_PAGE_$160…
+
+CRM & Office Management: customers/contacts, tasks/notes/reminders, activity timeline, document repository, billing/records management aligned to accounting workflows.
+
+JACE_CRM_Proposal_ONE_PAGE_$160…
+
+Investor Pipeline & KYC: investor profiles + segmentation, pipeline stages (lead→contacted→KYC→documents→ready→closed), KYC/doc approvals, onboarding automation hooks, investor communications log.
+
+JACE_CRM_Proposal_ONE_PAGE_$160…
+
+Gmail Investor Relations Hub: Gmail OAuth connect, email/thread ingestion + logging, thread viewer linked to investors, search/filter, timeline integration.
+
+JACE_CRM_Proposal_ONE_PAGE_$160…
+
+BondAI Integration: onboarding-complete webhook ingest, investor create/update + status sync, integration health page, manual resync trigger, audit trail of inbound events.
+
+JACE_CRM_Proposal_ONE_PAGE_$160…
+
+Payments & Escrow (Bids): escrow account registry (bank/credit union), bid payment initiation + tracking, webhook confirmations (confirmed/failed/reversed), replay protection + idempotent processing, reconciliation baseline (escrow vs ledger).
+
+JACE_CRM_Proposal_ONE_PAGE_$160…
+
+Settlements & Document Generation: settlement workflow (allocation/confirmation/closeout), settlement records, automated ledger postings from settlements, generated settlement PDFs stored with download links.
+
+JACE_CRM_Proposal_ONE_PAGE_$160…
+
+Accounting / Double-Entry Ledger: chart of accounts, balanced journal entries, ledger + trial balance, idempotent postings from payments/settlements, financial statements (BS/IS/CF), cash position + escrow views.
+
+JACE_CRM_Proposal_ONE_PAGE_$160…
+
+Baseline accounting suite modules: invoices, quotes, expenses, payment workflows consistent with modern accounting patterns.
+
+JACE_CRM_Proposal_ONE_PAGE_$160…
+
+JACE PROJECT INSTRUCTIONS
+
+Tech stack (Replit-friendly monorepo): Next.js (App Router) + React + TypeScript + Tailwind + Ant Design for the UI; Node.js + Express for the API; PostgreSQL as the system of record (ledger, settlements, payments, reporting) with audit logging and idempotency; Redis/BullMQ for jobs (gmail sync, reconciliation, reporting).
+
+JACE CRM API Blueprint and Arch…
+
+JACE CRM API Blueprint and Arch…
+
+Important: GitHub workflow for updates
+This Replit project is backed by a GitHub repository. I will continuously generate and commit updated code (via LLM-assisted development + vetted open-source patterns), and Replit will pull the latest GitHub commits to stay current as the CRM evolves
