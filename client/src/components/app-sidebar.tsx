@@ -12,6 +12,10 @@ import {
   FolderOpen,
   History,
   Shield,
+  BarChart3,
+  ClipboardCheck,
+  Landmark,
+  MessageSquare,
 } from "lucide-react";
 import {
   Sidebar,
@@ -37,11 +41,15 @@ const mainNavItems = [
 const accountingItems = [
   { title: "Chart of Accounts", url: "/accounts", icon: Wallet },
   { title: "Journal Entries", url: "/journal", icon: FileText },
+  { title: "Bond Settlements", url: "/bonds", icon: Landmark },
 ];
 
 const managementItems = [
   { title: "Tasks", url: "/tasks", icon: CheckSquare },
+  { title: "KYC Workflow", url: "/kyc", icon: ClipboardCheck },
   { title: "Documents", url: "/documents", icon: FolderOpen },
+  { title: "Communications", url: "/communications", icon: MessageSquare },
+  { title: "Analytics", url: "/analytics", icon: BarChart3 },
 ];
 
 const systemItems = [

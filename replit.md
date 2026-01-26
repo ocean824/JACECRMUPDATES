@@ -124,8 +124,41 @@ Preferred communication style: Simple, everyday language.
    - Type filter in investors list
    - Type badge display in investor table
 
+### Phase 2 Features (January 2026)
+1. **Reports & Analytics Dashboard**: Visual analytics at `/analytics`
+   - Pipeline distribution bar chart
+   - Investor types pie chart
+   - Task status and priority charts
+   - Bond portfolio by status
+   - KPI summary cards (Pipeline Value, Investors, Tasks, Bonds)
+   - Export buttons for investors, accounts, and bonds (CSV format)
+2. **KYC Workflow Tracking**: Compliance management at `/kyc`
+   - KYC checklist items per investor
+   - Status tracking (Pending, Submitted, Approved, Rejected)
+   - Due date management
+   - Status summary cards
+3. **Bond Settlement Tracking**: Bond management at `/bonds`
+   - Full bond lifecycle tracking (Pending → Settled → Matured)
+   - ISIN, face value, coupon rate, settlement/maturity dates
+   - Investor association
+   - Summary cards (Total Bonds, Face Value, Pending, Maturing Soon)
+4. **Communication Logging**: Activity tracking at `/communications`
+   - Log notes, emails, calls, and meetings
+   - Timeline view with type icons
+   - Investor association
+   - Summary counts by communication type
+5. **Notification System**: Real-time alerts
+   - Bell icon with unread count in header
+   - Notification types: task_due, kyc_deadline, pipeline_change, document_uploaded, bond_settlement
+   - Mark as read functionality
+6. **Export Functionality**: CSV export for data
+   - Export investors at /api/export/investors
+   - Export accounts at /api/export/accounts
+   - Export bonds at /api/export/bonds
+
 ### Design System
 - Professional blue primary color theme
 - Full dark mode support with proper contrast ratios
 - Consistent spacing and typography using Tailwind CSS utilities
 - Accessible components using Radix UI primitives via shadcn/ui
+- Recharts library for data visualization

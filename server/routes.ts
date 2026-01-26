@@ -567,5 +567,431 @@ export async function registerRoutes(
     }
   });
 
+  // ============ PHASE 2 API ROUTES ============
+
+  // Analytics API
+  app.get("/api/analytics", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const analytics = await storage.getAnalytics(userId);
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching analytics:", error);
+      res.status(500).json({ message: "Failed to fetch analytics" });
+    }
+  });
+
+  // KYC Checklist API
+  app.get("/api/kyc-checklist", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const investorId = typeof req.query.investorId === "string" ? req.query.investorId : undefined;
+      
+      const items = investorId
+        ? await storage.getKycChecklistByInvestor(investorId, userId)
+        : await storage.getKycChecklist(userId);
+      
+      res.json(items);
+    } catch (error) {
+      console.error("Error fetching KYC checklist:", error);
+      res.status(500).json({ message: "Failed to fetch KYC checklist" });
+    }
+  });
+
+  app.get("/api/kyc-checklist/:id", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const item = await storage.getKycChecklistItem(req.params.id, userId);
+      if (!item) {
+        return res.status(404).json({ message: "KYC item not found" });
+      }
+      res.json(item);
+    } catch (error) {
+      console.error("Error fetching KYC item:", error);
+      res.status(500).json({ message: "Failed to fetch KYC item" });
+    }
+  });
+
+  app.post("/api/kyc-checklist", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const itemData = {
+        investorId: req.body.investorId,
+        itemName: req.body.itemName,
+        description: req.body.description || null,
+        status: req.body.status || "pending",
+        dueDate: req.body.dueDate ? new Date(req.body.dueDate) : null,
+        documentId: req.body.documentId || null,
+        notes: req.body.notes || null,
+      };
+      
+      const item = await storage.createKycChecklistItem(userId, itemData);
+      
+      await logAudit(userId, "create", "kyc_item", item.id, 
+        `Created KYC item: ${itemData.itemName}`);
+      
+      res.status(201).json(item);
+    } catch (error) {
+      console.error("Error creating KYC item:", error);
+      res.status(500).json({ message: "Failed to create KYC item" });
+    }
+  });
+
+  app.patch("/api/kyc-checklist/:id", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const item = await storage.updateKycChecklistItem(req.params.id, userId, req.body);
+      if (!item) {
+        return res.status(404).json({ message: "KYC item not found" });
+      }
+      
+      await logAudit(userId, "update", "kyc_item", req.params.id, 
+        `Updated KYC item: ${item.itemName}`);
+      
+      res.json(item);
+    } catch (error) {
+      console.error("Error updating KYC item:", error);
+      res.status(500).json({ message: "Failed to update KYC item" });
+    }
+  });
+
+  app.delete("/api/kyc-checklist/:id", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const item = await storage.getKycChecklistItem(req.params.id, userId);
+      
+      await storage.deleteKycChecklistItem(req.params.id, userId);
+      
+      if (item) {
+        await logAudit(userId, "delete", "kyc_item", req.params.id, 
+          `Deleted KYC item: ${item.itemName}`);
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting KYC item:", error);
+      res.status(500).json({ message: "Failed to delete KYC item" });
+    }
+  });
+
+  // Bond Settlements API
+  app.get("/api/bond-settlements", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const settlements = await storage.getBondSettlements(userId);
+      res.json(settlements);
+    } catch (error) {
+      console.error("Error fetching bond settlements:", error);
+      res.status(500).json({ message: "Failed to fetch bond settlements" });
+    }
+  });
+
+  app.get("/api/bond-settlements/:id", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const settlement = await storage.getBondSettlement(req.params.id, userId);
+      if (!settlement) {
+        return res.status(404).json({ message: "Bond settlement not found" });
+      }
+      res.json(settlement);
+    } catch (error) {
+      console.error("Error fetching bond settlement:", error);
+      res.status(500).json({ message: "Failed to fetch bond settlement" });
+    }
+  });
+
+  app.post("/api/bond-settlements", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const settlementData = {
+        investorId: req.body.investorId || null,
+        bondName: req.body.bondName,
+        isin: req.body.isin || null,
+        faceValue: req.body.faceValue,
+        purchasePrice: req.body.purchasePrice || null,
+        couponRate: req.body.couponRate || null,
+        purchaseDate: req.body.purchaseDate ? new Date(req.body.purchaseDate) : null,
+        settlementDate: req.body.settlementDate ? new Date(req.body.settlementDate) : null,
+        maturityDate: req.body.maturityDate ? new Date(req.body.maturityDate) : null,
+        status: req.body.status || "pending",
+        notes: req.body.notes || null,
+      };
+      
+      const settlement = await storage.createBondSettlement(userId, settlementData);
+      
+      await logAudit(userId, "create", "bond_settlement", settlement.id, 
+        `Created bond: ${settlementData.bondName}`);
+      
+      res.status(201).json(settlement);
+    } catch (error) {
+      console.error("Error creating bond settlement:", error);
+      res.status(500).json({ message: "Failed to create bond settlement" });
+    }
+  });
+
+  app.patch("/api/bond-settlements/:id", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const settlement = await storage.updateBondSettlement(req.params.id, userId, req.body);
+      if (!settlement) {
+        return res.status(404).json({ message: "Bond settlement not found" });
+      }
+      
+      await logAudit(userId, "update", "bond_settlement", req.params.id, 
+        `Updated bond: ${settlement.bondName}`);
+      
+      res.json(settlement);
+    } catch (error) {
+      console.error("Error updating bond settlement:", error);
+      res.status(500).json({ message: "Failed to update bond settlement" });
+    }
+  });
+
+  app.delete("/api/bond-settlements/:id", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const settlement = await storage.getBondSettlement(req.params.id, userId);
+      
+      await storage.deleteBondSettlement(req.params.id, userId);
+      
+      if (settlement) {
+        await logAudit(userId, "delete", "bond_settlement", req.params.id, 
+          `Deleted bond: ${settlement.bondName}`);
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting bond settlement:", error);
+      res.status(500).json({ message: "Failed to delete bond settlement" });
+    }
+  });
+
+  // Communications API
+  app.get("/api/communications", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const investorId = typeof req.query.investorId === "string" ? req.query.investorId : undefined;
+      
+      const comms = investorId
+        ? await storage.getCommunicationsByInvestor(investorId, userId)
+        : await storage.getCommunications(userId);
+      
+      res.json(comms);
+    } catch (error) {
+      console.error("Error fetching communications:", error);
+      res.status(500).json({ message: "Failed to fetch communications" });
+    }
+  });
+
+  app.post("/api/communications", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const commData = {
+        investorId: req.body.investorId,
+        type: req.body.type,
+        subject: req.body.subject || null,
+        content: req.body.content,
+        contactedAt: req.body.contactedAt ? new Date(req.body.contactedAt) : new Date(),
+      };
+      
+      const comm = await storage.createCommunication(userId, commData);
+      
+      await logAudit(userId, "create", "communication", comm.id, 
+        `Logged ${commData.type}: ${commData.subject || "No subject"}`);
+      
+      res.status(201).json(comm);
+    } catch (error) {
+      console.error("Error creating communication:", error);
+      res.status(500).json({ message: "Failed to create communication" });
+    }
+  });
+
+  app.delete("/api/communications/:id", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const comm = await storage.getCommunication(req.params.id, userId);
+      
+      await storage.deleteCommunication(req.params.id, userId);
+      
+      if (comm) {
+        await logAudit(userId, "delete", "communication", req.params.id, 
+          `Deleted ${comm.type}`);
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting communication:", error);
+      res.status(500).json({ message: "Failed to delete communication" });
+    }
+  });
+
+  // Notifications API
+  app.get("/api/notifications", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const unreadOnly = req.query.unread === "true";
+      
+      const notifs = unreadOnly
+        ? await storage.getUnreadNotifications(userId)
+        : await storage.getNotifications(userId);
+      
+      res.json(notifs);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      res.status(500).json({ message: "Failed to fetch notifications" });
+    }
+  });
+
+  app.post("/api/notifications", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const notifData = {
+        userId,
+        type: req.body.type,
+        title: req.body.title,
+        message: req.body.message || null,
+        entityType: req.body.entityType || null,
+        entityId: req.body.entityId || null,
+        isRead: false,
+      };
+      
+      const notif = await storage.createNotification(notifData);
+      res.status(201).json(notif);
+    } catch (error) {
+      console.error("Error creating notification:", error);
+      res.status(500).json({ message: "Failed to create notification" });
+    }
+  });
+
+  app.patch("/api/notifications/:id/read", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const notif = await storage.markNotificationRead(req.params.id, userId);
+      if (!notif) {
+        return res.status(404).json({ message: "Notification not found" });
+      }
+      res.json(notif);
+    } catch (error) {
+      console.error("Error marking notification read:", error);
+      res.status(500).json({ message: "Failed to mark notification read" });
+    }
+  });
+
+  app.post("/api/notifications/read-all", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      await storage.markAllNotificationsRead(userId);
+      res.json({ message: "All notifications marked as read" });
+    } catch (error) {
+      console.error("Error marking all notifications read:", error);
+      res.status(500).json({ message: "Failed to mark all notifications read" });
+    }
+  });
+
+  app.delete("/api/notifications/:id", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      await storage.deleteNotification(req.params.id, userId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting notification:", error);
+      res.status(500).json({ message: "Failed to delete notification" });
+    }
+  });
+
+  // Export API
+  app.get("/api/export/investors", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const investorsList = await storage.getInvestors(userId);
+      
+      const csv = [
+        ["First Name", "Last Name", "Email", "Phone", "Company", "Type", "Pipeline Stage", "KYC Status", "Investment Amount", "Created At"],
+        ...investorsList.map((i) => [
+          i.firstName,
+          i.lastName,
+          i.email,
+          i.phone || "",
+          i.company || "",
+          i.investorType,
+          i.pipelineStage,
+          i.kycStatus || "",
+          i.investmentAmount || "",
+          i.createdAt ? new Date(i.createdAt).toISOString() : "",
+        ]),
+      ]
+        .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+        .join("\n");
+      
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", "attachment; filename=investors.csv");
+      res.send(csv);
+    } catch (error) {
+      console.error("Error exporting investors:", error);
+      res.status(500).json({ message: "Failed to export investors" });
+    }
+  });
+
+  app.get("/api/export/accounts", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const accountsList = await storage.getAccounts(userId);
+      
+      const csv = [
+        ["Code", "Name", "Type", "Description", "Balance", "Active", "Created At"],
+        ...accountsList.map((a) => [
+          a.code,
+          a.name,
+          a.accountType,
+          a.description || "",
+          a.balance || "0",
+          a.isActive ? "Yes" : "No",
+          a.createdAt ? new Date(a.createdAt).toISOString() : "",
+        ]),
+      ]
+        .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+        .join("\n");
+      
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", "attachment; filename=accounts.csv");
+      res.send(csv);
+    } catch (error) {
+      console.error("Error exporting accounts:", error);
+      res.status(500).json({ message: "Failed to export accounts" });
+    }
+  });
+
+  app.get("/api/export/bonds", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const bondsList = await storage.getBondSettlements(userId);
+      
+      const csv = [
+        ["Bond Name", "ISIN", "Face Value", "Purchase Price", "Coupon Rate", "Purchase Date", "Settlement Date", "Maturity Date", "Status", "Created At"],
+        ...bondsList.map((b) => [
+          b.bondName,
+          b.isin || "",
+          b.faceValue,
+          b.purchasePrice || "",
+          b.couponRate || "",
+          b.purchaseDate ? new Date(b.purchaseDate).toISOString().split("T")[0] : "",
+          b.settlementDate ? new Date(b.settlementDate).toISOString().split("T")[0] : "",
+          b.maturityDate ? new Date(b.maturityDate).toISOString().split("T")[0] : "",
+          b.status,
+          b.createdAt ? new Date(b.createdAt).toISOString() : "",
+        ]),
+      ]
+        .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+        .join("\n");
+      
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", "attachment; filename=bonds.csv");
+      res.send(csv);
+    } catch (error) {
+      console.error("Error exporting bonds:", error);
+      res.status(500).json({ message: "Failed to export bonds" });
+    }
+  });
+
   return httpServer;
 }

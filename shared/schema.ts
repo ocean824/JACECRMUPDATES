@@ -287,3 +287,194 @@ export const userRoleLabels = [
 ] as const;
 
 export type UserRoleType = typeof userRoleLabels[number]["value"];
+
+// ============ PHASE 2 ADDITIONS ============
+
+// Communication type enum
+export const communicationTypeEnum = pgEnum("communication_type", [
+  "note",
+  "email",
+  "call",
+  "meeting"
+]);
+
+// KYC status enum for detailed tracking
+export const kycItemStatusEnum = pgEnum("kyc_item_status", [
+  "pending",
+  "submitted",
+  "approved",
+  "rejected"
+]);
+
+// Notification type enum
+export const notificationTypeEnum = pgEnum("notification_type", [
+  "task_due",
+  "kyc_deadline",
+  "pipeline_change",
+  "document_uploaded",
+  "bond_settlement",
+  "system"
+]);
+
+// Bond status enum
+export const bondStatusEnum = pgEnum("bond_status", [
+  "pending",
+  "settled",
+  "matured",
+  "cancelled"
+]);
+
+// KYC Checklist Items - tracks compliance items per investor
+export const kycChecklist = pgTable("kyc_checklist", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  investorId: varchar("investor_id").notNull().references(() => investors.id),
+  itemName: varchar("item_name", { length: 200 }).notNull(),
+  description: text("description"),
+  status: kycItemStatusEnum("status").default("pending").notNull(),
+  dueDate: timestamp("due_date"),
+  completedAt: timestamp("completed_at"),
+  documentId: varchar("document_id").references(() => documents.id),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Bond Settlements - tracks bond transactions
+export const bondSettlements = pgTable("bond_settlements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  investorId: varchar("investor_id").references(() => investors.id),
+  bondName: varchar("bond_name", { length: 200 }).notNull(),
+  isin: varchar("isin", { length: 20 }),
+  faceValue: decimal("face_value", { precision: 15, scale: 2 }).notNull(),
+  purchasePrice: decimal("purchase_price", { precision: 15, scale: 2 }),
+  couponRate: decimal("coupon_rate", { precision: 5, scale: 2 }),
+  purchaseDate: timestamp("purchase_date"),
+  settlementDate: timestamp("settlement_date"),
+  maturityDate: timestamp("maturity_date"),
+  status: bondStatusEnum("status").default("pending").notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Communications - notes, emails, calls with investors
+export const communications = pgTable("communications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  investorId: varchar("investor_id").notNull().references(() => investors.id),
+  type: communicationTypeEnum("type").notNull(),
+  subject: varchar("subject", { length: 500 }),
+  content: text("content").notNull(),
+  contactedAt: timestamp("contacted_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Notifications - user alerts
+export const notifications = pgTable("notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  type: notificationTypeEnum("type").notNull(),
+  title: varchar("title", { length: 200 }).notNull(),
+  message: text("message"),
+  entityType: varchar("entity_type", { length: 50 }),
+  entityId: varchar("entity_id"),
+  isRead: boolean("is_read").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Phase 2 Relations
+export const kycChecklistRelations = relations(kycChecklist, ({ one }) => ({
+  investor: one(investors, {
+    fields: [kycChecklist.investorId],
+    references: [investors.id],
+  }),
+  document: one(documents, {
+    fields: [kycChecklist.documentId],
+    references: [documents.id],
+  }),
+}));
+
+export const bondSettlementRelations = relations(bondSettlements, ({ one }) => ({
+  investor: one(investors, {
+    fields: [bondSettlements.investorId],
+    references: [investors.id],
+  }),
+}));
+
+export const communicationRelations = relations(communications, ({ one }) => ({
+  investor: one(investors, {
+    fields: [communications.investorId],
+    references: [investors.id],
+  }),
+}));
+
+// Phase 2 Insert schemas
+export const insertKycChecklistSchema = createInsertSchema(kycChecklist).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertBondSettlementSchema = createInsertSchema(bondSettlements).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertCommunicationSchema = createInsertSchema(communications).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+});
+
+export const insertNotificationSchema = createInsertSchema(notifications).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Phase 2 Types
+export type KycChecklistItem = typeof kycChecklist.$inferSelect;
+export type InsertKycChecklistItem = z.infer<typeof insertKycChecklistSchema>;
+
+export type BondSettlement = typeof bondSettlements.$inferSelect;
+export type InsertBondSettlement = z.infer<typeof insertBondSettlementSchema>;
+
+export type Communication = typeof communications.$inferSelect;
+export type InsertCommunication = z.infer<typeof insertCommunicationSchema>;
+
+export type Notification = typeof notifications.$inferSelect;
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+
+// Communication type labels for UI
+export const communicationTypes = [
+  { value: "note", label: "Note", icon: "FileText" },
+  { value: "email", label: "Email", icon: "Mail" },
+  { value: "call", label: "Phone Call", icon: "Phone" },
+  { value: "meeting", label: "Meeting", icon: "Users" },
+] as const;
+
+export type CommunicationType = typeof communicationTypes[number]["value"];
+
+// KYC item status labels for UI
+export const kycItemStatuses = [
+  { value: "pending", label: "Pending", color: "bg-yellow-500" },
+  { value: "submitted", label: "Submitted", color: "bg-blue-500" },
+  { value: "approved", label: "Approved", color: "bg-green-500" },
+  { value: "rejected", label: "Rejected", color: "bg-red-500" },
+] as const;
+
+export type KycItemStatus = typeof kycItemStatuses[number]["value"];
+
+// Bond status labels for UI
+export const bondStatuses = [
+  { value: "pending", label: "Pending Settlement", color: "bg-yellow-500" },
+  { value: "settled", label: "Settled", color: "bg-green-500" },
+  { value: "matured", label: "Matured", color: "bg-blue-500" },
+  { value: "cancelled", label: "Cancelled", color: "bg-red-500" },
+] as const;
+
+export type BondStatus = typeof bondStatuses[number]["value"];

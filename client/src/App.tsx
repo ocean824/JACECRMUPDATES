@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
+import { NotificationsDropdown } from "@/components/notifications";
 import { useAuth } from "@/hooks/use-auth";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -16,8 +17,12 @@ import InvestorsPage from "@/pages/investors";
 import PipelinePage from "@/pages/pipeline";
 import AccountsPage from "@/pages/accounts";
 import JournalPage from "@/pages/journal";
+import BondsPage from "@/pages/bonds";
 import TasksPage from "@/pages/tasks";
+import KycPage from "@/pages/kyc";
 import DocumentsPage from "@/pages/documents";
+import CommunicationsPage from "@/pages/communications";
+import AnalyticsPage from "@/pages/analytics";
 import AuditLogsPage from "@/pages/audit-logs";
 import AdminPage from "@/pages/admin";
 import SettingsPage from "@/pages/settings";
@@ -36,7 +41,10 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
         <div className="flex flex-col flex-1 min-w-0">
           <header className="flex items-center justify-between gap-2 px-4 h-14 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-40">
             <SidebarTrigger data-testid="button-sidebar-toggle" />
-            <ThemeToggle />
+            <div className="flex items-center gap-2">
+              <NotificationsDropdown />
+              <ThemeToggle />
+            </div>
           </header>
           <main className="flex-1 overflow-auto">
             {children}
@@ -56,8 +64,12 @@ function AuthenticatedRoutes() {
         <Route path="/pipeline" component={PipelinePage} />
         <Route path="/accounts" component={AccountsPage} />
         <Route path="/journal" component={JournalPage} />
+        <Route path="/bonds" component={BondsPage} />
         <Route path="/tasks" component={TasksPage} />
+        <Route path="/kyc" component={KycPage} />
         <Route path="/documents" component={DocumentsPage} />
+        <Route path="/communications" component={CommunicationsPage} />
+        <Route path="/analytics" component={AnalyticsPage} />
         <Route path="/audit-logs" component={AuditLogsPage} />
         <Route path="/admin" component={AdminPage} />
         <Route path="/settings" component={SettingsPage} />
