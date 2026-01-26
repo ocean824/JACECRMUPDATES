@@ -4,6 +4,9 @@ import {
   journalEntries,
   journalEntryLines,
   tasks,
+  userRoles,
+  auditLogs,
+  documents,
   type Investor,
   type InsertInvestor,
   type Account,
@@ -14,11 +17,35 @@ import {
   type InsertJournalEntryLine,
   type Task,
   type InsertTask,
+  type UserRole,
+  type InsertUserRole,
+  type AuditLog,
+  type InsertAuditLog,
+  type Document,
+  type InsertDocument,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and } from "drizzle-orm";
 
 export interface IStorage {
+  // User Roles
+  getUserRole(userId: string): Promise<UserRole | undefined>;
+  setUserRole(role: InsertUserRole): Promise<UserRole>;
+  updateUserRole(userId: string, role: string): Promise<UserRole | undefined>;
+  getAllUserRoles(): Promise<UserRole[]>;
+
+  // Audit Logs
+  getAuditLogs(userId: string, limit?: number): Promise<AuditLog[]>;
+  getAllAuditLogs(limit?: number): Promise<AuditLog[]>;
+  createAuditLog(log: InsertAuditLog): Promise<AuditLog>;
+
+  // Documents
+  getDocuments(userId: string): Promise<Document[]>;
+  getDocumentsByInvestor(investorId: string, userId: string): Promise<Document[]>;
+  getDocument(id: string, userId: string): Promise<Document | undefined>;
+  createDocument(userId: string, doc: InsertDocument): Promise<Document>;
+  deleteDocument(id: string, userId: string): Promise<boolean>;
+
   // Investors (user-scoped)
   getInvestors(userId: string): Promise<Investor[]>;
   getInvestor(id: string, userId: string): Promise<Investor | undefined>;
@@ -52,6 +79,97 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  // User Roles
+  async getUserRole(userId: string): Promise<UserRole | undefined> {
+    const [role] = await db.select().from(userRoles).where(eq(userRoles.userId, userId));
+    return role;
+  }
+
+  async setUserRole(role: InsertUserRole): Promise<UserRole> {
+    const existing = await this.getUserRole(role.userId);
+    if (existing) {
+      const [updated] = await db
+        .update(userRoles)
+        .set({ role: role.role, updatedAt: new Date() })
+        .where(eq(userRoles.userId, role.userId))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(userRoles).values(role).returning();
+    return created;
+  }
+
+  async updateUserRole(userId: string, role: string): Promise<UserRole | undefined> {
+    const [updated] = await db
+      .update(userRoles)
+      .set({ role: role as any, updatedAt: new Date() })
+      .where(eq(userRoles.userId, userId))
+      .returning();
+    return updated;
+  }
+
+  async getAllUserRoles(): Promise<UserRole[]> {
+    return db.select().from(userRoles).orderBy(desc(userRoles.createdAt));
+  }
+
+  // Audit Logs
+  async getAuditLogs(userId: string, limit: number = 100): Promise<AuditLog[]> {
+    return db
+      .select()
+      .from(auditLogs)
+      .where(eq(auditLogs.userId, userId))
+      .orderBy(desc(auditLogs.createdAt))
+      .limit(limit);
+  }
+
+  async getAllAuditLogs(limit: number = 100): Promise<AuditLog[]> {
+    return db
+      .select()
+      .from(auditLogs)
+      .orderBy(desc(auditLogs.createdAt))
+      .limit(limit);
+  }
+
+  async createAuditLog(log: InsertAuditLog): Promise<AuditLog> {
+    const [created] = await db.insert(auditLogs).values(log).returning();
+    return created;
+  }
+
+  // Documents
+  async getDocuments(userId: string): Promise<Document[]> {
+    return db
+      .select()
+      .from(documents)
+      .where(eq(documents.userId, userId))
+      .orderBy(desc(documents.createdAt));
+  }
+
+  async getDocumentsByInvestor(investorId: string, userId: string): Promise<Document[]> {
+    return db
+      .select()
+      .from(documents)
+      .where(and(eq(documents.investorId, investorId), eq(documents.userId, userId)))
+      .orderBy(desc(documents.createdAt));
+  }
+
+  async getDocument(id: string, userId: string): Promise<Document | undefined> {
+    const [doc] = await db
+      .select()
+      .from(documents)
+      .where(and(eq(documents.id, id), eq(documents.userId, userId)));
+    return doc;
+  }
+
+  async createDocument(userId: string, doc: InsertDocument): Promise<Document> {
+    const [created] = await db.insert(documents).values({ ...doc, userId }).returning();
+    return created;
+  }
+
+  async deleteDocument(id: string, userId: string): Promise<boolean> {
+    await db.delete(documents).where(and(eq(documents.id, id), eq(documents.userId, userId)));
+    return true;
+  }
+
   // Investors (user-scoped)
   async getInvestors(userId: string): Promise<Investor[]> {
     return db.select().from(investors).where(eq(investors.userId, userId)).orderBy(desc(investors.createdAt));
@@ -126,7 +244,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteJournalEntry(id: string, userId: string): Promise<boolean> {
-    // First delete entry lines, then entry
     const entry = await this.getJournalEntry(id, userId);
     if (entry) {
       await db.delete(journalEntryLines).where(eq(journalEntryLines.journalEntryId, id));
@@ -183,3 +300,28 @@ export class DatabaseStorage implements IStorage {
 }
 
 export const storage = new DatabaseStorage();
+
+// Audit log helper function
+export async function logAudit(
+  userId: string,
+  action: "create" | "update" | "delete",
+  entityType: string,
+  entityId: string | null,
+  description: string,
+  metadata?: Record<string, any>,
+  ipAddress?: string
+): Promise<void> {
+  try {
+    await storage.createAuditLog({
+      userId,
+      action,
+      entityType,
+      entityId,
+      description,
+      metadata: metadata ? JSON.stringify(metadata) : null,
+      ipAddress: ipAddress || null,
+    });
+  } catch (error) {
+    console.error("Failed to create audit log:", error);
+  }
+}
