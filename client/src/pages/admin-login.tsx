@@ -27,19 +27,20 @@ export default function AdminLoginPage() {
     setIsLoading(true);
     
     try {
-      const response = await apiRequest("/api/auth/login", {
-        method: "POST",
-        body: JSON.stringify(formData),
-      });
+      await apiRequest("POST", "/api/auth/login", formData);
       
-      const me = await apiRequest("/api/auth/me");
+      const meResponse = await fetch("/api/auth/me", { credentials: "include" });
+      if (!meResponse.ok) {
+        throw new Error("Failed to verify authentication");
+      }
+      const me = await meResponse.json();
       if (me.isAdmin !== "true") {
         toast({
           title: "Access Denied",
           description: "This account does not have admin privileges.",
           variant: "destructive",
         });
-        await apiRequest("/api/auth/logout", { method: "POST" });
+        await apiRequest("POST", "/api/auth/logout");
         return;
       }
       
@@ -47,7 +48,7 @@ export default function AdminLoginPage() {
         title: "Admin Access Granted",
         description: "Welcome to the admin portal.",
       });
-      setLocation("/admin");
+      window.location.href = "/admin";
     } catch (error: any) {
       toast({
         title: "Login Failed",

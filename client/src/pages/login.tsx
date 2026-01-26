@@ -27,15 +27,12 @@ export default function LoginPage() {
     setIsLoading(true);
     
     try {
-      await apiRequest("/api/auth/login", {
-        method: "POST",
-        body: JSON.stringify(formData),
-      });
+      await apiRequest("POST", "/api/auth/login", formData);
       toast({
         title: "Welcome back!",
         description: "You have been signed in successfully.",
       });
-      setLocation("/");
+      window.location.href = "/";
     } catch (error: any) {
       toast({
         title: "Login Failed",

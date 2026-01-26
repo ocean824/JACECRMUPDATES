@@ -48,20 +48,17 @@ export default function RegisterPage() {
 
     setIsLoading(true);
     try {
-      await apiRequest("/api/auth/register", {
-        method: "POST",
-        body: JSON.stringify({
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          email: formData.email,
-          password: formData.password,
-        }),
+      await apiRequest("POST", "/api/auth/register", {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        password: formData.password,
       });
       toast({
         title: "Success",
         description: "Account created successfully!",
       });
-      setLocation("/");
+      window.location.href = "/";
     } catch (error: any) {
       toast({
         title: "Registration Failed",
