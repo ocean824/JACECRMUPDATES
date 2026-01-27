@@ -164,6 +164,7 @@ export function registerExternalOnboarding(app: Express) {
 
       const {
         bondaiInvestorId,
+        bondAiInvestorRef, // Alternative field name from BondAI
         fullName,
         name, // Alternative field name from BondAI
         email,
@@ -171,8 +172,8 @@ export function registerExternalOnboarding(app: Express) {
         returnUrl,
       } = req.body || {};
 
-      // bondaiInvestorId is optional - generate one if not provided
-      const investorExternalId = bondaiInvestorId || `bondai-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+      // Accept both bondaiInvestorId and bondAiInvestorRef field names
+      const investorExternalId = bondaiInvestorId || bondAiInvestorRef || `bondai-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
       
       if (!email || typeof email !== "string") {
         return res.status(400).json({ message: "email is required" });
