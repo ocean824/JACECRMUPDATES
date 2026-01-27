@@ -93,3 +93,28 @@ Preferred communication style: Simple, everyday language.
 - `BONDAI_WEBHOOK_URL`: Webhook endpoint for BondAI.
 - `BONDAI_WEBHOOK_SECRET`: Webhook signature secret for BondAI.
 - `BONDAI_ALLOWED_FRAME_ANCESTORS`: CSP frame-ancestors for BondAI.
+
+### Public Legal Pages (Fidelity-Style) - January 2026
+Public legal pages with Fidelity-style footer for JACE Management, LLC (Colorado):
+
+1. **FooterLegal Component** (`client/src/components/footer-legal.tsx`)
+   - Two-row layout with internal and external links
+   - "This is for persons in the US only." text
+   - Dynamic copyright year
+
+2. **Public Routes** (no authentication required):
+   - `/terms-of-use` - Terms of Use (12 sections)
+   - `/privacy` - Privacy Policy with Colorado Privacy Act
+   - `/security` - Security information and user recommendations
+   - `/site-map` - Site map with public/authenticated sections
+   - `/accessibility` - WCAG 2.1 Level AA accessibility statement
+   - `/contact-us` - Contact page (jacemgmt@gmail.com, 970-710-9193)
+   - `/share-your-screen` - Co-browsing feature information
+   - `/disclosures` - Legal disclosures and disclaimers
+   - `/cookie-preferences` - Cookie preference toggles (localStorage)
+
+3. **Company Details**:
+   - Entity: JACE Management, LLC (Colorado)
+   - Email: jacemgmt@gmail.com
+   - Phone: 970-710-9193
+   - Governing State: Colorado
