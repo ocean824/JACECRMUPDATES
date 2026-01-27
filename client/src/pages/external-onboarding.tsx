@@ -8,8 +8,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, ShieldCheck, FileText, PenTool, Landmark, ArrowLeft, Sparkles, HelpCircle, X } from "lucide-react";
+import { Loader2, ShieldCheck, FileText, PenTool, Landmark, ArrowLeft, Sparkles, HelpCircle, X, FileCheck, Check } from "lucide-react";
+import { LegalDocSignStep } from "@/components/onboarding/legal-doc-sign-step";
+import { LEGAL_DOCUMENTS } from "@shared/legal-documents";
 
 type SessionResponse = {
   session: {
@@ -238,6 +241,10 @@ export default function ExternalOnboardingPage() {
   const [signatureAgreement, setSignatureAgreement] = useState("");
   const [signatureDisclosure, setSignatureDisclosure] = useState("");
 
+  const [amlSigned, setAmlSigned] = useState(false);
+  const [cipKycSigned, setCipKycSigned] = useState(false);
+  const [privacySigned, setPrivacySigned] = useState(false);
+
   const [submitting, setSubmitting] = useState(false);
   const [completed, setCompleted] = useState<{ at: string; submissionId: string } | null>(null);
 
@@ -257,7 +264,7 @@ export default function ExternalOnboardingPage() {
   }, [data]);
 
   const progress = useMemo(() => {
-    let total = 10;
+    let total = 13;
     let done = 0;
     const ok = (v: any) => Boolean(v && String(v).trim().length > 0);
 
@@ -267,6 +274,9 @@ export default function ExternalOnboardingPage() {
     if (proofOfLife) done++;
     if (agreeUserAgreement && acknowledge) done++;
     if (ok(bankName) && ok(bankAddress) && ok(bankPhone) && ok(routingNumber) && ok(accountNumber)) done++;
+    if (amlSigned) done++;
+    if (cipKycSigned) done++;
+    if (privacySigned) done++;
     if (signatureKyc) done++;
     if (signatureAgreement) done++;
     if (signatureDisclosure) done++;
@@ -293,6 +303,9 @@ export default function ExternalOnboardingPage() {
     bankPhone,
     routingNumber,
     accountNumber,
+    amlSigned,
+    cipKycSigned,
+    privacySigned,
     signatureKyc,
     signatureAgreement,
     signatureDisclosure,
@@ -339,6 +352,10 @@ export default function ExternalOnboardingPage() {
     }
     if (!agreeUserAgreement || !acknowledge) {
       toast({ title: "Agreements required", description: "Please check the agreement and acknowledgement boxes.", variant: "destructive" });
+      return;
+    }
+    if (!amlSigned || !cipKycSigned || !privacySigned) {
+      toast({ title: "Legal documents required", description: "Please read and sign all three legal compliance documents.", variant: "destructive" });
       return;
     }
     if (!bankName || !bankAddress || !bankPhone || !routingNumber || !accountNumber) {
@@ -825,6 +842,116 @@ export default function ExternalOnboardingPage() {
                         </Label>
                       </div>
                     </div>
+                  </section>
+
+                  <Separator className="bg-white/10" />
+
+                  <section className="space-y-4" data-testid="section-legal-compliance">
+                    <div className="flex items-center gap-2 text-lg font-medium">
+                      <FileCheck className="h-5 w-5" />
+                      Legal Compliance Documents
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/70">
+                      <p>All three legal documents below must be read and signed before you can complete your onboarding. Please expand each document, read it carefully, and sign electronically.</p>
+                    </div>
+                    
+                    <Accordion type="single" collapsible className="space-y-3">
+                      <AccordionItem value="aml" className="rounded-2xl border border-white/10 bg-white/5 overflow-hidden" data-testid="accordion-aml">
+                        <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-white/5">
+                          <div className="flex items-center gap-3">
+                            {amlSigned ? (
+                              <div className="h-6 w-6 rounded-full bg-green-500/20 border border-green-500/30 flex items-center justify-center">
+                                <Check className="h-4 w-4 text-green-400" />
+                              </div>
+                            ) : (
+                              <div className="h-6 w-6 rounded-full bg-white/10 border border-white/20 flex items-center justify-center">
+                                <FileText className="h-3 w-3 text-white/50" />
+                              </div>
+                            )}
+                            <span className="text-left">
+                              {LEGAL_DOCUMENTS.AML_CERTIFICATION.shortTitle}
+                              {amlSigned && <span className="ml-2 text-xs text-green-400">Signed</span>}
+                            </span>
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="px-4 pb-4">
+                          {data?.investor?.id && (
+                            <LegalDocSignStep
+                              investorId={data.investor.id}
+                              documentType="AML_CERTIFICATION"
+                              documentTitle={LEGAL_DOCUMENTS.AML_CERTIFICATION.title}
+                              documentBody={LEGAL_DOCUMENTS.AML_CERTIFICATION.body}
+                              signerEmail={email}
+                              onComplete={() => setAmlSigned(true)}
+                            />
+                          )}
+                        </AccordionContent>
+                      </AccordionItem>
+
+                      <AccordionItem value="cipkyc" className="rounded-2xl border border-white/10 bg-white/5 overflow-hidden" data-testid="accordion-cipkyc">
+                        <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-white/5">
+                          <div className="flex items-center gap-3">
+                            {cipKycSigned ? (
+                              <div className="h-6 w-6 rounded-full bg-green-500/20 border border-green-500/30 flex items-center justify-center">
+                                <Check className="h-4 w-4 text-green-400" />
+                              </div>
+                            ) : (
+                              <div className="h-6 w-6 rounded-full bg-white/10 border border-white/20 flex items-center justify-center">
+                                <FileText className="h-3 w-3 text-white/50" />
+                              </div>
+                            )}
+                            <span className="text-left">
+                              {LEGAL_DOCUMENTS.CIP_KYC_PRIVACY_CONSENT.shortTitle}
+                              {cipKycSigned && <span className="ml-2 text-xs text-green-400">Signed</span>}
+                            </span>
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="px-4 pb-4">
+                          {data?.investor?.id && (
+                            <LegalDocSignStep
+                              investorId={data.investor.id}
+                              documentType="CIP_KYC_PRIVACY_CONSENT"
+                              documentTitle={LEGAL_DOCUMENTS.CIP_KYC_PRIVACY_CONSENT.title}
+                              documentBody={LEGAL_DOCUMENTS.CIP_KYC_PRIVACY_CONSENT.body}
+                              signerEmail={email}
+                              onComplete={() => setCipKycSigned(true)}
+                            />
+                          )}
+                        </AccordionContent>
+                      </AccordionItem>
+
+                      <AccordionItem value="privacy" className="rounded-2xl border border-white/10 bg-white/5 overflow-hidden" data-testid="accordion-privacy">
+                        <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-white/5">
+                          <div className="flex items-center gap-3">
+                            {privacySigned ? (
+                              <div className="h-6 w-6 rounded-full bg-green-500/20 border border-green-500/30 flex items-center justify-center">
+                                <Check className="h-4 w-4 text-green-400" />
+                              </div>
+                            ) : (
+                              <div className="h-6 w-6 rounded-full bg-white/10 border border-white/20 flex items-center justify-center">
+                                <FileText className="h-3 w-3 text-white/50" />
+                              </div>
+                            )}
+                            <span className="text-left">
+                              {LEGAL_DOCUMENTS.PRIVACY_SHORTFORM.shortTitle}
+                              {privacySigned && <span className="ml-2 text-xs text-green-400">Signed</span>}
+                            </span>
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="px-4 pb-4">
+                          {data?.investor?.id && (
+                            <LegalDocSignStep
+                              investorId={data.investor.id}
+                              documentType="PRIVACY_SHORTFORM"
+                              documentTitle={LEGAL_DOCUMENTS.PRIVACY_SHORTFORM.title}
+                              documentBody={LEGAL_DOCUMENTS.PRIVACY_SHORTFORM.body}
+                              signerEmail={email}
+                              onComplete={() => setPrivacySigned(true)}
+                            />
+                          )}
+                        </AccordionContent>
+                      </AccordionItem>
+                    </Accordion>
                   </section>
 
                   <Separator className="bg-white/10" />
