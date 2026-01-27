@@ -1,0 +1,661 @@
+Below are (1) the investor-signed AML certification, (2) a companion “bank-style” CIP/KYC disclosure + privacy + information-sharing consent, (3) a GLBA Model Privacy Form–style table attachment, and (4) a mail-ready two-page layout version for PDF rendering. Then I’ve included public “footer” legal pages (Terms, Privacy, Security, Site Map, Accessibility, Contact, Share Your Screen, Disclosures, Manage My Targeting/Advertising Cookies), plus a separate “Compliance Requirements” page and separate “Do Not Sell” / “Do Not Share” pages.
+
+These are drafted for: JACE Management, LLC (Colorado) | jacemgmt@gmail.com
+ | 970-710-9193 | Governing law: Colorado.
+
+Where an address is legally required (e.g., CAN-SPAM), I’ve left a clearly marked placeholder for your mailing address.
+
+1) Investor-Signed AML / Sanctions / Source-of-Funds Certification (Authoritative record)
+# JACE Management, LLC — Investor Anti-Money Laundering (AML), Sanctions & Source-of-Funds Certification
+**Version:** 1.0 (Rev. 01/27/2026)  
+**Entity:** JACE Management, LLC (“JACE”) — Colorado (USA)  
+**Contact:** jacemgmt@gmail.com | 970-710-9193  
+**Governing Law:** State of Colorado (and applicable U.S. federal law)
+
+> **Purpose.** This Certification is collected to support JACE’s risk-based compliance program and to support the AML/sanctions compliance obligations of JACE and/or its regulated financial institution partners, including Customer Identification Program (CIP), Customer Due Diligence (CDD), beneficial ownership, and suspicious activity monitoring where applicable. U.S. AML program and reporting concepts are established under the Bank Secrecy Act framework. (See generally 31 U.S.C. § 5318 and implementing regulations.)  
+
+---
+
+## A. Investor Identification (for record linkage)
+**Investor Type:** ☐ Individual ☐ Entity/Organization  
+**Investor Full Legal Name:** ________________________________  
+**Entity Legal Name (if applicable):** _________________________  
+**Account / Investor ID in JACE (if assigned):** ________________  
+**Date:** ____ /____ /______ (MM/DD/YYYY)
+
+---
+
+## B. AML / Sanctions / OFAC Representations
+By signing below, Investor represents, warrants, and certifies:
+
+1) **No Prohibited Persons / Sanctions.** Investor is not (and, for entities, no beneficial owner, controlling person, director, officer, or authorized signer is) a person or entity that is the target of U.S. sanctions or otherwise blocked or restricted under U.S. law, including programs administered by the U.S. Department of the Treasury’s Office of Foreign Assets Control (“OFAC”). Investor understands JACE may screen names and related data against sanctions lists and may delay or refuse onboarding or transactions based on screening results. (OFAC compliance program guidance: “Framework for OFAC Compliance Commitments” and OFAC FAQs.)  
+
+2) **No Illicit Activity.** Investor’s funds are not derived from, and will not be used to facilitate, money laundering, terrorist financing, fraud, or other unlawful activity.  
+
+3) **Truthfulness.** All information provided to JACE (directly or through an authorized agent) is accurate, complete, and not misleading, and Investor will promptly update JACE if any information becomes inaccurate.  
+
+4) **PEP / High-Risk Status.** Investor discloses the following (check one):  
+   - ☐ Investor is **not** a Politically Exposed Person (PEP) and is not closely related to or associated with a PEP  
+   - ☐ Investor **is** a PEP / related / associated (describe): ___________________________
+
+5) **Lawful Authority.** Investor has full legal capacity and authority to execute this Certification. If Investor is an entity, the signer is duly authorized to bind the entity.
+
+---
+
+## C. Source of Funds / Source of Wealth
+Investor certifies that the funds used for investment activities (or escrow/deposit activity, if any) are from lawful sources.
+
+1) **Primary Source of Funds (choose all that apply):**  
+   ☐ Employment/Salary ☐ Business Income ☐ Investments/Dividends  
+   ☐ Real Estate Sale ☐ Inheritance/Gift ☐ Retirement Distributions  
+   ☐ Other: _______________________________
+
+2) **Expected Funding Method(s):**  
+   ☐ ACH/Bank Transfer ☐ Wire ☐ Check ☐ Other: _______________
+
+3) **Expected Activity Profile (estimated):**  
+   - Expected initial amount: $____________  
+   - Expected monthly activity: $____________  
+   - Expected transaction frequency: ☐ Low ☐ Medium ☐ High
+
+4) **Prohibited Funding.** Investor will not provide cash, anonymous instruments, or other high-risk instruments where prohibited by policy; Investor understands JACE and/or its partners may restrict certain payment rails.
+
+---
+
+## D. Entity Investors — Beneficial Ownership & Control (if applicable)
+If Investor is an entity, Investor certifies that it has provided accurate beneficial ownership and control information as requested and will update it upon change. U.S. beneficial ownership procedures are addressed for covered financial institutions under regulations such as 31 C.F.R. § 1010.230 (as applicable).  
+
+- **Beneficial Owner(s) & Control Person(s) Provided?** ☐ Yes ☐ Not Applicable  
+- **If no, explain:** _______________________________________________
+
+---
+
+## E. Consent to Verification, Monitoring, and Recordkeeping
+Investor acknowledges and agrees:
+
+1) **Identity Verification / CIP.** JACE may request and verify identification information and documentation, including through third-party service providers, and may use documentary and non-documentary methods. (CIP obligations for certain regulated entities are set out in regulations such as 31 C.F.R. § 1023.220 for broker-dealers, as applicable.)  
+
+2) **Ongoing Monitoring.** JACE may monitor account activity and behavior signals for risk, compliance, fraud, and security purposes, and may request additional information at any time.  
+
+3) **Restrictions / Holds / Termination.** JACE may (as permitted by law and policy) restrict, hold, decline, or terminate onboarding or transactions if compliance risk is identified or information cannot be verified.  
+
+4) **SAR Confidentiality.** Investor understands that suspicious activity reporting regimes may restrict disclosure of SARs or related filings where applicable.  
+
+---
+
+## F. Notices, No Legal/Tax Advice, and Disclosures
+- **No Legal/Tax Advice.** JACE does not provide legal or tax advice. Investor should consult their own advisors.  
+- **Program Alignment.** This Certification supports compliance expectations under U.S. AML frameworks (Bank Secrecy Act concepts; 31 U.S.C. § 5318 and implementing regulations).  
+
+---
+
+## G. Electronic Signature & Certification
+By selecting “I Agree” / signing electronically, Investor certifies under penalty of perjury that the statements above are true and correct and authorizes JACE to rely on this Certification.
+
+**Investor Signature (e-sign):** _______________________________  
+**Printed Name:** ____________________________________________  
+**Title (if entity):** __________________________________________  
+**Date/Time (auto-captured):** _________________________________  
+**IP / Device / Audit ID (auto-captured):** ______________________
+
+
+
+Key legal anchors referenced: BSA/AML program duty (31 U.S.C. § 5318) ; OFAC compliance program guidance ; beneficial ownership procedures (31 C.F.R. § 1010.230) ; broker-dealer CIP example (31 C.F.R. § 1023.220) .
+
+2) “Bank-Style” Companion Document: Investor CIP/KYC Disclosure + Privacy Notice + Information Sharing Consent
+# JACE Management, LLC — Investor CIP/KYC Disclosure, Privacy Notice & Information-Sharing Consent
+**Version:** 1.0 (Rev. 01/27/2026)  
+**Entity:** JACE Management, LLC (“JACE”) — Colorado (USA)  
+**Contact:** jacemgmt@gmail.com | 970-710-9193  
+**Governing Law:** Colorado (and applicable U.S. federal law)
+
+## 1) Customer Identification / Verification (CIP-Style Notice)
+To help the government fight the funding of terrorism and money laundering, financial businesses and their service providers may obtain, verify, and record information that identifies each person who opens an account or uses certain services.
+
+### What we collect
+Depending on your relationship and products/services, we may collect:
+- Name, date of birth (individuals), and address
+- Identification number (e.g., SSN/TIN or EIN)
+- Government ID and/or other verification documents
+- For entities: beneficial ownership and control person information (as applicable)
+
+### What we do with it
+We may:
+- Verify identity using documents and/or third-party data sources
+- Request additional documentation
+- Screen against sanctions lists and monitor for fraud/security risk
+- Keep records as required by law, regulation, and internal policies
+
+(For context: CIP requirements for certain covered entities are addressed in rules such as 31 C.F.R. § 1023.220 for broker-dealers, as applicable.)
+
+## 2) Privacy Notice (GLBA-Style Concepts)
+JACE is committed to protecting the confidentiality and security of your nonpublic personal information. Federal privacy frameworks for financial institutions are addressed through GLBA/Regulation P style notices and, for securities firms, SEC Regulation S-P. (Model privacy forms exist in Appendix A to 16 C.F.R. Part 313; also see CFPB model privacy forms guidance.)
+
+### Information we collect
+- Identifiers and contact information
+- Financial and transactional information you provide or generate through platform use
+- Identity verification and compliance attributes (e.g., verification status, screening outcomes)
+- Device, log, and security information (for fraud prevention and security)
+
+### How we use information
+- Provide services and operate the platform
+- Verify identity and reduce fraud
+- Comply with legal obligations and enforce agreements
+- Security monitoring, audits, and troubleshooting
+- Communications about your account and the platform
+
+### How we share information
+We may share information:
+- With service providers that perform functions on our behalf (hosting, security, verification)
+- With financial institution partners as needed to provide services or support their compliance
+- When required by law, regulation, subpoena, or legal process
+- In connection with a corporate transaction (merger, acquisition, etc.), subject to safeguards
+
+### Your choices
+Depending on the jurisdiction and context, you may have rights to:
+- Access/correct certain information
+- Opt out of certain sharing/targeted advertising where required
+- Manage cookie/advertising preferences (see “Cookie Preferences”)
+
+## 3) Consent to Information Sharing and Verification
+By signing/accepting:
+- You authorize JACE to collect and verify your identity and compliance information.
+- You authorize JACE to share information with its service providers and financial partners strictly for service delivery, compliance, fraud prevention, and security.
+- You acknowledge that verification may include third-party database checks and document authentication.
+
+## 4) Electronic Signature
+**I acknowledge I have read and understand this Disclosure and Consent, and I agree.**
+
+**Investor Signature (e-sign):** _______________________________  
+**Printed Name:** ____________________________________________  
+**Title (if entity):** __________________________________________  
+**Date/Time (auto-captured):** _________________________________  
+**Audit ID (auto-captured):** _________________________________
+
+
+References: GLBA/Regulation P privacy notice resources ; FTC model privacy form (Appendix A to 16 C.F.R. Part 313) ; SEC privacy framework context (Regulation S-P) .
+
+3) Attachment: GLBA “Model Privacy Form–Style” Table (Short-Form)
+
+Use this as the quick-view table inside onboarding; keep the long-form Notice above as the authoritative record.
+
+# Privacy Short Form (GLBA Model Form–Style) — JACE Management, LLC
+**Questions?** jacemgmt@gmail.com | 970-710-9193  
+**Rev.** 01/27/2026
+
+## FACTS — What does JACE do with your personal information?
+**Why?** Financial businesses choose how they share your personal information. Federal law gives consumers the right to limit some but not all sharing.  
+**What?** The types of personal information we collect and share depend on the product or service you have with us. This information can include:
+- Social Security number / Taxpayer ID
+- Contact information
+- Transaction history and account activity
+- Identity verification information
+
+## Reasons we can share your personal information
+| Reasons we can share your personal information | Does JACE share? | Can you limit this sharing? |
+|---|---:|---:|
+| For our everyday business purposes (service delivery, security, fraud prevention, compliance) | Yes | No |
+| For our marketing purposes | No* | N/A |
+| For joint marketing with other financial companies | No* | N/A |
+| For our affiliates’ everyday business purposes | No* | N/A |
+| For our affiliates to market to you | No* | N/A |
+| For nonaffiliates to market to you | No* | N/A |
+
+\*JACE’s default is **not** to sell/share nonpublic personal information for cross-context behavioral advertising. If that changes, JACE will update this table and provide applicable opt-out mechanisms.
+
+## What we do
+- **How does JACE protect my personal information?** We use security measures designed to protect your information from unauthorized access and use.
+- **How does JACE collect my personal information?** From you (forms, uploads), from your transactions, and from third-party sources for verification and fraud prevention.
+- **Why can’t I limit all sharing?** Federal law allows some sharing that you cannot limit (e.g., for everyday business purposes, to comply with law).
+
+## Definitions
+- **Affiliates:** Companies related by common ownership or control.  
+- **Nonaffiliates:** Companies not related by common ownership or control.  
+- **Joint marketing:** A formal agreement between nonaffiliated financial companies that together market products/services to you.
+
+
+
+Reference for the “model form” concept: Appendix A to 16 C.F.R. Part 313 and CFPB model privacy form materials .
+
+4) Mail-Ready Two-Page Layout (PDF Rendering) — “Model Form–Style” (Closest match)
+
+Below is a fixed-layout version you can render to PDF. Keep the wording JACE-specific; the layout follows the federal model form structure (facts box + sharing table + definitions).
+
+======================================================================
+PRIVACY NOTICE                                                     Rev. 01/27/2026
+JACE Management, LLC (Colorado) | jacemgmt@gmail.com | 970-710-9193
+======================================================================
+
+FACTS: WHAT DOES JACE DO WITH YOUR PERSONAL INFORMATION?
+
+Why?
+Financial businesses choose how they share your personal information. Federal law gives
+consumers the right to limit some but not all sharing. Federal law also requires us to tell
+you how we collect, share, and protect your personal information.
+
+What?
+The types of personal information we collect and share depend on the product or service
+you have with us. This information can include:
+  • Social Security number / Taxpayer ID
+  • Contact information and identifiers
+  • Transaction history and account activity
+  • Identity verification information and compliance attributes
+
+How?
+All financial businesses need to share customers’ personal information to run their everyday
+business. In the section below, we list the reasons financial businesses can share their
+customers’ personal information; the reasons JACE chooses to share; and whether you can
+limit this sharing.
+
+----------------------------------------------------------------------
+REASONS WE CAN SHARE YOUR PERSONAL INFORMATION     DOES JACE SHARE?   CAN YOU LIMIT?
+----------------------------------------------------------------------
+For our everyday business purposes—
+  such as to provide services, manage security,
+  prevent fraud, and comply with law                 YES              NO
+
+For our marketing purposes                            NO*              N/A
+For joint marketing with other financial companies    NO*              N/A
+For our affiliates’ everyday business purposes        NO*              N/A
+For our affiliates to market to you                   NO*              N/A
+For nonaffiliates to market to you                    NO*              N/A
+----------------------------------------------------------------------
+*JACE’s default is not to sell/share nonpublic personal information for
+ cross-context behavioral advertising. If that changes, we will update this
+ notice and provide applicable opt-out mechanisms.
+
+Questions?
+Email: jacemgmt@gmail.com | Phone: 970-710-9193
+Mail: [INSERT JACE MAILING ADDRESS]
+
+------------------------------  PAGE 1 OF 2  ---------------------------
+
+
+======================================================================
+PAGE 2 OF 2 — IMPORTANT DETAILS
+======================================================================
+
+WHAT WE DO
+How does JACE protect my personal information?
+We maintain safeguards designed to protect your personal information from unauthorized
+access and use. These safeguards include administrative, technical, and physical measures.
+
+How does JACE collect my personal information?
+We collect personal information:
+  • From you when you provide it via forms, uploads, or communications
+  • From your transactions and usage of the platform
+  • From third parties to verify identity, prevent fraud, and improve security
+
+WHY CAN’T I LIMIT ALL SHARING?
+Federal law allows certain sharing that you cannot limit, such as sharing for everyday
+business purposes, to comply with law, and for fraud/security purposes.
+
+DEFINITIONS
+Affiliates
+Companies related by common ownership or control. They can be financial and nonfinancial
+companies.
+  • JACE does not currently share with affiliates for marketing.
+
+Nonaffiliates
+Companies not related by common ownership or control. They can be financial and
+nonfinancial companies.
+  • JACE does not currently share for nonaffiliates to market to you.
+
+Joint marketing
+A formal agreement between nonaffiliated financial companies that together market to you.
+  • JACE does not currently jointly market.
+
+OTHER IMPORTANT INFORMATION
+This notice applies to persons in the United States only (unless otherwise stated).
+If you have questions about privacy, contact JACE at jacemgmt@gmail.com.
+
+======================================================================
+
+Public Website Footer Links + Pages (Fidelity-style link set)
+
+Fidelity’s footer pattern includes the same link names you listed (Terms of Use, Privacy, Security, Site Map, Accessibility, Contact Us, Share Your Screen, Disclosures, Manage My Targeting/Advertising Cookies) and the “US only” note.
+Use that set for JACE public pages.
+
+Footer link list (drop-in snippet for Next.js)
+// apps/web/src/components/LegalFooter.tsx
+import Link from "next/link";
+
+export function LegalFooter() {
+  const items = [
+    { href: "/terms", label: "Terms of Use" },
+    { href: "/privacy", label: "Privacy" },
+    { href: "/security", label: "Security" },
+    { href: "/sitemap", label: "Site Map" },
+    { href: "/accessibility", label: "Accessibility" },
+    { href: "/contact", label: "Contact Us", newWindow: true },
+    { href: "/share-your-screen", label: "Share Your Screen" },
+    { href: "/disclosures", label: "Disclosures", newWindow: true },
+    { href: "/cookie-preferences", label: "Manage My Targeting/Advertising Cookies", newWindow: true },
+
+    // Optional privacy-rights links
+    { href: "/do-not-sell", label: "Do Not Sell My Personal Information" },
+    { href: "/do-not-share", label: "Do Not Share My Personal Information" },
+
+    // “Requirements” meta page you requested
+    { href: "/compliance-requirements", label: "Compliance Requirements" },
+  ];
+
+  return (
+    <footer className="text-xs py-6 border-t">
+      <nav className="flex flex-wrap gap-x-4 gap-y-2">
+        {items.map((i) =>
+          i.newWindow ? (
+            <a key={i.href} href={i.href} target="_blank" rel="noopener noreferrer" className="underline">
+              {i.label} <span className="sr-only">(Opens in a new window)</span>
+            </a>
+          ) : (
+            <Link key={i.href} href={i.href} className="underline">
+              {i.label}
+            </Link>
+          )
+        )}
+      </nav>
+
+      <div className="mt-3 opacity-70">
+        This is for persons in the US only.
+      </div>
+    </footer>
+  );
+}
+
+Public Page Content (copy/paste into your Next.js pages)
+
+Below are ready-to-paste markdown bodies. You can render them with your standard “LegalPage” component.
+
+/terms — Terms of Use (JACE)
+# Terms of Use — JACE Management, LLC
+**Effective:** 01/27/2026  
+**Contact:** jacemgmt@gmail.com | 970-710-9193  
+**Governing Law:** Colorado
+
+## 1. Acceptance
+By accessing or using JACE websites, portals, or applications (“Services”), you agree to these Terms.
+
+## 2. No Financial, Legal, or Tax Advice
+JACE provides software, workflow tooling, and recordkeeping. Nothing in the Services is financial, legal, or tax advice.
+
+## 3. Account Security
+You are responsible for maintaining the confidentiality of your credentials and for all activity under your account.
+
+## 4. Permitted Use
+You may use the Services only for lawful purposes and in compliance with all applicable laws and regulations.
+
+## 5. Prohibited Use
+You agree not to:
+- attempt unauthorized access, scraping, or reverse engineering
+- introduce malware or abuse rate limits
+- misuse compliance or identity features
+
+## 6. Content & IP
+JACE and its licensors own the Services and all related IP. You may not copy, modify, distribute, or create derivative works except as permitted.
+
+## 7. Privacy
+Your use is also governed by the JACE Privacy Policy and notices.
+
+## 8. Disclaimers
+Services are provided “as is” and “as available,” subject to applicable law.
+
+## 9. Limitation of Liability
+To the maximum extent permitted by law, JACE is not liable for indirect or consequential damages.
+
+## 10. Changes
+We may update these Terms. Material changes will be posted with a revised effective date.
+
+## 11. Contact
+Email: jacemgmt@gmail.com | Phone: 970-710-9193
+
+/privacy — Privacy Policy (JACE)
+# Privacy Policy — JACE Management, LLC
+**Effective:** 01/27/2026  
+**Contact:** jacemgmt@gmail.com | 970-710-9193  
+**Scope:** U.S. only unless otherwise stated.
+
+## What we collect
+- Identifiers and contact info you provide
+- Identity verification data (where requested)
+- Transactional and audit records created by your use
+- Device, log, and security telemetry
+
+## How we use information
+- Provide and secure the Services
+- Verify identity and prevent fraud
+- Compliance, audits, and recordkeeping
+- Customer support and service communications
+
+## How we share
+- Service providers (hosting, security, verification) under contract
+- Financial partners as required to deliver services and support compliance
+- Legal/Regulatory disclosures where required
+
+## Retention
+We retain records as necessary for operations, compliance, dispute resolution, and security.
+
+## Your choices
+- Cookie and advertising controls: see “Manage My Targeting/Advertising Cookies”
+- California rights (if applicable): see Do Not Sell / Do Not Share pages
+
+## Contact
+jacemgmt@gmail.com | 970-710-9193
+
+/security — Security Statement (JACE)
+
+(Modeled after how major financial firms describe safeguards, without making promises you can’t prove.)
+
+# Security — JACE Management, LLC
+**Effective:** 01/27/2026  
+We use safeguards designed to protect information against unauthorized access and misuse, including:
+- access controls and role-based permissions
+- encryption in transit (and where appropriate, at rest)
+- audit logging and monitoring
+- incident response processes
+
+If you suspect unauthorized activity, contact us immediately:
+**jacemgmt@gmail.com** | **970-710-9193**
+
+/sitemap — Site Map
+# Site Map — JACE Management, LLC
+- Terms of Use
+- Privacy
+- Security
+- Accessibility
+- Contact Us
+- Share Your Screen
+- Disclosures
+- Manage My Targeting/Advertising Cookies
+- Compliance Requirements
+- Do Not Sell My Personal Information
+- Do Not Share My Personal Information
+
+/accessibility — Accessibility Statement (ADA/WCAG)
+# Accessibility Statement — JACE Management, LLC
+**Effective:** 01/27/2026  
+JACE aims to provide an accessible experience and works toward compatibility with widely recognized accessibility standards (e.g., WCAG). WCAG is maintained by W3C. :contentReference[oaicite:11]{index=11}
+
+If you need an accommodation or encounter an accessibility barrier, contact:
+**jacemgmt@gmail.com** | **970-710-9193**
+
+/contact — Contact Us (opens in new window)
+# Contact Us — JACE Management, LLC
+Email: **jacemgmt@gmail.com**  
+Phone: **970-710-9193**  
+Mailing Address: **[INSERT JACE MAILING ADDRESS]**
+Hours: **[INSERT BUSINESS HOURS]**
+
+/share-your-screen — Share Your Screen Disclosure (co-browse style)
+# Share Your Screen — Disclosure
+Screen sharing / co-browsing is an optional support feature that may allow a JACE representative (or authorized support agent) to view what you see in your browser to help you navigate the Services.
+
+## Your control
+- You must initiate the session.
+- You can stop sharing at any time.
+- Do not share passwords or verification codes.
+
+## Privacy & security
+We use this feature for customer support and troubleshooting. Avoid displaying unrelated sensitive information while sharing.
+
+/disclosures — Disclosures (opens in new window)
+# Disclosures — JACE Management, LLC
+This page contains platform and compliance disclosures that may apply depending on your usage, including:
+- Recordkeeping and audit trail disclosures
+- Compliance and verification disclosures
+- Third-party service provider disclosures
+- Communications disclosures
+
+For questions: jacemgmt@gmail.com | 970-710-9193
+
+/cookie-preferences — Manage My Targeting/Advertising Cookies (opens in new window)
+# Manage My Targeting/Advertising Cookies
+Use this page to manage cookie preferences, including targeting/advertising cookies.
+
+## Options
+- Accept all cookies (where permitted)
+- Reject non-essential cookies (where required)
+- Manage preferences by category (Required, Analytics, Functional, Advertising)
+
+If you are in a jurisdiction that requires opt-in consent for non-essential cookies, we will request your consent before placing them.
+
+
+Cookie consent legal anchor (EU/UK-style): consent/clear info and refusal for non-essential storage/access technologies (ePrivacy concepts); ICO guidance states you must explain cookies and get consent, with exceptions for essential cookies.
+
+Separate “Compliance Requirements” Page (the one you explicitly requested)
+/compliance-requirements (single page link with all requirements)
+# Compliance Requirements — JACE Management, LLC
+**Effective:** 01/27/2026  
+**Scope:** This page is informational and describes common compliance requirements that may apply to JACE depending on where users are located and how the Services are used. It is not legal advice.
+
+---
+
+## 1) Data Privacy & Collection Requirements (GDPR, CCPA/CPRA, Colorado, etc.)
+### United States (financial privacy / GLBA concepts)
+Financial privacy notice frameworks exist under GLBA/Regulation P style requirements and, for certain securities firms, SEC Regulation S-P. :contentReference[oaicite:13]{index=13}
+
+### California (CCPA/CPRA) — Opt-out link expectations
+If a business “sells” or “shares” personal information (as defined by CPRA), California regulations describe a “Do Not Sell or Share My Personal Information” link and how it should operate/appear (e.g., conspicuous link in header/footer; or alternatives when processing opt-out signals frictionlessly). :contentReference[oaicite:14]{index=14}
+
+### Colorado (Colorado Privacy Act) — Universal Opt-Out Mechanism (UOOM)
+Colorado rules describe a Universal Opt-Out Mechanism enabling consumers to opt out of targeted advertising and/or sale of personal data via a user-selected mechanism, with a public list maintained by the Colorado Department of Law. :contentReference[oaicite:15]{index=15}
+
+### EU/UK (GDPR / ePrivacy — if you ever allow non-US access)
+- Consent withdrawal should be as easy as giving consent (GDPR consent principles). :contentReference[oaicite:16]{index=16}
+- Cookies and similar technologies generally require clear information and consent unless strictly necessary (ePrivacy/PECR-style). :contentReference[oaicite:17]{index=17}
+
+---
+
+## 2) Cookie Requirements (GDPR, ePrivacy, etc.) + Cookie Consent Solution
+### Requirements (high-level)
+- Explain cookie purposes clearly and obtain consent for non-essential cookies where required (e.g., EU/UK). :contentReference[oaicite:18]{index=18}
+- Provide an exception pathway for strictly necessary cookies (e.g., security, cart/session). :contentReference[oaicite:19]{index=19}
+
+### Cookie Consent Solution (implementation expectations)
+JACE should implement:
+- a cookie banner that supports opt-in for non-essential cookies in opt-in jurisdictions
+- a preference center with categories (Required / Analytics / Functional / Advertising)
+- consent logs (timestamp, region, categories, version)
+- the ability to change preferences later (withdraw consent) :contentReference[oaicite:20]{index=20}
+
+---
+
+## 3) Data Security Requirements
+Security expectations vary by context. For securities firms and related entities, privacy and safeguarding rules under Regulation S-P have been modernized and include safeguarding/incident response expectations. :contentReference[oaicite:21]{index=21}
+
+JACE should maintain:
+- role-based access controls, least privilege
+- audit logs for investor onboarding and document access
+- encryption in transit and appropriate encryption at rest
+- incident response process and vendor risk management
+
+---
+
+## 4) Accessibility Requirements (ADA, WCAG)
+JACE should aim to meet recognized accessibility guidelines such as WCAG (W3C). :contentReference[oaicite:22]{index=22}  
+Provide an accessibility contact channel and a remediation process.
+
+---
+
+## 5) Ecommerce Security
+If JACE processes payment cards, PCI DSS requirements apply to protect cardholder data. Prefer using a hosted payment page/provider so JACE does not store card data. :contentReference[oaicite:23]{index=23}
+
+---
+
+## 6) Copyright & Plagiarism Requirements
+Copyright protects original works once fixed in a tangible medium (including software/content). :contentReference[oaicite:24]{index=24}  
+Do not copy third-party content without permission or a valid license.
+
+---
+
+## 7) Content Licensing & Attribution
+If you use Creative Commons or similar licenses, follow attribution requirements and avoid implying endorsement. :contentReference[oaicite:25]{index=25}
+
+---
+
+## 8) Anti-Spam Laws (Email/SMS)
+### Email (CAN-SPAM)
+Commercial email must avoid deceptive headers/subjects and include opt-out and a valid physical postal address (and honor opt-outs). :contentReference[oaicite:26]{index=26}
+
+### Telemarketing / DNC (if applicable)
+Telemarketing rules and Do Not Call requirements may apply depending on outreach methods. :contentReference[oaicite:27]{index=27}
+
+---
+
+## 9) Disclaimers
+Common disclaimers include:
+- informational purposes only (no legal/tax/investment advice)
+- no responsibility for third-party content/links
+- no guarantee of outcomes
+- user responsibility for compliance with their own obligations
+
+“Do Not Sell” and “Do Not Share” Pages (separate links you requested)
+
+Important note: California regulations commonly use the combined label “Do Not Sell or Share My Personal Information” and describe where/how it should appear.
+You asked for separate links—so you can keep both, but you may also want a combined option or a shared preference center behind both.
+
+/do-not-sell
+# Do Not Sell My Personal Information — JACE Management, LLC
+If you are a California resident and JACE “sells” personal information as defined by applicable law, you may opt out.
+
+## Submit your request
+Email: jacemgmt@gmail.com  
+Phone: 970-710-9193  
+Or use the in-app privacy request form: [INSERT LINK/FORM]
+
+We will process requests consistent with applicable requirements, and we may need to verify your identity to protect your information.
+
+/do-not-share
+# Do Not Share My Personal Information — JACE Management, LLC
+If you are a California resident and JACE “shares” personal information for cross-context behavioral advertising as defined by applicable law, you may opt out.
+
+## Submit your request
+Email: jacemgmt@gmail.com  
+Phone: 970-710-9193  
+Or use the in-app privacy request form: [INSERT LINK/FORM]
+
+We may also honor opt-out preference signals where required/implemented.
+
+How these become “signed onboarding documents” and stored per-investor in JACE
+
+Implementation-wise in JACE onboarding:
+
+Present Doc 1 (AML Certification) + Doc 2 (CIP/KYC Disclosure + Privacy + Consent) with:
+
+checkbox acknowledgements
+
+typed name e-sign
+
+timestamp + IP + user agent
+
+immutable PDF snapshot stored to the investor’s document vault
+
+Save:
+
+document_type, version, hash, signed_at, signer_user_id, investor_id, tenant_id
+
+Permissions:
+
+Admin + authorized users can view/download (RBAC-gated)
+
+Investor can view their own signed copies

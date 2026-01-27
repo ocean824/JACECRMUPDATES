@@ -1,0 +1,618 @@
+drop-in Postgres schema (DB fields) and an exact Next.js onboarding UI step (AntD modal + scroll-to-end + “I agree” gating) plus the API route that generates a PDF and stores it as an investor document.
+
+1) DB fields (Postgres) — investor signed documents + audit
+A) investor_documents (the signed PDF record)
+-- Investor document vault (authoritative copies)
+create table if not exists investor_documents (
+  id uuid primary key default gen_random_uuid(),
+
+  tenant_id uuid not null,
+  investor_id uuid not null,
+
+  document_type text not null, -- e.g., 'AML_CERTIFICATION' | 'CIP_KYC_PRIVACY_CONSENT' | 'PRIVACY_SHORTFORM'
+  version text not null,       -- e.g., '1.0'
+  title text not null,         -- display name
+
+  status text not null default 'SIGNED', -- DRAFT | SIGNED | VOID
+
+  file_key text not null,      -- storage key/path (S3 key or local path)
+  file_mime text not null default 'application/pdf',
+  file_size_bytes bigint not null,
+  sha256_hex text not null,    -- integrity hash
+
+  signer_name text not null,
+  signer_email text null,
+  signer_title text null,
+
+  signature_method text not null default 'TYPED', -- TYPED | DRAWN
+  signature_value text null,   -- typed name OR reference to signature image key
+
+  consent_snapshot jsonb not null default '{}'::jsonb, -- checkbox states, privacy tier, etc.
+  metadata jsonb not null default '{}'::jsonb,         -- anything extra
+
+  signed_at timestamptz not null default now(),
+  created_at timestamptz not null default now(),
+
+  signed_ip inet null,
+  signed_user_agent text null,
+  signed_session_id text null,
+
+  created_by_user_id uuid null, -- internal user who assisted (if any)
+  signer_user_id uuid null       -- if investor has an auth user id
+);
+
+create index if not exists idx_investor_documents_investor
+  on investor_documents (tenant_id, investor_id, document_type, signed_at desc);
+
+create index if not exists idx_investor_documents_sha
+  on investor_documents (sha256_hex);
+
+B) audit_events (who viewed/signed/downloaded)
+create table if not exists audit_events (
+  id uuid primary key default gen_random_uuid(),
+  tenant_id uuid not null,
+
+  actor_user_id uuid null,
+  actor_role text null,
+
+  action text not null, -- 'DOC_SIGNED' | 'DOC_VIEWED' | 'DOC_DOWNLOADED' | 'DOC_CREATED'
+  entity_type text not null default 'INVESTOR_DOCUMENT',
+  entity_id uuid not null,
+
+  ip inet null,
+  user_agent text null,
+
+  details jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_audit_events_entity
+  on audit_events (tenant_id, entity_type, entity_id, created_at desc);
+
+C) Optional: link latest signed docs on investors
+alter table investors
+  add column if not exists aml_cert_document_id uuid null,
+  add column if not exists cip_privacy_document_id uuid null;
+
+2) Storage expectation (local or S3)
+
+Local (fastest to implement in Replit): store PDFs under ./uploads/investors/{investorId}/...pdf and set file_key to that path.
+
+S3-compatible later: keep file_key as an object key; swap storage adapter.
+
+3) Next.js onboarding UI step (AntD Modal + scroll gating)
+apps/web/src/components/onboarding/LegalDocSignStep.tsx
+"use client";
+
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Modal, Button, Checkbox, Input, Typography, Alert, Space, Segmented } from "antd";
+
+const { Title, Paragraph, Text } = Typography;
+
+type DocumentType = "AML_CERTIFICATION" | "CIP_KYC_PRIVACY_CONSENT" | "PRIVACY_SHORTFORM";
+
+type Props = {
+  tenantId: string;
+  investorId: string;
+  investorEmail?: string;
+  open: boolean;
+  onClose: () => void;
+  onSigned: (doc: { documentId: string; documentType: DocumentType }) => void;
+};
+
+export function LegalDocSignStep(props: Props) {
+  const [docType, setDocType] = useState<DocumentType>("AML_CERTIFICATION");
+  const [loading, setLoading] = useState(false);
+
+  const [hasScrolledToEnd, setHasScrolledToEnd] = useState(false);
+  const [agreeChecked, setAgreeChecked] = useState(false);
+  const [typedName, setTypedName] = useState("");
+  const [privacyTier, setPrivacyTier] = useState<"REQUIRED_ONLY" | "PRODUCT_COMMS" | "MARKETING_PLUS">("REQUIRED_ONLY");
+
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+
+  // Reset gating when doc changes or modal opens
+  useEffect(() => {
+    setHasScrolledToEnd(false);
+    setAgreeChecked(false);
+    setTypedName("");
+  }, [docType, props.open]);
+
+  const docTitle = useMemo(() => {
+    if (docType === "AML_CERTIFICATION") return "AML / Sanctions / Source-of-Funds Certification";
+    if (docType === "CIP_KYC_PRIVACY_CONSENT") return "CIP/KYC Disclosure + Privacy Notice + Information Sharing Consent";
+    return "Privacy Notice (Short Form)";
+  }, [docType]);
+
+  const docBody = useMemo(() => {
+    // In production: fetch from /api/legal/text?docType=... or import from a versioned file in /legal/
+    // Keep it versioned so “what they signed” is stable.
+    if (docType === "AML_CERTIFICATION") {
+      return `
+JACE Management, LLC (Colorado) — AML / Sanctions / Source-of-Funds Certification (v1.0)
+
+By signing, I certify:
+• I am not a sanctioned person and am not acting on behalf of a sanctioned person.
+• Funds are from lawful sources and not related to money laundering/terrorist financing.
+• Information provided is true/complete; I will update changes.
+• JACE may perform verification, screening, and monitoring and may restrict/terminate services for compliance risk.
+
+Contact: jacemgmt@gmail.com | 970-710-9193
+Governing Law: Colorado
+      `.trim();
+    }
+    if (docType === "CIP_KYC_PRIVACY_CONSENT") {
+      return `
+JACE Management, LLC (Colorado) — CIP/KYC Disclosure + Privacy + Information Sharing Consent (v1.0)
+
+• JACE and/or partners may collect/verify identity and (if entity) beneficial ownership/control.
+• JACE may use third-party verification and sanctions screening.
+• JACE may share data with service providers/partners for processing, compliance, fraud prevention, and security.
+• You may manage cookie/advertising preferences and (where applicable) opt-out rights.
+      `.trim();
+    }
+    return `
+JACE Management, LLC — Privacy Notice (Short Form) (v1.0)
+
+• We collect identifiers, device/log data, and service usage information to operate securely.
+• We share with service providers/partners for service delivery and compliance.
+• Manage cookie preferences via “Manage My Targeting/Advertising Cookies”.
+      `.trim();
+  }, [docType]);
+
+  const onScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const thresholdPx = 6; // allow tiny rounding variance
+    const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - thresholdPx;
+    if (atBottom) setHasScrolledToEnd(true);
+  };
+
+  const canSubmit =
+    hasScrolledToEnd &&
+    agreeChecked &&
+    typedName.trim().length >= 3 &&
+    !loading;
+
+  async function sign() {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/onboarding/sign-investor-document", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          tenantId: props.tenantId,
+          investorId: props.investorId,
+          documentType: docType,
+          version: "1.0",
+          title: docTitle,
+          signerName: typedName.trim(),
+          signerEmail: props.investorEmail ?? null,
+          signatureMethod: "TYPED",
+          signatureValue: typedName.trim(),
+          consentSnapshot: {
+            agreed: agreeChecked,
+            scrolledToEnd: hasScrolledToEnd,
+            privacyTier: docType === "CIP_KYC_PRIVACY_CONSENT" ? privacyTier : null,
+          },
+        }),
+      });
+
+      if (!res.ok) {
+        const msg = await res.text();
+        throw new Error(msg || "Failed to sign document");
+      }
+
+      const data = (await res.json()) as { documentId: string; documentType: DocumentType };
+      props.onSigned(data);
+      props.onClose();
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Modal
+      open={props.open}
+      onCancel={props.onClose}
+      width={860}
+      footer={null}
+      title={<span>Investor Onboarding — Sign Required Document</span>}
+      destroyOnClose
+    >
+      <Space direction="vertical" style={{ width: "100%" }} size="large">
+        <Alert
+          type="info"
+          message="This step is required before the investor can go live."
+          description="Scroll to the end of the document, then confirm agreement and sign with your typed name."
+          showIcon
+        />
+
+        <div>
+          <Text strong>Choose Document</Text>
+          <div style={{ marginTop: 8 }}>
+            <Segmented
+              value={docType}
+              onChange={(v) => setDocType(v as DocumentType)}
+              options={[
+                { label: "AML", value: "AML_CERTIFICATION" },
+                { label: "CIP/KYC + Privacy", value: "CIP_KYC_PRIVACY_CONSENT" },
+                { label: "Privacy Short", value: "PRIVACY_SHORTFORM" },
+              ]}
+            />
+          </div>
+        </div>
+
+        {docType === "CIP_KYC_PRIVACY_CONSENT" && (
+          <div>
+            <Text strong>Information Sharing Preference</Text>
+            <div style={{ marginTop: 8 }}>
+              <Segmented
+                value={privacyTier}
+                onChange={(v) => setPrivacyTier(v as any)}
+                options={[
+                  { label: "Required Only", value: "REQUIRED_ONLY" },
+                  { label: "Product Comms", value: "PRODUCT_COMMS" },
+                  { label: "Marketing+", value: "MARKETING_PLUS" },
+                ]}
+              />
+            </div>
+            <Text type="secondary" style={{ display: "block", marginTop: 6 }}>
+              This preference is stored with the signed consent snapshot.
+            </Text>
+          </div>
+        )}
+
+        <div>
+          <Title level={4} style={{ marginBottom: 8 }}>{docTitle}</Title>
+
+          <div
+            ref={scrollRef}
+            onScroll={onScroll}
+            style={{
+              border: "1px solid #d9d9d9",
+              borderRadius: 8,
+              padding: 12,
+              height: 320,
+              overflow: "auto",
+              background: "#fff",
+              whiteSpace: "pre-wrap",
+            }}
+            aria-label="Scrollable legal document text"
+          >
+            {docBody}
+            <Paragraph style={{ marginTop: 12 }}>
+              <Text type="secondary">This is for persons in the US only.</Text>
+            </Paragraph>
+          </div>
+
+          <div style={{ marginTop: 10 }}>
+            <Text>
+              Scroll status:{" "}
+              {hasScrolledToEnd ? <Text type="success">Reached end ✓</Text> : <Text type="warning">Not at end</Text>}
+            </Text>
+          </div>
+        </div>
+
+        <div>
+          <Checkbox checked={agreeChecked} onChange={(e) => setAgreeChecked(e.target.checked)}>
+            I have read and agree to the document above.
+          </Checkbox>
+        </div>
+
+        <div>
+          <Text strong>Type your full legal name to sign</Text>
+          <Input
+            value={typedName}
+            onChange={(e) => setTypedName(e.target.value)}
+            placeholder="Full legal name"
+            style={{ marginTop: 8 }}
+          />
+          <Text type="secondary" style={{ display: "block", marginTop: 6 }}>
+            Your typed name will be embedded into the PDF, along with timestamp and audit metadata.
+          </Text>
+        </div>
+
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          <Button onClick={props.onClose}>Cancel</Button>
+          <Button type="primary" loading={loading} disabled={!canSubmit} onClick={sign}>
+            I Agree & Sign (Generate PDF)
+          </Button>
+        </div>
+      </Space>
+    </Modal>
+  );
+}
+
+4) API route (Next.js) — generate PDF + store + link to investor
+
+This route:
+
+validates payload
+
+generates PDF bytes
+
+hashes file (sha256)
+
+stores it (local uploads/…)
+
+inserts investor_documents
+
+writes audit_events
+
+returns { documentId, documentType }
+
+apps/web/src/app/api/onboarding/sign-investor-document/route.ts
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import crypto from "crypto";
+import path from "path";
+import fs from "fs/promises";
+import { Pool } from "pg";
+import { renderLegalPdf } from "@/lib/pdf/renderLegalPdf";
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL, // Postgres
+});
+
+const Body = z.object({
+  tenantId: z.string().uuid(),
+  investorId: z.string().uuid(),
+  documentType: z.enum(["AML_CERTIFICATION", "CIP_KYC_PRIVACY_CONSENT", "PRIVACY_SHORTFORM"]),
+  version: z.string().min(1),
+  title: z.string().min(3),
+
+  signerName: z.string().min(3),
+  signerEmail: z.string().email().nullable().optional(),
+  signerTitle: z.string().nullable().optional(),
+
+  signatureMethod: z.enum(["TYPED", "DRAWN"]).default("TYPED"),
+  signatureValue: z.string().nullable().optional(),
+
+  consentSnapshot: z.record(z.any()).default({}),
+  metadata: z.record(z.any()).default({}),
+});
+
+function getIp(req: NextRequest) {
+  const xff = req.headers.get("x-forwarded-for");
+  if (xff) return xff.split(",")[0].trim();
+  return req.headers.get("x-real-ip") || null;
+}
+
+export async function POST(req: NextRequest) {
+  const json = await req.json();
+  const body = Body.parse(json);
+
+  const ip = getIp(req);
+  const userAgent = req.headers.get("user-agent");
+  const sessionId = req.headers.get("x-jace-session-id") || null; // optional if you set it client-side
+
+  // 1) Generate PDF bytes
+  const pdfBytes = await renderLegalPdf({
+    companyName: "JACE Management, LLC",
+    companyState: "Colorado",
+    contactEmail: "jacemgmt@gmail.com",
+    contactPhone: "970-710-9193",
+    governingState: "Colorado",
+    ...body,
+    signedAtISO: new Date().toISOString(),
+    ip,
+    userAgent,
+    sessionId,
+  });
+
+  // 2) Hash
+  const sha256 = crypto.createHash("sha256").update(pdfBytes).digest("hex");
+
+  // 3) Store (local filesystem)
+  const dir = path.join(process.cwd(), "uploads", "investors", body.investorId);
+  await fs.mkdir(dir, { recursive: true });
+
+  const filename = `${body.documentType}_v${body.version}_${Date.now()}.pdf`;
+  const filePath = path.join(dir, filename);
+  await fs.writeFile(filePath, pdfBytes);
+
+  const fileKey = `uploads/investors/${body.investorId}/${filename}`;
+  const fileSize = pdfBytes.length;
+
+  // 4) Insert DB + audit
+  const client = await pool.connect();
+  try {
+    await client.query("begin");
+
+    const insertDoc = await client.query(
+      `
+      insert into investor_documents (
+        tenant_id, investor_id,
+        document_type, version, title,
+        status,
+        file_key, file_mime, file_size_bytes, sha256_hex,
+        signer_name, signer_email, signer_title,
+        signature_method, signature_value,
+        consent_snapshot, metadata,
+        signed_at, signed_ip, signed_user_agent, signed_session_id
+      ) values (
+        $1,$2,
+        $3,$4,$5,
+        'SIGNED',
+        $6,'application/pdf',$7,$8,
+        $9,$10,$11,
+        $12,$13,
+        $14::jsonb,$15::jsonb,
+        now(), $16::inet, $17, $18
+      )
+      returning id
+      `,
+      [
+        body.tenantId, body.investorId,
+        body.documentType, body.version, body.title,
+        fileKey, fileSize, sha256,
+        body.signerName, body.signerEmail ?? null, body.signerTitle ?? null,
+        body.signatureMethod, body.signatureValue ?? null,
+        JSON.stringify(body.consentSnapshot ?? {}),
+        JSON.stringify(body.metadata ?? {}),
+        ip,
+        userAgent,
+        sessionId,
+      ]
+    );
+
+    const documentId = insertDoc.rows[0].id as string;
+
+    await client.query(
+      `
+      insert into audit_events (
+        tenant_id, actor_user_id, actor_role,
+        action, entity_type, entity_id,
+        ip, user_agent, details
+      ) values (
+        $1, null, 'INVESTOR',
+        'DOC_SIGNED', 'INVESTOR_DOCUMENT', $2,
+        $3::inet, $4, $5::jsonb
+      )
+      `,
+      [
+        body.tenantId,
+        documentId,
+        ip,
+        userAgent,
+        JSON.stringify({
+          documentType: body.documentType,
+          version: body.version,
+          fileKey,
+          sha256,
+        }),
+      ]
+    );
+
+    // Optional: link latest doc on investors table (if you added columns)
+    if (body.documentType === "AML_CERTIFICATION") {
+      await client.query(
+        `update investors set aml_cert_document_id = $1 where id = $2 and tenant_id = $3`,
+        [documentId, body.investorId, body.tenantId]
+      );
+    }
+    if (body.documentType === "CIP_KYC_PRIVACY_CONSENT") {
+      await client.query(
+        `update investors set cip_privacy_document_id = $1 where id = $2 and tenant_id = $3`,
+        [documentId, body.investorId, body.tenantId]
+      );
+    }
+
+    await client.query("commit");
+    return NextResponse.json({ documentId, documentType: body.documentType }, { status: 200 });
+  } catch (e: any) {
+    await client.query("rollback");
+    return new NextResponse(e?.message ?? "Server error", { status: 500 });
+  } finally {
+    client.release();
+  }
+}
+
+5) PDF generator (server-side) using @react-pdf/renderer
+Install
+npm i @react-pdf/renderer
+
+apps/web/src/lib/pdf/renderLegalPdf.ts
+import React from "react";
+import { Document, Page, Text, View, StyleSheet, pdf } from "@react-pdf/renderer";
+
+type Args = {
+  companyName: string;
+  companyState: string;
+  contactEmail: string;
+  contactPhone: string;
+  governingState: string;
+
+  tenantId: string;
+  investorId: string;
+  documentType: string;
+  version: string;
+  title: string;
+
+  signerName: string;
+  signerEmail?: string | null;
+  signerTitle?: string | null;
+
+  signatureMethod: "TYPED" | "DRAWN";
+  signatureValue?: string | null;
+
+  consentSnapshot: Record<string, any>;
+  metadata?: Record<string, any>;
+
+  signedAtISO: string;
+  ip: string | null;
+  userAgent: string | null;
+  sessionId: string | null;
+};
+
+const styles = StyleSheet.create({
+  page: { padding: 28, fontSize: 11, fontFamily: "Helvetica" },
+  h1: { fontSize: 16, marginBottom: 8 },
+  h2: { fontSize: 12, marginTop: 12, marginBottom: 6 },
+  p: { marginBottom: 6, lineHeight: 1.35 },
+  box: { borderWidth: 1, borderColor: "#000", padding: 10, marginTop: 10 },
+  row: { flexDirection: "row", justifyContent: "space-between" },
+  label: { fontSize: 10, color: "#111" },
+  mono: { fontSize: 9 },
+});
+
+function LegalPdfTemplate(a: Args) {
+  return (
+    <Document>
+      <Page size="LETTER" style={styles.page}>
+        <Text style={styles.h1}>{a.title}</Text>
+        <Text style={styles.p}>
+          {a.companyName} ({a.companyState}) • Contact: {a.contactEmail} • {a.contactPhone}
+        </Text>
+        <Text style={styles.p}>Document Type: {a.documentType} • Version: {a.version}</Text>
+        <Text style={styles.p}>Governing Law: {a.governingState} • This is for persons in the US only.</Text>
+
+        <Text style={styles.h2}>Document Body</Text>
+        <Text style={styles.p}>
+          This PDF is an immutable record of the investor’s acceptance of the document displayed during onboarding.
+          The full text displayed in the onboarding modal should be stored/versioned by JACE (e.g., as legal markdown/html
+          per version) and reflected here if you choose to embed full text.
+        </Text>
+
+        <View style={styles.box}>
+          <Text style={styles.h2}>Signature</Text>
+          <Text style={styles.p}>Signer Name: {a.signerName}</Text>
+          {a.signerEmail ? <Text style={styles.p}>Signer Email: {a.signerEmail}</Text> : null}
+          {a.signerTitle ? <Text style={styles.p}>Title: {a.signerTitle}</Text> : null}
+          <Text style={styles.p}>Signature Method: {a.signatureMethod}</Text>
+          {a.signatureValue ? <Text style={styles.p}>Signature Value: {a.signatureValue}</Text> : null}
+
+          <Text style={styles.h2}>Audit Metadata</Text>
+          <Text style={styles.mono}>Signed At (ISO): {a.signedAtISO}</Text>
+          <Text style={styles.mono}>IP: {a.ip ?? "n/a"}</Text>
+          <Text style={styles.mono}>User Agent: {a.userAgent ?? "n/a"}</Text>
+          <Text style={styles.mono}>Session ID: {a.sessionId ?? "n/a"}</Text>
+          <Text style={styles.mono}>Tenant ID: {a.tenantId}</Text>
+          <Text style={styles.mono}>Investor ID: {a.investorId}</Text>
+          <Text style={styles.mono}>Consent Snapshot: {JSON.stringify(a.consentSnapshot)}</Text>
+        </View>
+      </Page>
+    </Document>
+  );
+}
+
+export async function renderLegalPdf(args: Args): Promise<Buffer> {
+  const instance = pdf(<LegalPdfTemplate {...args} />);
+  const arr = await instance.toBuffer();
+  // arr is a Buffer in Node
+  return arr as Buffer;
+}
+
+
+If you want the PDF to contain the full legal text, replace the “Document Body” section with the full markdown/plaintext you rendered in the modal (versioned), and store that same text in metadata.legal_text or metadata.legal_text_hash.
+
+6) Where to store the PDF for download/view
+
+Keep file_key (e.g., uploads/investors/<id>/<filename>.pdf).
+
+Add a secure download route that checks RBAC (Admin/Staff vs investor self) and streams the file.
+
+Example (later): GET /api/documents/:id/download → validates role → streams file.
+
+If you tell me whether your investors table is Postgres or Mongo, I can adapt the “link latest doc on investor record” part to your exact model (Drizzle schema vs Mongoose) without changing the UI flow.
