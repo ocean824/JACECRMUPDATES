@@ -80,7 +80,7 @@ function setCorsHeaders(req: Request, res: Response) {
     res.setHeader("Access-Control-Allow-Origin", origin!);
     res.setHeader("Vary", "Origin");
     res.setHeader("Access-Control-Allow-Credentials", "true");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-API-KEY, X-Webhook-Signature, X-Webhook-Timestamp");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-API-KEY, X-Integration-Key, X-Webhook-Signature, X-Webhook-Timestamp");
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   }
 }
@@ -151,9 +151,11 @@ export function registerExternalOnboarding(app: Express) {
   const handleCreateOnboardingSession = async (req: Request, res: Response) => {
     setCorsHeaders(req, res);
     try {
-      const apiKey = req.header("x-api-key");
+      // Accept both X-API-KEY and X-Integration-Key headers for compatibility
+      const apiKey = req.header("x-api-key") || req.header("x-integration-key");
       const expected = envOrThrow("BONDAI_INTEGRATION_API_KEY");
       if (!apiKey || apiKey !== expected) {
+        console.error("BondAI handoff auth failed - received key:", apiKey?.substring(0, 10) + "...", "expected:", expected.substring(0, 10) + "...");
         return res.status(401).json({ message: "Unauthorized" });
       }
 
