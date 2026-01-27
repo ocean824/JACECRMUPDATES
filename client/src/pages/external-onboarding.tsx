@@ -960,7 +960,7 @@ export default function ExternalOnboardingPage() {
                   <Separator className="bg-white/10" />
 
                   <section className="space-y-6">
-                    <div className="flex items-center gap-2 text-lg font-medium">
+                    <div className="flex items-center gap-2 text-lg font-medium text-white">
                       <PenTool className="h-5 w-5" />
                       Electronic Signatures (Legally Binding)
                     </div>
