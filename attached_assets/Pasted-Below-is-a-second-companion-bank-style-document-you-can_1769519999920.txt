@@ -1,0 +1,199 @@
+Below is a second companion, “bank-style” document you can present during onboarding for e-signature and store in the investor’s document vault (Admin + authorized internal users). It includes:
+
+CIP/KYC disclosure + notice (why you collect/verify identity)
+
+Privacy Notice aligned to GLBA privacy notice concepts and implementing regulations where applicable (Regulation P / Regulation S-P)
+
+Information sharing consent + opt-out controls (structured so you can actually implement it)
+
+Electronic delivery consent for notices
+
+JACE CRM — INVESTOR CIP/KYC DISCLOSURE + PRIVACY NOTICE + INFORMATION SHARING CONSENT
+
+Document Type: CIP/KYC Disclosure + Privacy Notice + Information Sharing Consent
+Version: 1.0
+Effective Date: ____________
+Tenant/Workspace: __________________________
+JACE Investor ID: __________________________
+BondAI Investor Reference (if any): __________________________
+Onboarding Session ID: __________________________
+
+1) Who This Applies To
+
+This notice and consent applies to your investor onboarding and ongoing relationship with JACE, LLC (“JACE”) and any regulated financial, escrow, payment, settlement, identity verification, and compliance service providers used to support onboarding and transactions.
+
+Important: Some requirements described below apply directly to regulated financial institutions (e.g., banks, broker-dealers, certain financial services providers). JACE provides this document as a “bank-style” disclosure and consent to support compliance operations with JACE and its regulated partners.
+
+2) CIP/KYC DISCLOSURE (Identity Verification & Due Diligence)
+2.1 Why We Collect and Verify Identity
+
+To help prevent money laundering, terrorist financing, fraud, and sanctions violations, JACE and/or its regulated partners may need to obtain, verify, and record information that identifies each investor and, for entity investors, their beneficial owners and control persons.
+
+2.2 CIP NOTICE (USA PATRIOT ACT / BSA Style)
+
+Federal law may require financial institutions to obtain, verify, and record information that identifies each person who opens an account or establishes a covered relationship. When you onboard through JACE, we may request identifying information and verification documents, and we may verify your identity through documents and/or other sources.
+
+2.3 Information We May Collect (Examples)
+
+Individuals (Natural Persons):
+
+Full legal name, date of birth, residential address
+
+Government ID (e.g., driver’s license/passport), ID number, expiration date
+
+SSN/ITIN where applicable
+
+Contact information (phone/email)
+
+Entities (Legal Persons):
+
+Legal entity name, formation jurisdiction, registration/EIN, principal address
+
+Proof of existence (e.g., formation documents) and authority of signatory
+
+Beneficial ownership and control person information (as applicable)
+
+2.4 Verification Methods (Examples)
+
+Documentary (government ID, formation documents)
+
+Non-documentary (database checks, device/risk signals, address verification, watchlist screening)
+
+2.5 Ongoing Monitoring & Additional Requests
+
+You understand JACE may:
+
+Request additional information at any time,
+
+Delay, decline, restrict, or terminate onboarding/transactions if verification is incomplete or risk is unacceptable,
+
+Conduct ongoing monitoring as required/appropriate for compliance and risk management.
+
+3) PRIVACY NOTICE (Nonpublic Personal Information / NPI)
+3.1 What We Mean by “Nonpublic Personal Information”
+
+“Nonpublic personal information” generally includes information a consumer provides to obtain a financial product/service, information resulting from transactions, or information otherwise obtained about a consumer in connection with providing a financial product/service. (Concepts derived from GLBA and implementing regulations where applicable.)
+
+3.2 Categories of Information We Collect
+
+We may collect and store:
+
+Identity & profile data: name, address, DOB, IDs, tax identifiers (where applicable)
+
+Entity data: formation, ownership/control information (as applicable)
+
+Transaction & account data: bids, settlement activity, escrow movements, payment history, invoices, ledger entries
+
+Communications: messages, emails, support tickets, call logs (if enabled)
+
+Technical data: IP address, device identifiers, browser/user agent, authentication logs
+
+Compliance data: sanctions screening results, verification outcomes, risk scoring outputs
+
+3.3 How We Use Information
+
+We use information to:
+
+Onboard and verify investors (CIP/KYC), fraud prevention, sanctions screening
+
+Process transactions, escrow/settlements, invoicing, ledgering, reporting
+
+Provide customer support, audit trails, and platform security
+
+Meet legal/regulatory obligations and enforce policies
+
+3.4 How We Protect Information
+
+We maintain administrative, technical, and physical safeguards designed to protect the confidentiality and security of investor information, including role-based access controls, audit logging, encryption controls (where implemented), and least-privilege policies.
+
+3.5 Retention
+
+We retain records for business, legal, compliance, and audit purposes, and dispose of them in accordance with applicable retention schedules and contractual requirements with regulated partners.
+
+4) INFORMATION SHARING: WHAT WE SHARE AND WHY
+4.1 Information Sharing for Processing, Compliance, and Security
+
+We may share information with:
+
+Regulated escrow/payment/settlement partners (to execute transactions and compliance checks)
+
+Identity verification & KYC vendors (to verify identity/ownership/control)
+
+Sanctions/watchlist screening providers (OFAC-style screening support)
+
+Cloud hosting and security providers (to store and protect data)
+
+Auditors, counsel, and regulators/law enforcement when required or permitted by law
+
+Service providers performing services on our behalf under contract (support, analytics, notifications)
+
+This sharing is intended to support operational processing, compliance, fraud prevention, and platform security.
+
+4.2 Opt-Out / Preferences (Bank-Style Control)
+
+JACE Default: We do not sell your nonpublic personal information.
+
+You can choose the following preferences (select one):
+
+☐ A. Required Sharing Only (Recommended): You permit JACE to share your information with partners/providers only for onboarding, compliance, transaction processing, servicing, fraud prevention, security, audit, and legal requirements.
+
+☐ B. Plus Product Communications: Option A, plus you consent to receive product updates and onboarding help communications.
+
+☐ C. Plus Marketing (Optional): Option B, plus you consent to receive marketing communications and for JACE to share limited contact info with nonaffiliated partners for joint marketing only where permitted and disclosed.
+
+How to change preferences: You may adjust these preferences inside your JACE investor profile (or by contacting support) and changes will be logged.
+
+Note: Certain disclosures/sharing may be permitted or required under applicable privacy regulations’ exceptions for servicing/processing, fraud prevention, and legal compliance.
+
+5) ELECTRONIC DELIVERY CONSENT
+
+You agree JACE may provide required notices and disclosures electronically, and that electronic delivery satisfies notice delivery requirements where permitted. You may request paper copies where available.
+
+6) STATE LAW NOTICE (Florida)
+
+Where applicable, state privacy and financial crime laws may provide additional rights and obligations. For Florida residents and Florida operations, the Florida Digital Bill of Rights has provisions effective July 1, 2024 (scope depends on covered entities/thresholds).
+If JACE or a provider operates as a Florida money services business, Florida law includes AML-related obligations for those businesses.
+
+7) ACKNOWLEDGMENT & CONSENT (Required)
+
+By signing below, you acknowledge and agree:
+
+You received and reviewed this CIP/KYC Disclosure + Privacy Notice + Information Sharing Consent.
+
+You consent to JACE collecting, verifying, storing, and using your information as described.
+
+You authorize JACE to share your information with the parties described above consistent with your selected preference tier.
+
+You consent to electronic delivery of notices and records as described.
+
+SIGNATURE (Required)
+
+Investor / Authorized Signatory (print name): ______________________________________
+Title (if entity): _________________________________________________________________
+
+Signature (typed or drawn): ______________________________________________________
+Date: ____ / ____ / ______ Time: ____________ Time Zone: America/New_York
+
+Electronic Signature Audit (system-captured):
+
+IP Address: _______________________
+
+Device/User Agent: ______________________________
+
+Onboarding Session ID: __________________________
+
+JACE User ID (internal if assisted): __________________________
+
+JACE implementation mapping (so it’s easy to wire)
+
+Store as: Document Type = PRIVACY_CIP_KYC_NOTICE_CONSENT
+
+Required before: Investor “Go Live / Activate”
+
+Persist preferences as fields on investor:
+
+privacy_sharing_tier = REQUIRED_ONLY | PRODUCT_COMMS | MARKETING_PLUS
+
+electronic_delivery_consent = true/false
+
+Audit log events: document_signed, preference_changed, document_viewed
