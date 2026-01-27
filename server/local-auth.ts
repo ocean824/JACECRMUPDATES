@@ -360,6 +360,36 @@ export function setupLocalAuth(app: Express) {
 
       const { email, password } = result.data;
 
+      // Check for admin login via environment secrets first
+      const adminLogin = process.env.ADMIN_LOGIN;
+      const adminPassword = process.env.ADMIN_PASSWORD;
+      
+      if (adminLogin && adminPassword && email === adminLogin && password === adminPassword) {
+        // Admin login via secrets - create/update admin session
+        const adminId = "env-admin-001";
+        (req.session as any).userId = adminId;
+        (req.session as any).user = {
+          id: adminId,
+          email: adminLogin,
+          firstName: "JACE",
+          lastName: "Admin",
+          isAdmin: "true",
+        };
+
+        return req.session.save((err) => {
+          if (err) {
+            console.error("Session save error:", err);
+            return res.status(500).json({ message: "Login failed" });
+          }
+          res.json({
+            id: adminId,
+            email: adminLogin,
+            firstName: "JACE",
+            lastName: "Admin",
+          });
+        });
+      }
+
       const [user] = await db
         .select()
         .from(users)
