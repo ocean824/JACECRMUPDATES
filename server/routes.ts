@@ -5,6 +5,7 @@ import { getSession } from "./replit_integrations/auth";
 import { setupLocalAuth, isLocalAuthenticated } from "./local-auth";
 import { handleHelpChat } from "./help-assistant";
 import { registerExternalOnboarding } from "./external-onboarding";
+import { registerInvestorDocumentRoutes } from "./investor-documents";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -43,6 +44,9 @@ export async function registerRoutes(
 
   // Alias for middleware
   const isAuthenticated = isLocalAuthenticated;
+
+  // Investor Document Signing Routes
+  registerInvestorDocumentRoutes(app, isAuthenticated);
 
   // AI Help Assistant
   app.post("/api/help-chat", isAuthenticated, handleHelpChat);
