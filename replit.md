@@ -210,6 +210,36 @@ Preferred communication style: Simple, everyday language.
     - Relative timestamps
     - Entity type badges
 
+### Phase 4 Features (January 2026)
+1. **Compliance Onboarding System**: Full investor compliance workflow at `/compliance/:investorId`
+   - Database schema: compliance_documents, electronic_signatures, beneficial_owners, investor_compliance, compliance_audit_events tables
+   - 3-step wizard: AML/CTF Certification → Privacy/CIP/KYC Consent → Short-Form Privacy Notice
+   - Individual vs Entity investor forms with different field requirements
+   - Source of funds tracking with multi-select checkboxes
+   - Seven certification acknowledgments with checkbox validation
+   - Privacy sharing tier selection (REQUIRED_ONLY, PRODUCT_COMMS, MARKETING_PLUS)
+   - Electronic delivery consent option
+2. **Electronic Signature Component**: Reusable signature capture at `/components/electronic-signature.tsx`
+   - Full legal name input with cursive-style preview
+   - Optional signatory title (for entities)
+   - Real-time date/time display with timezone
+   - Captures IP address and user agent for audit trail
+   - SignatureData interface for API integration
+3. **Investor Compliance Status**: Compliance tab in investor detail page
+   - Status badges: Pending Compliance, Ready to Activate, Activated
+   - Document checklist showing AML, Privacy/CIP/KYC, Short-Form status
+   - "Start Compliance" or "View Compliance" navigation button
+   - Links directly to `/compliance/:investorId`
+4. **Investor Activation Gate**: Controlled investor activation workflow
+   - Requires AML certification + Privacy/CIP/KYC consent (short-form optional)
+   - Updates investor pipeline stage to "ready" upon activation
+   - Comprehensive audit logging for all compliance events
+   - API endpoint: POST `/api/compliance/activate/:investorId`
+5. **Compliance Audit Trail**: Full tracking of compliance activities
+   - Event types: document_viewed, document_signed, preference_changed, investor_activated
+   - Stores IP address, user agent, timestamps
+   - API endpoint: GET `/api/compliance/audit/:investorId`
+
 ### Design System
 - Professional blue primary color theme
 - Full dark mode support with proper contrast ratios
