@@ -1,0 +1,160 @@
+Below is a ready-to-use, investor-facing AML/CTF + Sanctions (OFAC) certification you can present during JACE onboarding for e-signature and store in the investor’s document vault (accessible to Admin + authorized internal users). It’s drafted to align with U.S. BSA/AML program expectations, CIP notice concepts, CDD/beneficial ownership for legal entities, and Florida MSB AML provisions (if applicable).
+(Designed to fit your JACE document storage + role access deliverables.) 
+
+JACE PROJECT INSTRUCTIONS
+
+JACE CRM — INVESTOR AML/CTF & SANCTIONS (OFAC) CERTIFICATION + CIP NOTICE
+
+Document Type: AML/CTF Investor Certification (Onboarding)
+Version: 1.0
+Effective Date: ____________
+Tenant/Workspace: __________________________
+JACE Investor ID: __________________________
+BondAI Investor Reference (if any): __________________________
+Related Onboarding Session ID: __________________________
+
+1) Purpose & Regulatory Context (Investor Notice)
+
+JACE, LLC (“JACE”) and/or its regulated financial, escrow, payment, and settlement partners maintain compliance measures designed to help detect and prevent money laundering, terrorist financing, and sanctions violations. JACE may be required to collect, verify, and record information that identifies each customer/investor, and to conduct risk-based monitoring of activity.
+
+2) CUSTOMER IDENTIFICATION PROGRAM (CIP) NOTICE (USA PATRIOT ACT / BSA)
+
+To help the government fight money laundering and terrorist financing, federal law requires financial institutions to obtain, verify, and record information that identifies each person who opens an account (or enters certain financial relationships).
+What this means for you: When you onboard through JACE, we may ask for your name, address, date of birth, and other information that will allow us to identify you, and we may also ask to see or obtain information from documents or other sources to verify your identity.
+
+3) Investor Type (select one)
+
+☐ Individual / Natural Person
+
+☐ Entity / Legal Person (LLC, corporation, partnership, trust, fund, etc.)
+
+SECTION A — INDIVIDUAL INVESTOR CERTIFICATION (Natural Person)
+A1) Investor Information
+
+Full Legal Name: __________________________________________
+Date of Birth: ____ / ____ / ______
+Residential Address: _______________________________________
+City __________________ State ______ ZIP __________ Country __________
+Government ID Type/Number: ________________________________
+SSN/ITIN (if applicable): _________________________________
+Phone: ______________________ Email: ______________________
+
+A2) AML/CTF & Sanctions Certifications (Initial each)
+
+By initialing below, I certify and agree:
+
+Accuracy & completeness. All information I provide to JACE (including through BondAI onboarding inputs synced into JACE) is true, correct, and complete to the best of my knowledge, and I will promptly update JACE if it changes. ____
+
+Lawful source of funds / wealth. Funds used in connection with investments, bids, escrow funding, settlements, fees, or other payments are derived from lawful activity, and not from proceeds of illegal activity. ____
+
+No money laundering / terrorist financing intent. I am not acting on behalf of, for the benefit of, or at the direction of any person or entity involved in money laundering or terrorist financing. ____
+
+Sanctions / OFAC. I am not a sanctioned person, and I am not located in, organized in, or ordinarily resident in a comprehensively sanctioned jurisdiction where transactions would be prohibited; and I understand JACE may screen me and my activity against sanctions lists and other risk signals. ____
+
+Consent to verification & monitoring. I authorize JACE (and its service providers/partners) to verify my identity and conduct due diligence, including obtaining information from third-party sources, and to conduct ongoing risk-based monitoring of the relationship and transactions. ____
+
+Requests for information; refusal/closure. I understand JACE may request additional information or documentation at any time, may delay or decline onboarding/transactions, and may restrict or terminate the relationship if information is insufficient or risk is unacceptable. ____
+
+Reporting to authorities. I understand JACE and/or its partners may be required to report certain transactions or suspicious activity to government authorities as permitted/required by law. ____
+
+A3) Source of Funds / Wealth (check all that apply)
+
+Primary Source of Funds:
+
+☐ Employment/Salary ☐ Business Income ☐ Investments ☐ Real Estate
+
+☐ Inheritance/Gift ☐ Savings ☐ Other: __________________________
+
+Primary Source of Wealth:
+
+☐ Employment ☐ Business Ownership ☐ Investments ☐ Real Estate
+
+☐ Inheritance/Gift ☐ Other: _________________________________
+
+SECTION B — ENTITY INVESTOR CERTIFICATION (Legal Person)
+B1) Entity Information
+
+Legal Entity Name: __________________________________________
+Entity Type: ☐ LLC ☐ Corp ☐ Partnership ☐ Trust ☐ Fund ☐ Other ________
+State/Country of Formation: _________________________________
+Registration Number (if any): _______________________________
+Principal Business Address: _________________________________
+City __________________ State ______ ZIP __________ Country __________
+Tax ID (EIN or foreign equivalent): __________________________
+Authorized Signatory Name/Title: ____________________________
+Signatory Email/Phone: _____________________________________
+
+B2) Beneficial Ownership / Control Person (CDD)
+
+Where required by applicable due diligence standards, the entity must provide information sufficient to identify and verify beneficial owners and a control person (or functional equivalent). JACE may require documentation supporting ownership and control.
+
+Beneficial Owners (if applicable)
+
+Provide each individual who (as applicable) owns a significant interest and/or exercises control.
+
+Full Legal Name	DOB	Address	Ownership %	Role/Control	Gov ID / Last4
+					
+					
+					
+Control Person (if applicable)
+
+Full Name: ___________________________ Title/Role: ___________________________
+DOB: ____ / ____ / ______ Address: ___________________________________________
+
+B3) Entity AML/CTF & Sanctions Certifications (Initial each)
+
+By initialing below, the authorized signatory certifies on behalf of the entity:
+
+Authority. I am authorized to sign and bind the entity. ____
+
+Accuracy. Information provided is true, correct, complete, and will be updated promptly. ____
+
+Lawful purpose & funds. The entity’s funds used with JACE are derived from lawful activity and not illegal proceeds. ____
+
+No prohibited parties. Neither the entity nor (to the best of my knowledge) its beneficial owners/control persons are sanctioned persons, acting for sanctioned persons, or using JACE to evade sanctions. ____
+
+Consent to verification & monitoring. The entity authorizes JACE (and its partners/providers) to verify identity, ownership/control, and to conduct ongoing due diligence and monitoring. ____
+
+Requests for information; refusal/closure. JACE may request additional information, delay/decline onboarding or transactions, or terminate the relationship if required information is not provided or risk is unacceptable. ____
+
+Reporting to authorities. JACE and/or its partners may report certain transactions or suspicious activity as permitted/required by law. ____
+
+SECTION C — FLORIDA STATE AML ACKNOWLEDGMENT (If Applicable)
+
+If JACE and/or an involved provider is operating under Florida money services business requirements, the parties may be required to comply with Florida AML-related provisions, including anti-money laundering requirements applicable to licensees and authorized vendors under Florida law.
+
+SECTION D — CONSENT, RECORDKEEPING, & ELECTRONIC SIGNATURE
+
+Electronic Records & Signatures. I consent to use electronic records and electronic signatures for this Certification and related onboarding documents.
+
+Record Retention. I understand this signed Certification will be retained in JACE as part of the investor record and may be shared with JACE’s regulated escrow/payment/settlement partners and service providers strictly for compliance, onboarding, and transaction processing purposes.
+
+Access Controls. I understand access to this document is restricted to authorized JACE personnel based on roles/permissions and audit logging.
+
+SIGNATURE (Required)
+
+Investor / Authorized Signatory (print name): ______________________________________
+Title (if entity): _________________________________________________________________
+
+Signature (typed or drawn): ______________________________________________________
+Date: ____ / ____ / ______ Time: ____________ Time Zone: ____________
+
+Electronic Signature Audit (system-captured):
+
+IP Address: _______________________
+
+Device/User Agent: ______________________________
+
+Onboarding Session ID: __________________________
+
+JACE User ID (internal if assisted): __________________________
+
+Implementation notes for JACE (so it works exactly how you described)
+
+Store as: Document Type = AML_CERTIFICATION, linked to investor_id, tenant_id, and onboarding session.
+
+Permissions: Admin (read/write), Accounting (read), Investor Relations (read) by default (you can widen to “all users” if you truly want it global).
+
+Audit log: record document_created, document_signed, document_viewed, document_downloaded events (who/when).
+
+Require signature before allowing “Go Live / Activate Investor” stage.
