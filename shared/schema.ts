@@ -115,6 +115,58 @@ export const investorOnboardingSubmissions = pgTable("investor_onboarding_submis
   payloadTag: varchar("payload_tag", { length: 64 }).notNull(),
 });
 
+// ============ INVESTOR DOCUMENT SIGNING ============
+
+// Document type enum for compliance documents
+export const investorDocTypeEnum = pgEnum("investor_doc_type", [
+  "AML_CERTIFICATION",
+  "CIP_KYC_PRIVACY_CONSENT",
+  "PRIVACY_SHORTFORM",
+]);
+
+// Document status enum
+export const investorDocStatusEnum = pgEnum("investor_doc_status", [
+  "DRAFT",
+  "SIGNED",
+  "VOID",
+]);
+
+// Signature method enum
+export const signatureMethodEnum = pgEnum("signature_method", [
+  "TYPED",
+  "DRAWN",
+]);
+
+// Investor Documents table (signed legal documents vault)
+export const investorDocuments = pgTable("investor_documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  investorId: varchar("investor_id").notNull(),
+  documentType: investorDocTypeEnum("document_type").notNull(),
+  version: varchar("version", { length: 20 }).notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  status: investorDocStatusEnum("status").default("SIGNED").notNull(),
+  fileKey: varchar("file_key", { length: 500 }).notNull(),
+  fileMime: varchar("file_mime", { length: 100 }).default("application/pdf").notNull(),
+  fileSizeBytes: integer("file_size_bytes").notNull(),
+  sha256Hex: varchar("sha256_hex", { length: 64 }).notNull(),
+  signerName: varchar("signer_name", { length: 255 }).notNull(),
+  signerEmail: varchar("signer_email", { length: 255 }),
+  signerTitle: varchar("signer_title", { length: 255 }),
+  signatureMethod: signatureMethodEnum("signature_method").default("TYPED").notNull(),
+  signatureValue: text("signature_value"),
+  consentSnapshot: text("consent_snapshot").default("{}").notNull(),
+  metadata: text("metadata").default("{}").notNull(),
+  signedAt: timestamp("signed_at", { withTimezone: true }).defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  signedIp: varchar("signed_ip", { length: 45 }),
+  signedUserAgent: text("signed_user_agent"),
+  signedSessionId: varchar("signed_session_id", { length: 128 }),
+  createdByUserId: varchar("created_by_user_id"),
+  signerUserId: varchar("signer_user_id"),
+});
+
+
 // Investors table (user-scoped with investor type segmentation)
 export const investors = pgTable("investors", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -250,6 +302,12 @@ export const insertInvestorOnboardingSubmissionSchema = createInsertSchema(inves
   submittedAt: true,
 });
 
+export const insertInvestorDocumentSchema = createInsertSchema(investorDocuments).omit({
+  id: true,
+  createdAt: true,
+  signedAt: true,
+});
+
 export const insertInvestorSchema = createInsertSchema(investors).omit({
   id: true,
   userId: true,
@@ -295,6 +353,13 @@ export type InsertExternalOnboardingSession = z.infer<typeof insertExternalOnboa
 
 export type InvestorOnboardingSubmission = typeof investorOnboardingSubmissions.$inferSelect;
 export type InsertInvestorOnboardingSubmission = z.infer<typeof insertInvestorOnboardingSubmissionSchema>;
+
+export type InvestorDocument = typeof investorDocuments.$inferSelect;
+export type InsertInvestorDocument = z.infer<typeof insertInvestorDocumentSchema>;
+
+export type InvestorDocType = "AML_CERTIFICATION" | "CIP_KYC_PRIVACY_CONSENT" | "PRIVACY_SHORTFORM";
+export type InvestorDocStatus = "DRAFT" | "SIGNED" | "VOID";
+export type SignatureMethod = "TYPED" | "DRAWN";
 
 export type Investor = typeof investors.$inferSelect;
 export type InsertInvestor = z.infer<typeof insertInvestorSchema>;
