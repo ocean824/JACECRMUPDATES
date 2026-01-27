@@ -16,6 +16,10 @@ import {
   MessageSquare,
   Settings,
   Clock,
+  Shield,
+  CheckCircle2,
+  AlertCircle,
+  ExternalLink,
 } from "lucide-react";
 import { ActivityTimeline } from "@/components/activity-timeline";
 import type { Investor, Communication, Document, CustomFieldValue, CustomField } from "@shared/schema";
@@ -357,6 +361,118 @@ function CustomFieldsTab({ investorId }: { investorId: string }) {
   );
 }
 
+interface ComplianceStatus {
+  investorId: string;
+  amlCertificationSigned: boolean;
+  privacyNoticeSigned: boolean;
+  shortFormPrivacySigned: boolean;
+  isActivated: boolean;
+}
+
+function ComplianceTab({ investorId }: { investorId: string }) {
+  const { data: complianceStatus, isLoading } = useQuery<ComplianceStatus>({
+    queryKey: ["/api/compliance/status", investorId],
+    enabled: !!investorId,
+  });
+
+  if (isLoading) {
+    return <Skeleton className="h-48 w-full" />;
+  }
+
+  const getStatusIcon = (signed: boolean) => {
+    return signed ? (
+      <CheckCircle2 className="h-5 w-5 text-green-600" />
+    ) : (
+      <AlertCircle className="h-5 w-5 text-muted-foreground" />
+    );
+  };
+
+  const documents = [
+    {
+      name: "AML/CTF & Sanctions Certification",
+      signed: complianceStatus?.amlCertificationSigned ?? false,
+      required: true,
+    },
+    {
+      name: "Privacy/CIP/KYC Notice Consent",
+      signed: complianceStatus?.privacyNoticeSigned ?? false,
+      required: true,
+    },
+    {
+      name: "Short-Form Privacy Notice",
+      signed: complianceStatus?.shortFormPrivacySigned ?? false,
+      required: false,
+    },
+  ];
+
+  const allRequiredSigned = documents.filter(d => d.required).every(d => d.signed);
+
+  return (
+    <Card data-testid="compliance-tab-content">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Shield className="h-5 w-5" />
+          Compliance Status
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {complianceStatus?.isActivated ? (
+              <Badge className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
+                <CheckCircle2 className="h-3 w-3 mr-1" />
+                Activated
+              </Badge>
+            ) : allRequiredSigned ? (
+              <Badge className="bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300">
+                <AlertCircle className="h-3 w-3 mr-1" />
+                Ready to Activate
+              </Badge>
+            ) : (
+              <Badge variant="outline">
+                <AlertCircle className="h-3 w-3 mr-1" />
+                Pending Compliance
+              </Badge>
+            )}
+          </div>
+          <Link href={`/compliance/${investorId}`}>
+            <Button data-testid="button-start-compliance">
+              <Shield className="h-4 w-4 mr-2" />
+              {allRequiredSigned ? "View Compliance" : "Start Compliance"}
+              <ExternalLink className="h-3 w-3 ml-2" />
+            </Button>
+          </Link>
+        </div>
+
+        <div className="space-y-3">
+          <h4 className="font-medium text-sm text-muted-foreground">Required Documents</h4>
+          {documents.map((doc, idx) => (
+            <div
+              key={idx}
+              className="flex items-center justify-between py-2 border-b last:border-0"
+              data-testid={`compliance-doc-${idx}`}
+            >
+              <div className="flex items-center gap-2">
+                {getStatusIcon(doc.signed)}
+                <span className="text-sm">{doc.name}</span>
+                {!doc.required && (
+                  <Badge variant="outline" className="text-xs">Optional</Badge>
+                )}
+              </div>
+              <Badge
+                variant={doc.signed ? "default" : "outline"}
+                className={doc.signed ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300" : ""}
+              >
+                {doc.signed ? "Signed" : "Pending"}
+              </Badge>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function InvestorDetailPage() {
   const params = useParams<{ id: string }>();
   const investorId = params.id || "";
@@ -431,6 +547,10 @@ export default function InvestorDetailPage() {
             <Settings className="h-4 w-4 mr-2" />
             Custom Fields
           </TabsTrigger>
+          <TabsTrigger value="compliance" data-testid="tab-compliance">
+            <Shield className="h-4 w-4 mr-2" />
+            Compliance
+          </TabsTrigger>
         </TabsList>
 
         <div className="mt-6">
@@ -462,6 +582,10 @@ export default function InvestorDetailPage() {
 
           <TabsContent value="custom-fields">
             <CustomFieldsTab investorId={investorId} />
+          </TabsContent>
+
+          <TabsContent value="compliance">
+            <ComplianceTab investorId={investorId} />
           </TabsContent>
         </div>
       </Tabs>

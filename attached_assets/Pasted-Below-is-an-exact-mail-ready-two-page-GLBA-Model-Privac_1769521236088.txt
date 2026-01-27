@@ -1,0 +1,439 @@
+Below is an “exact, mail-ready, two-page” GLBA Model Privacy Form–style layout you can render to PDF in JACE (Print → PDF via Puppeteer/Playwright/wkhtmltopdf). It mirrors the Model Form structure (Page 1 + Page 2 components, headings, disclosure table, “To limit our sharing,” and optional mail-in opt-out form).
+
+How to use: replace the bracketed placeholders (or bind them via your templating engine). Keep your long-form notice/consent as authoritative; this is the “model-form style” attachment.
+
+<!--
+  File suggestion: /templates/privacy-model-form-optout.html
+
+  Print/PDF notes:
+  - Letter size, 2 pages via .page { page-break-after: always; }
+  - Designed to resemble the GLBA Model Privacy Form headings + layout.
+  - Replace [PLACEHOLDERS] at render time (server-side template or client-side).
+-->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Privacy Notice (Model Form Style) — [NAME OF FINANCIAL INSTITUTION]</title>
+  <style>
+    @page { size: Letter; margin: 0.55in; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, Helvetica, sans-serif; color: #000; }
+    .page { width: 100%; min-height: 10in; position: relative; page-break-after: always; }
+    .page:last-child { page-break-after: auto; }
+
+    /* Typography */
+    .small { font-size: 9pt; }
+    .base { font-size: 10.5pt; line-height: 1.25; }
+    .tight { line-height: 1.15; }
+    .bold { font-weight: 700; }
+    .upper { text-transform: uppercase; }
+    .muted { color: #111; }
+
+    /* Header */
+    .rev { position: absolute; top: 0; right: 0; font-size: 9pt; }
+    .factsHeader { display: flex; align-items: stretch; gap: 0; margin-top: 0.02in; }
+    .factsLabel {
+      width: 1.15in;
+      background: #000;
+      color: #fff;
+      font-weight: 800;
+      font-size: 18pt;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      letter-spacing: 0.5px;
+      border: 2px solid #000;
+      border-right: 0;
+      padding: 0.12in 0.08in;
+    }
+    .factsTitle {
+      flex: 1;
+      border: 2px solid #000;
+      padding: 0.12in 0.14in;
+      font-weight: 800;
+      font-size: 13.5pt;
+      letter-spacing: 0.2px;
+    }
+
+    /* Key frame (Why/What/How) */
+    .keyFrame { border: 2px solid #000; border-top: 0; padding: 0.14in; }
+    .keyRow { display: grid; grid-template-columns: 0.75in 1fr; column-gap: 0.16in; margin-bottom: 0.10in; }
+    .keyRow:last-child { margin-bottom: 0; }
+    .keyQ { font-weight: 800; }
+
+    /* Bullets that visually resemble the model form */
+    ul.modelBullets { margin: 0.06in 0 0 0.22in; padding: 0; }
+    ul.modelBullets li { margin: 0.02in 0; }
+
+    /* Disclosure table */
+    .disclosureWrap { margin-top: 0.14in; }
+    table.disclosure {
+      width: 100%;
+      border-collapse: collapse;
+      border: 2px solid #000;
+      table-layout: fixed;
+      font-size: 10pt;
+    }
+    table.disclosure th, table.disclosure td {
+      border: 1px solid #000;
+      padding: 0.09in 0.10in;
+      vertical-align: top;
+    }
+    table.disclosure th {
+      background: #eaeaea;
+      font-weight: 800;
+      text-align: left;
+    }
+    .colReason { width: 62%; }
+    .colShare  { width: 19%; }
+    .colLimit  { width: 19%; }
+
+    /* To limit / Questions boxes */
+    .bottomGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.14in; margin-top: 0.14in; }
+    .box { border: 2px solid #000; padding: 0.12in 0.12in 0.10in; }
+    .boxTitle { font-weight: 800; margin-bottom: 0.06in; }
+    .box .smallNote { margin-top: 0.08in; }
+    .toLimitGrid { display: grid; grid-template-columns: 1.05in 1fr; gap: 0.12in; }
+    .toLimitLabel { font-weight: 800; }
+    .toLimitContent ul { margin: 0.04in 0 0 0.20in; padding: 0; }
+    .toLimitContent li { margin: 0.02in 0; }
+
+    /* Mail-in form */
+    .scissors { margin-top: 0.14in; font-size: 12pt; }
+    .dashLine { border-top: 2px dashed #000; margin: 0.05in 0 0.10in; }
+    .mailin { border: 2px solid #000; padding: 0.12in; }
+    .mailinHeader { display: grid; grid-template-columns: 1fr 1.6fr; gap: 0.12in; align-items: start; }
+    .mailinTitle { font-weight: 800; }
+    .leaveBlank { font-size: 9pt; text-align: right; font-weight: 700; }
+    .mailinBody { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 0.18in; margin-top: 0.10in; }
+    .checkbox { white-space: pre-wrap; }
+    .cb { font-weight: 800; margin-right: 0.08in; }
+    .addressBlock { border-left: 2px solid #000; padding-left: 0.14in; }
+    .fieldLine { border-bottom: 1px solid #000; height: 0.18in; margin: 0.04in 0 0.08in; }
+
+    /* Page 2 */
+    .page2Header { font-weight: 800; font-size: 12pt; margin: 0.02in 0 0.12in; }
+    .faqSectionTitle { font-weight: 800; font-size: 12pt; margin: 0.12in 0 0.06in; }
+    .qaGrid { border: 2px solid #000; }
+    .qaRow { display: grid; grid-template-columns: 1.65in 1fr; border-top: 1px solid #000; }
+    .qaRow:first-child { border-top: 0; }
+    .qaQ { background: #eaeaea; font-weight: 800; padding: 0.10in; border-right: 1px solid #000; }
+    .qaA { padding: 0.10in; }
+    .defsGrid { border: 2px solid #000; margin-top: 0.12in; }
+    .defsRow { display: grid; grid-template-columns: 1.35in 1fr; border-top: 1px solid #000; }
+    .defsRow:first-child { border-top: 0; }
+    .defsTerm { background: #eaeaea; font-weight: 800; padding: 0.10in; border-right: 1px solid #000; }
+    .defsDef { padding: 0.10in; }
+    .otherInfo { border: 2px solid #000; margin-top: 0.12in; padding: 0.10in; }
+    .otherInfoTitle { font-weight: 800; margin-bottom: 0.05in; }
+  </style>
+</head>
+
+<body class="base">
+
+  <!-- ===================== PAGE 1 ===================== -->
+  <section class="page">
+
+    <div class="rev">Rev. [INSERT DATE]</div>
+
+    <div class="factsHeader">
+      <div class="factsLabel">FACTS</div>
+      <div class="factsTitle upper">
+        WHAT DOES [NAME OF FINANCIAL INSTITUTION] DO<br/>
+        WITH YOUR PERSONAL INFORMATION?
+      </div>
+    </div>
+
+    <div class="keyFrame">
+      <div class="keyRow">
+        <div class="keyQ">Why?</div>
+        <div>
+          Financial companies choose how they share your personal information. Federal law gives consumers the right to
+          limit some but not all sharing. Federal law also requires us to tell you how we collect, share, and protect
+          your personal information. Please read this notice carefully to understand what we do.
+        </div>
+      </div>
+
+      <div class="keyRow">
+        <div class="keyQ">What?</div>
+        <div>
+          The types of personal information we collect and share depend on the product or service you have with us.
+          This information can include:
+          <ul class="modelBullets">
+            <li>[EXAMPLE: Social Security number] and [EXAMPLE: investor profile / tax ID]</li>
+            <li>[EXAMPLE: account balances] and [EXAMPLE: transaction history]</li>
+            <li>[EXAMPLE: payment/settlement activity] and [EXAMPLE: escrow funding records]</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="keyRow">
+        <div class="keyQ">How?</div>
+        <div>
+          All financial companies need to share customers’ personal information to run their everyday business. In the
+          section below, we list the reasons financial companies can share their customers’ personal information; the
+          reasons [name of financial institution] chooses to share; and whether you can limit this sharing.
+        </div>
+      </div>
+    </div>
+
+    <div class="disclosureWrap">
+      <table class="disclosure">
+        <thead>
+          <tr>
+            <th class="colReason">Reasons we can share your personal information</th>
+            <th class="colShare">Does [name of financial institution] share?</th>
+            <th class="colLimit">Can you limit this sharing?</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <span class="bold">For our everyday business purposes—</span><br/>
+              such as to process your transactions, maintain your account(s), respond to court orders and legal
+              investigations, or report as required
+            </td>
+            <td>[YES/NO]</td>
+            <td>[NO]</td>
+          </tr>
+
+          <tr>
+            <td><span class="bold">For our marketing purposes—</span><br/>to offer our products and services to you</td>
+            <td>[YES/NO]</td>
+            <td>[NO]</td>
+          </tr>
+
+          <tr>
+            <td><span class="bold">For joint marketing with other financial companies</span></td>
+            <td>[YES/NO]</td>
+            <td>[NO / WE DON’T SHARE]</td>
+          </tr>
+
+          <tr>
+            <td><span class="bold">For our affiliates’ everyday business purposes—</span><br/>
+              information about your transactions and experiences</td>
+            <td>[YES/NO]</td>
+            <td>[NO / WE DON’T SHARE]</td>
+          </tr>
+
+          <tr>
+            <td><span class="bold">For our affiliates’ everyday business purposes—</span><br/>
+              information about your creditworthiness</td>
+            <td>[YES/NO]</td>
+            <td>[YES/NO/WE DON’T SHARE]</td>
+          </tr>
+
+          <tr>
+            <td><span class="bold">For our affiliates to market to you</span></td>
+            <td>[YES/NO]</td>
+            <td>[YES/NO/WE DON’T SHARE]</td>
+          </tr>
+
+          <tr>
+            <td><span class="bold">For nonaffiliates to market to you</span></td>
+            <td>[YES/NO]</td>
+            <td>[YES/NO/WE DON’T SHARE]</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="bottomGrid">
+      <div class="box">
+        <div class="toLimitGrid">
+          <div class="toLimitLabel">To limit<br/>our sharing</div>
+          <div class="toLimitContent">
+            <ul>
+              <li>Call <span class="bold">[PHONE NUMBER]</span> — our menu will prompt you through your choice(s)</li>
+              <li>Visit us online: <span class="bold">[WEBSITE]</span> or</li>
+              <li>Mail the form below</li>
+            </ul>
+
+            <div class="smallNote small">
+              <span class="bold">Please note:</span><br/>
+              If you are a new customer, we can begin sharing your information [30] days from the date we sent this notice.
+              When you are no longer our customer, we continue to share your information as described in this notice.
+              However, you can contact us at any time to limit our sharing.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="box">
+        <div class="boxTitle">Questions?</div>
+        <div>Call <span class="bold">[PHONE NUMBER]</span> or go to <span class="bold">[WEBSITE]</span></div>
+      </div>
+    </div>
+
+    <!-- Mail-in opt-out form (include only if you offer mail opt-out; checkboxes must match the “Yes/Yes” items above) -->
+    <div class="scissors">✁</div>
+    <div class="dashLine"></div>
+
+    <div class="mailin">
+      <div class="mailinHeader">
+        <div class="mailinTitle">Mail-in Form</div>
+        <div class="leaveBlank">Leave Blank</div>
+      </div>
+
+      <div class="mailinBody">
+        <div>
+          <div class="small">
+            OR<br/>
+            [If you have a joint account, your choice(s) will apply to everyone on your account unless you mark below.]<br/>
+            ☐ Apply my choices only to me
+          </div>
+
+          <div style="margin-top:0.10in;" class="bold">Mark any/all you want to limit:</div>
+          <div class="checkbox small" style="margin-top:0.06in;">
+            ☐ Do not share information about my creditworthiness with your affiliates for their everyday business purposes.<br/>
+            ☐ Do not allow your affiliates to use my personal information to market to me.<br/>
+            ☐ Do not share my personal information with nonaffiliates to market their products and services to me.
+          </div>
+
+          <div style="margin-top:0.10in;" class="bold">Name</div>
+          <div class="fieldLine"></div>
+
+          <div class="bold">Address</div>
+          <div class="fieldLine"></div>
+
+          <div class="bold">City, State, Zip</div>
+          <div class="fieldLine"></div>
+
+          <div class="bold">[Account #]</div>
+          <div class="fieldLine"></div>
+        </div>
+
+        <div class="addressBlock">
+          <div class="bold">Mail to:</div>
+          <div style="margin-top:0.06in;">
+            <div>[NAME OF FINANCIAL INSTITUTION]</div>
+            <div>[ADDRESS 1]</div>
+            <div>[ADDRESS 2]</div>
+            <div>[CITY], [ST] [ZIP]</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </section>
+
+  <!-- ===================== PAGE 2 ===================== -->
+  <section class="page">
+
+    <div class="page2Header">Page 2</div>
+
+    <div class="faqSectionTitle">Who we are</div>
+    <div class="qaGrid">
+      <div class="qaRow">
+        <div class="qaQ">Who is providing this notice?</div>
+        <div class="qaA">[INSERT: e.g., “JACE, LLC and its regulated escrow/payment/settlement partners used to support onboarding and transactions.”]</div>
+      </div>
+    </div>
+
+    <div class="faqSectionTitle">What we do</div>
+    <div class="qaGrid">
+      <div class="qaRow">
+        <div class="qaQ">How does [name of financial institution] protect my personal information?</div>
+        <div class="qaA">
+          To protect your personal information from unauthorized access and use, we use security measures that comply with federal law.
+          These measures include computer safeguards and secured files and buildings.<br/><br/>
+          [INSERT: optional additional safeguards summary (RBAC, audit logging, encryption, monitoring).]
+        </div>
+      </div>
+
+      <div class="qaRow">
+        <div class="qaQ">How does [name of financial institution] collect my personal information?</div>
+        <div class="qaA">
+          We collect your personal information, for example, when you:
+          <ul class="modelBullets">
+            <li>[open an account / onboard as an investor] or [fund escrow]</li>
+            <li>[enter a bid / participate in settlement] or [make a payment]</li>
+            <li>[use the investor portal] or [contact customer support]</li>
+          </ul>
+          [We also collect your personal information from other companies.]
+          <br/>OR
+          <br/>[We also collect your personal information from others, such as identity verification providers, affiliates, or other companies.]
+        </div>
+      </div>
+
+      <div class="qaRow">
+        <div class="qaQ">Why can’t I limit all sharing?</div>
+        <div class="qaA">
+          Federal law gives you the right to limit only:
+          <ul class="modelBullets">
+            <li>sharing for affiliates’ everyday business purposes—information about your creditworthiness</li>
+            <li>affiliates from using your information to market to you</li>
+            <li>sharing for nonaffiliates to market to you</li>
+          </ul>
+          State laws and individual companies may give you additional rights to limit sharing.
+          [See below for more on your rights under state law.]
+        </div>
+      </div>
+
+      <div class="qaRow">
+        <div class="qaQ">What happens when I limit sharing for an account I hold jointly with someone else?</div>
+        <div class="qaA">
+          [Your choices will apply to everyone on your account.]
+          <br/>OR
+          <br/>[Your choices will apply to everyone on your account—unless you tell us otherwise.]
+        </div>
+      </div>
+    </div>
+
+    <div class="faqSectionTitle">Definitions</div>
+    <div class="defsGrid">
+      <div class="defsRow">
+        <div class="defsTerm">Affiliates</div>
+        <div class="defsDef">
+          Companies related by common ownership or control. They can be financial and nonfinancial companies.<br/>
+          <ul class="modelBullets">
+            <li>[INSERT affiliate information or “JACE has no affiliates that receive NPI for marketing.”]</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="defsRow">
+        <div class="defsTerm">Nonaffiliates</div>
+        <div class="defsDef">
+          Companies not related by common ownership or control. They can be financial and nonfinancial companies.<br/>
+          <ul class="modelBullets">
+            <li>[INSERT nonaffiliate information or “JACE does not sell NPI; sharing is limited to service providers/partners for processing, compliance, fraud prevention, and security.”]</li>
+          </ul>
+        </div>
+а
+      </div>
+
+      <div class="defsRow">
+        <div class="defsTerm">Joint marketing</div>
+        <div class="defsDef">
+          A formal agreement between nonaffiliated financial companies that together market financial products or services to you.<br/>
+          <ul class="modelBullets">
+            <li>[INSERT joint marketing information or “JACE does not jointly market (default).”]</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="otherInfo">
+      <div class="otherInfoTitle">Other important information</div>
+      <div>
+        [INSERT: optional state-law addendum / privacy rights summary / contact method for privacy requests.]
+      </div>
+    </div>
+
+  </section>
+
+</body>
+</html>
+
+Notes for JACE (important so the “mail-in form” stays compliant)
+
+Only include the mail-in opt-out form if you actually offer opt-out by mail, and make sure the checkboxes match the rows where “Can you limit” = Yes.
+
+The Model Form’s Page 1 + Page 2 component structure is explicitly defined in the regulations’ appendix; this template follows that structure.
+
+Using the model form “as instructed” can provide a safe-harbor for covered institutions (where applicable).
+
+If you tell me your final sharing policy choices (Yes/No/We don’t share per row), I’ll return a fully-filled “JACE default” version with the correct mail-in checkboxes and the exact “To limit our sharing” methods you want enabled in-app.

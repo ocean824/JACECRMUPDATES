@@ -38,13 +38,13 @@ type PrivacySharingTier = "REQUIRED_ONLY" | "PRODUCT_COMMS" | "MARKETING_PLUS";
 
 interface ComplianceStatus {
   investorId: string;
-  documents: {
-    type: DocumentType;
-    signed: boolean;
-    signedAt?: string;
-  }[];
-  isFullyCompliant: boolean;
+  amlCertificationSigned: boolean;
+  privacyNoticeSigned: boolean;
+  shortFormPrivacySigned: boolean;
   isActivated: boolean;
+  activatedAt?: string;
+  privacySharingTier?: PrivacySharingTier;
+  electronicDeliveryConsent?: boolean;
 }
 
 interface AMLFormData {
@@ -252,11 +252,32 @@ export default function ComplianceOnboardingPage() {
     },
   });
 
-  const isDocumentSigned = (docType: DocumentType) => {
-    return complianceStatus?.documents.find(d => d.type === docType)?.signed ?? false;
+  const isDocumentSigned = (docType: DocumentType): boolean => {
+    if (!complianceStatus) return false;
+    switch (docType) {
+      case "AML_CERTIFICATION":
+        return complianceStatus.amlCertificationSigned ?? false;
+      case "PRIVACY_CIP_KYC_NOTICE_CONSENT":
+        return complianceStatus.privacyNoticeSigned ?? false;
+      case "PRIVACY_NOTICE_SHORTFORM":
+        return complianceStatus.shortFormPrivacySigned ?? false;
+      default:
+        return false;
+    }
   };
 
-  const allDocumentsSigned = complianceStatus?.isFullyCompliant ?? false;
+  // All required documents: AML + Privacy/CIP/KYC must be signed for activation
+  // Short-form privacy is optional but recommended
+  const allRequiredDocumentsSigned = complianceStatus
+    ? (complianceStatus.amlCertificationSigned && complianceStatus.privacyNoticeSigned)
+    : false;
+  
+  // Track if all three documents are signed (including optional short-form)
+  const allDocumentsSigned = complianceStatus
+    ? (complianceStatus.amlCertificationSigned && 
+       complianceStatus.privacyNoticeSigned && 
+       complianceStatus.shortFormPrivacySigned)
+    : false;
 
   const handleAmlSubmit = () => {
     if (!amlSignature) {
@@ -359,7 +380,7 @@ export default function ComplianceOnboardingPage() {
             Complete all required compliance documents to proceed with your investment.
           </p>
         </div>
-        {allDocumentsSigned && !complianceStatus?.isActivated && (
+        {allRequiredDocumentsSigned && !complianceStatus?.isActivated && (
           <Button 
             onClick={() => activateInvestorMutation.mutate()}
             disabled={activateInvestorMutation.isPending}
