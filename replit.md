@@ -44,8 +44,12 @@ Preferred communication style: Simple, everyday language.
 - **Investor Management**: CRUD, pipeline stages, investment tracking.
 - **Accounting**: Chart of Accounts, Double-entry Journal Entries.
 - **Task Management**: CRUD, priorities, due dates, investor association.
-- **Compliance**: KYC workflow tracking, GLBA Model Privacy Form.
-- **External Onboarding**: Secure, external investor onboarding flow integrated with BondAI, including document uploads, banking info, and e-signatures.
+- **Compliance**: KYC workflow tracking, GLBA Model Privacy Form, electronic signature capture for legal documents.
+- **Legal Document Signing**: Scroll-to-end gating, typed signature capture, PDF generation with audit metadata, compliance audit trail.
+  - AML Certification (USA PATRIOT Act / Bank Secrecy Act)
+  - CIP/KYC Privacy Consent (Gramm-Leach-Bliley Act)
+  - Privacy Short Form (GLBA Model Privacy Notice)
+- **External Onboarding**: Secure, external investor onboarding flow integrated with BondAI, including document uploads, banking info, legal document signing, and e-signatures.
 - **Reporting**: KPI dashboards, analytics, CSV exports.
 
 ### Design Patterns
