@@ -585,7 +585,20 @@ export default function ExternalOnboardingPage() {
             variant="secondary"
             className="rounded-xl bg-white/10 border border-white/10 text-white hover:bg-white/15"
             onClick={() => {
+              // Send cancel message to parent iframe
               window.parent?.postMessage({ type: "JACE_ONBOARDING_CANCEL" }, getParentOrigin());
+              
+              // Navigate back to BondAI using returnUrl or parent origin
+              const returnUrl = data?.session?.returnUrl;
+              if (returnUrl) {
+                window.top ? window.top.location.href = returnUrl : window.location.href = returnUrl;
+              } else {
+                // Fallback: try to go to BondAI origin
+                const bondaiOrigin = getParentOrigin();
+                if (bondaiOrigin && bondaiOrigin !== "*") {
+                  window.top ? window.top.location.href = bondaiOrigin : window.location.href = bondaiOrigin;
+                }
+              }
             }}
             data-testid="button-back-to-bondai"
           >
