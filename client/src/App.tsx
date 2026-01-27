@@ -39,6 +39,7 @@ import ImportPage from "@/pages/import";
 import InvestorPortalPage from "@/pages/investor-portal";
 import ComplianceOnboardingPage from "@/pages/compliance-onboarding";
 import PrivacyNoticePage from "@/pages/privacy-notice";
+import ExternalOnboardingPage from "@/pages/external-onboarding";
 import RegisterPage from "@/pages/register";
 import LoginPage from "@/pages/login";
 import AdminLoginPage from "@/pages/admin-login";
@@ -149,6 +150,7 @@ function AppRouter() {
       <Route path="/register" component={RegisterPage} />
       <Route path="/login" component={LoginPage} />
       <Route path="/admin-login" component={AdminLoginPage} />
+      <Route path="/external/onboarding" component={ExternalOnboardingPage} />
       <Route>
         {user ? <AuthenticatedRoutes /> : <LandingPage />}
       </Route>

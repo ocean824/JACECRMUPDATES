@@ -4,6 +4,7 @@ import { storage, logAudit } from "./storage";
 import { getSession } from "./replit_integrations/auth";
 import { setupLocalAuth, isLocalAuthenticated } from "./local-auth";
 import { handleHelpChat } from "./help-assistant";
+import { registerExternalOnboarding } from "./external-onboarding";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -2102,6 +2103,8 @@ export async function registerRoutes(
       res.status(500).json({ message: "Failed to delete beneficial owner" });
     }
   });
+
+  registerExternalOnboarding(app);
 
   return httpServer;
 }

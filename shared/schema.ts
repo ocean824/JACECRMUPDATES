@@ -86,6 +86,34 @@ export const documents = pgTable("documents", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// External Onboarding Sessions (BondAI -> JACE)
+export const externalOnboardingSessions = pgTable("external_onboarding_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  investorId: varchar("investor_id").notNull(),
+  bondaiInvestorId: varchar("bondai_investor_id", { length: 128 }),
+  email: varchar("email", { length: 255 }),
+  status: varchar("status", { length: 30 }).default("created").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+});
+
+// Investor Onboarding Submissions (encrypted payload)
+export const investorOnboardingSubmissions = pgTable("investor_onboarding_submissions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  investorId: varchar("investor_id").notNull(),
+  bondaiInvestorId: varchar("bondai_investor_id", { length: 128 }),
+  ipAddress: varchar("ip_address", { length: 45 }),
+  userAgent: text("user_agent"),
+  submittedAt: timestamp("submitted_at", { withTimezone: true }).defaultNow().notNull(),
+  payloadCiphertext: text("payload_ciphertext").notNull(),
+  payloadIv: varchar("payload_iv", { length: 64 }).notNull(),
+  payloadTag: varchar("payload_tag", { length: 64 }).notNull(),
+});
+
 // Investors table (user-scoped with investor type segmentation)
 export const investors = pgTable("investors", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -96,6 +124,12 @@ export const investors = pgTable("investors", {
   email: varchar("email", { length: 255 }).notNull(),
   phone: varchar("phone", { length: 50 }),
   company: varchar("company", { length: 200 }),
+  addressLine1: varchar("address_line1", { length: 255 }),
+  addressLine2: varchar("address_line2", { length: 255 }),
+  city: varchar("city", { length: 120 }),
+  state: varchar("state", { length: 120 }),
+  postalCode: varchar("postal_code", { length: 30 }),
+  country: varchar("country", { length: 120 }),
   pipelineStage: pipelineStageEnum("pipeline_stage").default("lead").notNull(),
   kycStatus: varchar("kyc_status", { length: 50 }).default("pending"),
   investmentAmount: decimal("investment_amount", { precision: 15, scale: 2 }),
@@ -205,6 +239,16 @@ export const insertDocumentSchema = createInsertSchema(documents).omit({
   createdAt: true,
 });
 
+export const insertExternalOnboardingSessionSchema = createInsertSchema(externalOnboardingSessions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertInvestorOnboardingSubmissionSchema = createInsertSchema(investorOnboardingSubmissions).omit({
+  id: true,
+  submittedAt: true,
+});
+
 export const insertInvestorSchema = createInsertSchema(investors).omit({
   id: true,
   userId: true,
@@ -244,6 +288,12 @@ export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
 
 export type Document = typeof documents.$inferSelect;
 export type InsertDocument = z.infer<typeof insertDocumentSchema>;
+
+export type ExternalOnboardingSession = typeof externalOnboardingSessions.$inferSelect;
+export type InsertExternalOnboardingSession = z.infer<typeof insertExternalOnboardingSessionSchema>;
+
+export type InvestorOnboardingSubmission = typeof investorOnboardingSubmissions.$inferSelect;
+export type InsertInvestorOnboardingSubmission = z.infer<typeof insertInvestorOnboardingSubmissionSchema>;
 
 export type Investor = typeof investors.$inferSelect;
 export type InsertInvestor = z.infer<typeof insertInvestorSchema>;
