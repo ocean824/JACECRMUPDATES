@@ -1806,5 +1806,302 @@ export async function registerRoutes(
     }
   });
 
+  // ============ COMPLIANCE ONBOARDING API ============
+
+  // Get compliance documents for an investor
+  app.get("/api/compliance/documents/:investorId", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const { investorId } = req.params;
+      const docs = await storage.getComplianceDocuments(userId, investorId);
+      res.json(docs);
+    } catch (error) {
+      console.error("Error fetching compliance documents:", error);
+      res.status(500).json({ message: "Failed to fetch compliance documents" });
+    }
+  });
+
+  // Get single compliance document
+  app.get("/api/compliance/document/:id", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const { id } = req.params;
+      const doc = await storage.getComplianceDocument(id, userId);
+      if (!doc) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      
+      // Log view event
+      await storage.createComplianceAuditEvent(userId, {
+        investorId: doc.investorId,
+        eventType: "document_viewed",
+        documentId: doc.id,
+        description: `Viewed ${doc.documentType} document`,
+        ipAddress: req.ip || null,
+        userAgent: req.get("User-Agent") || null,
+        metadata: null,
+      });
+      
+      res.json(doc);
+    } catch (error) {
+      console.error("Error fetching compliance document:", error);
+      res.status(500).json({ message: "Failed to fetch compliance document" });
+    }
+  });
+
+  // Submit signed compliance document
+  app.post("/api/compliance/documents", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const { investorId, documentType, formData, signature, onboardingSessionId } = req.body;
+
+      if (!investorId || !documentType || !formData || !signature) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+
+      // Create compliance document
+      const doc = await storage.createComplianceDocument(userId, {
+        investorId,
+        documentType,
+        formData: JSON.stringify(formData),
+        onboardingSessionId: onboardingSessionId || null,
+        status: "signed",
+        signedAt: new Date(),
+      });
+
+      // Create electronic signature
+      await storage.createElectronicSignature({
+        complianceDocumentId: doc.id,
+        signatoryName: signature.name,
+        signatoryTitle: signature.title || null,
+        signatureValue: signature.value,
+        ipAddress: req.ip || null,
+        userAgent: req.get("User-Agent") || null,
+        timezone: signature.timezone || "America/New_York",
+        signedAt: new Date(),
+      });
+
+      // Update investor compliance status
+      const existingCompliance = await storage.getInvestorCompliance(investorId);
+      const updateData: any = { updatedAt: new Date() };
+
+      if (documentType === "AML_CERTIFICATION") {
+        updateData.amlCertificationSigned = true;
+      } else if (documentType === "PRIVACY_CIP_KYC_NOTICE_CONSENT") {
+        updateData.privacyNoticeSigned = true;
+        if (formData.privacySharingTier) {
+          updateData.privacySharingTier = formData.privacySharingTier;
+        }
+        if (formData.electronicDeliveryConsent !== undefined) {
+          updateData.electronicDeliveryConsent = formData.electronicDeliveryConsent;
+        }
+      } else if (documentType === "PRIVACY_NOTICE_SHORTFORM") {
+        updateData.shortFormPrivacySigned = true;
+      }
+
+      if (existingCompliance) {
+        await storage.updateInvestorCompliance(investorId, updateData);
+      } else {
+        await storage.createInvestorCompliance({
+          investorId,
+          ...updateData,
+        });
+      }
+
+      // Log audit event
+      await storage.createComplianceAuditEvent(userId, {
+        investorId,
+        eventType: "document_signed",
+        documentId: doc.id,
+        description: `Signed ${documentType} document`,
+        ipAddress: req.ip || null,
+        userAgent: req.get("User-Agent") || null,
+        metadata: JSON.stringify({ signatoryName: signature.name }),
+      });
+
+      await logAudit(userId, "create", "compliance_document", doc.id, `Signed ${documentType} for investor ${investorId}`);
+
+      res.json(doc);
+    } catch (error) {
+      console.error("Error submitting compliance document:", error);
+      res.status(500).json({ message: "Failed to submit compliance document" });
+    }
+  });
+
+  // Get investor compliance status
+  app.get("/api/compliance/status/:investorId", isAuthenticated, async (req, res) => {
+    try {
+      const { investorId } = req.params;
+      const compliance = await storage.getInvestorCompliance(investorId);
+      res.json(compliance || { 
+        investorId, 
+        isActivated: false,
+        amlCertificationSigned: false,
+        privacyNoticeSigned: false,
+        shortFormPrivacySigned: false,
+      });
+    } catch (error) {
+      console.error("Error fetching compliance status:", error);
+      res.status(500).json({ message: "Failed to fetch compliance status" });
+    }
+  });
+
+  // Update investor compliance preferences
+  app.patch("/api/compliance/preferences/:investorId", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const { investorId } = req.params;
+      const { privacySharingTier, electronicDeliveryConsent } = req.body;
+
+      const existingCompliance = await storage.getInvestorCompliance(investorId);
+      const updateData: any = {};
+
+      if (privacySharingTier) {
+        updateData.privacySharingTier = privacySharingTier;
+      }
+      if (electronicDeliveryConsent !== undefined) {
+        updateData.electronicDeliveryConsent = electronicDeliveryConsent;
+      }
+
+      let compliance;
+      if (existingCompliance) {
+        compliance = await storage.updateInvestorCompliance(investorId, updateData);
+      } else {
+        compliance = await storage.createInvestorCompliance({
+          investorId,
+          ...updateData,
+        });
+      }
+
+      // Log preference change
+      await storage.createComplianceAuditEvent(userId, {
+        investorId,
+        eventType: "preference_changed",
+        documentId: null,
+        description: `Updated privacy preferences`,
+        ipAddress: req.ip || null,
+        userAgent: req.get("User-Agent") || null,
+        metadata: JSON.stringify(updateData),
+      });
+
+      res.json(compliance);
+    } catch (error) {
+      console.error("Error updating compliance preferences:", error);
+      res.status(500).json({ message: "Failed to update preferences" });
+    }
+  });
+
+  // Activate investor (requires all documents signed)
+  app.post("/api/compliance/activate/:investorId", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const { investorId } = req.params;
+
+      const compliance = await storage.getInvestorCompliance(investorId);
+      
+      if (!compliance) {
+        return res.status(400).json({ message: "No compliance record found for investor" });
+      }
+
+      // Check if all required documents are signed
+      if (!compliance.amlCertificationSigned || !compliance.privacyNoticeSigned) {
+        return res.status(400).json({ 
+          message: "All required compliance documents must be signed before activation",
+          required: {
+            amlCertificationSigned: compliance.amlCertificationSigned,
+            privacyNoticeSigned: compliance.privacyNoticeSigned,
+          }
+        });
+      }
+
+      const updated = await storage.updateInvestorCompliance(investorId, {
+        isActivated: true,
+        activatedAt: new Date(),
+      });
+
+      // Update investor pipeline stage to ready
+      await storage.updateInvestor(investorId, userId, {
+        pipelineStage: "ready",
+      });
+
+      // Log activation
+      await storage.createComplianceAuditEvent(userId, {
+        investorId,
+        eventType: "investor_activated",
+        documentId: null,
+        description: "Investor activated after completing compliance onboarding",
+        ipAddress: req.ip || null,
+        userAgent: req.get("User-Agent") || null,
+        metadata: null,
+      });
+
+      await logAudit(userId, "update", "investor", investorId, "Investor activated after compliance completion");
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error activating investor:", error);
+      res.status(500).json({ message: "Failed to activate investor" });
+    }
+  });
+
+  // Get compliance audit events
+  app.get("/api/compliance/audit/:investorId", isAuthenticated, async (req, res) => {
+    try {
+      const { investorId } = req.params;
+      const events = await storage.getComplianceAuditEvents(investorId);
+      res.json(events);
+    } catch (error) {
+      console.error("Error fetching compliance audit events:", error);
+      res.status(500).json({ message: "Failed to fetch audit events" });
+    }
+  });
+
+  // Beneficial owners CRUD
+  app.get("/api/compliance/beneficial-owners/:investorId", isAuthenticated, async (req, res) => {
+    try {
+      const { investorId } = req.params;
+      const owners = await storage.getBeneficialOwners(investorId);
+      res.json(owners);
+    } catch (error) {
+      console.error("Error fetching beneficial owners:", error);
+      res.status(500).json({ message: "Failed to fetch beneficial owners" });
+    }
+  });
+
+  app.post("/api/compliance/beneficial-owners", isAuthenticated, async (req, res) => {
+    try {
+      const owner = await storage.createBeneficialOwner(req.body);
+      res.json(owner);
+    } catch (error) {
+      console.error("Error creating beneficial owner:", error);
+      res.status(500).json({ message: "Failed to create beneficial owner" });
+    }
+  });
+
+  app.patch("/api/compliance/beneficial-owners/:id", isAuthenticated, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const owner = await storage.updateBeneficialOwner(id, req.body);
+      if (!owner) {
+        return res.status(404).json({ message: "Beneficial owner not found" });
+      }
+      res.json(owner);
+    } catch (error) {
+      console.error("Error updating beneficial owner:", error);
+      res.status(500).json({ message: "Failed to update beneficial owner" });
+    }
+  });
+
+  app.delete("/api/compliance/beneficial-owners/:id", isAuthenticated, async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteBeneficialOwner(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting beneficial owner:", error);
+      res.status(500).json({ message: "Failed to delete beneficial owner" });
+    }
+  });
+
   return httpServer;
 }
