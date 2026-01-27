@@ -47,7 +47,10 @@ export const pendingRegistrations = pgTable("pending_registrations", {
   firstName: varchar("first_name").notNull(),
   lastName: varchar("last_name").notNull(),
   status: registrationStatusEnum("status").default("pending").notNull(),
-  pin: varchar("pin", { length: 4 }),
+  pin: varchar("pin", { length: 9 }),
+  pinExpiresAt: timestamp("pin_expires_at"),
+  pinConfirmedAt: timestamp("pin_confirmed_at"),
+  pinEnteredAt: timestamp("pin_entered_at"),
   adminNotified: varchar("admin_notified").default("false"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -59,6 +62,9 @@ export const insertPendingRegistrationSchema = createInsertSchema(pendingRegistr
   id: true,
   status: true,
   pin: true,
+  pinExpiresAt: true,
+  pinConfirmedAt: true,
+  pinEnteredAt: true,
   adminNotified: true,
   createdAt: true,
   updatedAt: true,
@@ -72,7 +78,7 @@ export type PendingRegistration = typeof pendingRegistrations.$inferSelect;
 // Used PINs table (to ensure no two PINs are ever alike)
 export const usedPins = pgTable("used_pins", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  pin: varchar("pin", { length: 4 }).notNull().unique(),
+  pin: varchar("pin", { length: 9 }).notNull().unique(),
   usedAt: timestamp("used_at").defaultNow().notNull(),
   usedFor: varchar("used_for"),
 });
