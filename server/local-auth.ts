@@ -188,11 +188,17 @@ export function setupLocalAuth(app: Express) {
         isAdmin: newUser.isAdmin,
       };
 
-      res.json({
-        id: newUser.id,
-        email: newUser.email,
-        firstName: newUser.firstName,
-        lastName: newUser.lastName,
+      req.session.save((err) => {
+        if (err) {
+          console.error("Session save error:", err);
+          return res.status(500).json({ message: "Failed to complete registration" });
+        }
+        res.json({
+          id: newUser.id,
+          email: newUser.email,
+          firstName: newUser.firstName,
+          lastName: newUser.lastName,
+        });
       });
     } catch (error) {
       console.error("Complete registration error:", error);
@@ -340,11 +346,17 @@ export function setupLocalAuth(app: Express) {
         isAdmin: user.isAdmin,
       };
 
-      res.json({
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
+      req.session.save((err) => {
+        if (err) {
+          console.error("Session save error:", err);
+          return res.status(500).json({ message: "Login failed" });
+        }
+        res.json({
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+        });
       });
     } catch (error) {
       console.error("Login error:", error);
