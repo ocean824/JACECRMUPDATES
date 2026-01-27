@@ -18,6 +18,7 @@ type SessionResponse = {
     expiresAt?: string | null;
     completedAt?: string | null;
     bondaiInvestorId?: string | null;
+    returnUrl?: string | null;
   };
   investor: {
     id: string;
@@ -399,6 +400,7 @@ export default function ExternalOnboardingPage() {
       toast({ title: "Onboarding submitted", description: "JACE received your onboarding. Returning you to BondAI..." });
 
       const parentOrigin = getParentOrigin();
+      const returnUrl = data?.session?.returnUrl || null;
       // Send both message types for compatibility with different BondAI versions
       window.parent?.postMessage(
         {
@@ -407,6 +409,7 @@ export default function ExternalOnboardingPage() {
           submissionId: json.submissionId,
           investorEmail: email,
           status: "LIVE",
+          returnUrl,
         },
         parentOrigin,
       );
@@ -417,6 +420,7 @@ export default function ExternalOnboardingPage() {
           completedAt: json.completedAt,
           submissionId: json.submissionId,
           investorEmail: email,
+          returnUrl,
         },
         parentOrigin,
       );

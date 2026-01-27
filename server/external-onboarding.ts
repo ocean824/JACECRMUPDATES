@@ -163,16 +163,21 @@ export function registerExternalOnboarding(app: Express) {
       const {
         bondaiInvestorId,
         fullName,
+        name, // Alternative field name from BondAI
         email,
         phone,
+        returnUrl,
       } = req.body || {};
 
-      if (!bondaiInvestorId || typeof bondaiInvestorId !== "string") {
-        return res.status(400).json({ message: "bondaiInvestorId is required" });
-      }
+      // bondaiInvestorId is optional - generate one if not provided
+      const investorExternalId = bondaiInvestorId || `bondai-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+      
       if (!email || typeof email !== "string") {
         return res.status(400).json({ message: "email is required" });
       }
+      
+      // Use fullName or name field
+      const investorFullName = fullName || name || "";
 
       const existing = await db
         .select()
@@ -182,18 +187,18 @@ export function registerExternalOnboarding(app: Express) {
 
       let investor = existing[0];
       if (!investor) {
-        const name = safeSplitFullName(fullName || "");
+        const parsedName = safeSplitFullName(investorFullName);
         investor = await storage.createInvestor(ownerUserId, {
           investorType: "individual",
-          firstName: name.firstName,
-          lastName: name.lastName,
+          firstName: parsedName.firstName,
+          lastName: parsedName.lastName,
           email,
           phone: phone || null,
           company: null,
           pipelineStage: "kyc_pending",
           kycStatus: "pending",
           investmentAmount: null,
-          notes: `External onboarding initiated from BondAI (bondaiInvestorId=${bondaiInvestorId}).`,
+          notes: `External onboarding initiated from BondAI (bondaiInvestorId=${investorExternalId}).`,
         } as any);
       }
 
@@ -205,15 +210,16 @@ export function registerExternalOnboarding(app: Express) {
         .values({
           userId: ownerUserId,
           investorId: investor.id,
-          bondaiInvestorId,
+          bondaiInvestorId: investorExternalId,
           email,
           status: "created",
           expiresAt,
-        })
+          returnUrl: returnUrl || null,
+        } as any)
         .returning();
 
       const token = signOnboardingJwt(
-        { sid: session.id, inv: investor.id, bInv: bondaiInvestorId, email },
+        { sid: session.id, inv: investor.id, bInv: investorExternalId, email },
         jwtSecret,
         ttlSeconds,
       );
@@ -226,6 +232,7 @@ export function registerExternalOnboarding(app: Express) {
         investorId: investor.id,
         expiresAt: expiresAt.toISOString(),
         onboardingUrl,
+        returnUrl: returnUrl || null,
       });
     } catch (err: any) {
       console.error("Error creating external onboarding session:", err);
@@ -277,6 +284,7 @@ export function registerExternalOnboarding(app: Express) {
           expiresAt: session.expiresAt,
           completedAt: session.completedAt,
           bondaiInvestorId: session.bondaiInvestorId,
+          returnUrl: (session as any).returnUrl || null,
         },
         investor: {
           id: investor.id,

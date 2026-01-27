@@ -93,6 +93,7 @@ export const externalOnboardingSessions = pgTable("external_onboarding_sessions"
   investorId: varchar("investor_id").notNull(),
   bondaiInvestorId: varchar("bondai_investor_id", { length: 128 }),
   email: varchar("email", { length: 255 }),
+  returnUrl: varchar("return_url", { length: 500 }),
   status: varchar("status", { length: 30 }).default("created").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   expiresAt: timestamp("expires_at", { withTimezone: true }),
