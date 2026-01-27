@@ -580,8 +580,19 @@ export function registerExternalOnboarding(app: Express) {
             event,
             bondaiInvestorId: session.bondaiInvestorId || payload.bInv,
             jaceInvestorId: payload.inv,
+            jaceSessionId: session.id,
+            jaceSubmissionId: submission.id,
             status: "LIVE",
             completedAt: now.toISOString(),
+            investorEmail: email,
+            investorName: `${firstName} ${lastName}`.trim(),
+            kycStatus: "submitted",
+            documentsSubmitted: {
+              identityDocument: true,
+              proofOfLife: true,
+              signatures: 3,
+              acknowledgements: 2,
+            },
           };
 
           const raw = JSON.stringify(webhookBody);
