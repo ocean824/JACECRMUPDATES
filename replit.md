@@ -34,6 +34,11 @@ Preferred communication style: Simple, everyday language.
 - **Session**: Express sessions with PostgreSQL store
 - **Multi-tenancy**: All business data is scoped to the authenticated user ID
 - **Security**: `isAuthenticated` middleware for API routes
+- **Invite-Only Registration**: New users must be approved by admin before account creation
+  - Admin clicks "Confirm & Send Invite" to generate a 9-character PIN (lowercase + numbers + 1 special char)
+  - PIN expires after 2 hours
+  - Tracks: `pinConfirmedAt` (admin confirmation), `pinEnteredAt` (user completion)
+  - User cannot complete registration without valid, unexpired PIN
 
 ### Core Features
 - **Investor Management**: CRUD, pipeline stages, investment tracking.
