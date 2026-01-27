@@ -138,8 +138,8 @@ export default function AdminPage() {
       const data = await response.json();
       queryClient.invalidateQueries({ queryKey: ["/api/auth/pending-registrations"] });
       toast({
-        title: "Registration Approved",
-        description: `PIN ${data.pin} has been sent to the user via email.`,
+        title: "Invite Sent",
+        description: `Invite PIN has been sent to the user. Expires in 2 hours.`,
       });
     },
     onError: () => {
@@ -259,7 +259,7 @@ export default function AdminPage() {
                             data-testid={`button-approve-${reg.id}`}
                           >
                             <Check className="h-4 w-4 mr-1" />
-                            Approve
+                            Confirm & Send Invite
                           </Button>
                           <Button
                             size="sm"

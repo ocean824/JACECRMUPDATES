@@ -29,8 +29,10 @@ export default function RegisterPage() {
   };
 
   const handlePinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/\D/g, "").slice(0, 4);
-    setPinData({ ...pinData, [e.target.name]: e.target.name === "pin" ? value : e.target.value });
+    const value = e.target.name === "pin" 
+      ? e.target.value.toLowerCase().slice(0, 9) 
+      : e.target.value;
+    setPinData({ ...pinData, [e.target.name]: value });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -102,10 +104,10 @@ export default function RegisterPage() {
   const handlePinSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (pinData.pin.length !== 4) {
+    if (pinData.pin.length < 1 || pinData.pin.length > 9) {
       toast({
         title: "Error",
-        description: "Please enter a valid 4-digit PIN",
+        description: "Please enter a valid invite PIN",
         variant: "destructive",
       });
       return;
@@ -207,20 +209,22 @@ export default function RegisterPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="pin">4-Digit PIN</Label>
+                <Label htmlFor="pin">Invite PIN</Label>
                 <Input
                   id="pin"
                   name="pin"
                   type="text"
-                  inputMode="numeric"
-                  placeholder="0000"
+                  placeholder="Enter your invite PIN"
                   value={pinData.pin}
                   onChange={handlePinChange}
-                  maxLength={4}
-                  className="text-center text-2xl tracking-widest"
+                  maxLength={9}
+                  className="text-center text-lg tracking-wider font-mono"
                   required
                   data-testid="input-pin"
                 />
+                <p className="text-xs text-muted-foreground text-center">
+                  Check your email for the invite PIN (expires in 2 hours)
+                </p>
               </div>
               <Button 
                 type="submit" 
