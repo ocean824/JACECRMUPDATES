@@ -37,6 +37,7 @@ import CalendarPage from "@/pages/calendar";
 import EmailPage from "@/pages/email";
 import ImportPage from "@/pages/import";
 import InvestorPortalPage from "@/pages/investor-portal";
+import ComplianceOnboardingPage from "@/pages/compliance-onboarding";
 import RegisterPage from "@/pages/register";
 import LoginPage from "@/pages/login";
 import AdminLoginPage from "@/pages/admin-login";
@@ -109,6 +110,7 @@ function AuthenticatedRoutes() {
         <Route path="/custom-fields" component={CustomFieldsPage} />
         <Route path="/import" component={ImportPage} />
         <Route path="/investor-portal" component={InvestorPortalPage} />
+        <Route path="/compliance/:investorId" component={ComplianceOnboardingPage} />
         <Route component={NotFound} />
       </Switch>
     </AuthenticatedLayout>

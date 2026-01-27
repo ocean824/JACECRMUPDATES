@@ -22,6 +22,7 @@ import {
   RefreshCw,
   Upload,
   Eye,
+  FileCheck,
 } from "lucide-react";
 import {
   Sidebar,
@@ -59,6 +60,10 @@ const managementItems = [
   { title: "Communications", url: "/communications", icon: MessageSquare },
   { title: "Email", url: "/email", icon: Mail },
   { title: "Analytics", url: "/analytics", icon: BarChart3 },
+];
+
+const complianceItems = [
+  { title: "Compliance Onboarding", url: "/compliance/demo", icon: FileCheck },
 ];
 
 const systemItems = [
@@ -156,6 +161,30 @@ export function AppSidebar() {
                     className="h-10"
                   >
                     <Link href={item.url} data-testid={`nav-${item.title.toLowerCase()}`}>
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-3 py-2">
+            Compliance
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {complianceItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location.startsWith("/compliance")}
+                    className="h-10"
+                  >
+                    <Link href={item.url} data-testid={`nav-${item.title.toLowerCase().replace(/\s+/g, "-")}`}>
                       <item.icon className="h-4 w-4" />
                       <span>{item.title}</span>
                     </Link>
