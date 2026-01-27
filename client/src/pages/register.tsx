@@ -1,18 +1,17 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Loader2, UserPlus, Building2 } from "lucide-react";
+import { Loader2, UserPlus, Building2, CheckCircle, KeyRound } from "lucide-react";
 import { Link } from "wouter";
 
 export default function RegisterPage() {
-  const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [registrationStatus, setRegistrationStatus] = useState<"form" | "pending" | "approved">("form");
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -20,9 +19,18 @@ export default function RegisterPage() {
     password: "",
     confirmPassword: "",
   });
+  const [pinData, setPinData] = useState({
+    email: "",
+    pin: "",
+  });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handlePinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/\D/g, "").slice(0, 4);
+    setPinData({ ...pinData, [e.target.name]: e.target.name === "pin" ? value : e.target.value });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -48,11 +56,66 @@ export default function RegisterPage() {
 
     setIsLoading(true);
     try {
-      await apiRequest("POST", "/api/auth/register", {
+      const response = await apiRequest("POST", "/api/auth/register", {
         firstName: formData.firstName,
         lastName: formData.lastName,
         email: formData.email,
         password: formData.password,
+      });
+      const data = await response.json();
+      
+      if (data.status === "pending") {
+        setRegistrationStatus("pending");
+        setPinData({ ...pinData, email: formData.email });
+        toast({
+          title: "Registration Submitted",
+          description: "Please wait for admin approval. You will receive an email with your PIN.",
+        });
+      } else if (data.status === "approved") {
+        setRegistrationStatus("approved");
+        setPinData({ ...pinData, email: formData.email });
+        toast({
+          title: "Already Approved",
+          description: "Your registration was already approved. Check your email for your PIN.",
+        });
+      }
+    } catch (error: any) {
+      const message = error.message || "Failed to submit registration";
+      if (message.includes("pending")) {
+        setRegistrationStatus("pending");
+        setPinData({ ...pinData, email: formData.email });
+      } else if (message.includes("approved")) {
+        setRegistrationStatus("approved");
+        setPinData({ ...pinData, email: formData.email });
+      } else {
+        toast({
+          title: "Registration Failed",
+          description: message,
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handlePinSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (pinData.pin.length !== 4) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid 4-digit PIN",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await apiRequest("POST", "/api/auth/complete-registration", {
+        email: pinData.email,
+        pin: pinData.pin,
       });
       toast({
         title: "Success",
@@ -61,14 +124,134 @@ export default function RegisterPage() {
       window.location.href = "/";
     } catch (error: any) {
       toast({
-        title: "Registration Failed",
-        description: error.message || "Failed to create account",
+        title: "Verification Failed",
+        description: error.message || "Invalid email or PIN",
         variant: "destructive",
       });
     } finally {
       setIsLoading(false);
     }
   };
+
+  if (registrationStatus === "pending") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-amber-500">
+              <CheckCircle className="h-7 w-7 text-white" />
+            </div>
+            <CardTitle className="text-2xl">Registration Pending</CardTitle>
+            <CardDescription>
+              Your registration is awaiting admin approval
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="text-center text-muted-foreground">
+              <p>An administrator has been notified of your registration request.</p>
+              <p className="mt-2">Once approved, you will receive an email with a unique PIN to complete your registration.</p>
+            </div>
+            
+            <div className="pt-4 border-t">
+              <p className="text-sm text-center text-muted-foreground mb-4">
+                Already received your PIN?
+              </p>
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={() => setRegistrationStatus("approved")}
+                data-testid="button-enter-pin"
+              >
+                <KeyRound className="mr-2 h-4 w-4" />
+                Enter PIN
+              </Button>
+            </div>
+            
+            <div className="text-center">
+              <Link href="/login" className="text-sm text-primary hover:underline" data-testid="link-login">
+                Back to Sign In
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (registrationStatus === "approved") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-500">
+              <KeyRound className="h-7 w-7 text-white" />
+            </div>
+            <CardTitle className="text-2xl">Enter Your PIN</CardTitle>
+            <CardDescription>
+              Complete your registration with the PIN sent to your email
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handlePinSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  placeholder="john@example.com"
+                  value={pinData.email}
+                  onChange={handlePinChange}
+                  required
+                  data-testid="input-pin-email"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="pin">4-Digit PIN</Label>
+                <Input
+                  id="pin"
+                  name="pin"
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="0000"
+                  value={pinData.pin}
+                  onChange={handlePinChange}
+                  maxLength={4}
+                  className="text-center text-2xl tracking-widest"
+                  required
+                  data-testid="input-pin"
+                />
+              </div>
+              <Button 
+                type="submit" 
+                className="w-full" 
+                disabled={isLoading}
+                data-testid="button-verify-pin"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Verifying...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="mr-2 h-4 w-4" />
+                    Complete Registration
+                  </>
+                )}
+              </Button>
+            </form>
+            
+            <div className="mt-6 text-center">
+              <Link href="/login" className="text-sm text-primary hover:underline" data-testid="link-login">
+                Back to Sign In
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
@@ -158,22 +341,37 @@ export default function RegisterPage() {
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating Account...
+                  Submitting...
                 </>
               ) : (
                 <>
                   <UserPlus className="mr-2 h-4 w-4" />
-                  Create Account
+                  Request Account
                 </>
               )}
             </Button>
           </form>
+          
+          <div className="mt-4 p-3 bg-muted rounded-lg text-sm text-muted-foreground">
+            <p>Account creation requires admin approval. Once approved, you'll receive a unique PIN via email to complete registration.</p>
+          </div>
           
           <div className="mt-6 text-center text-sm">
             <span className="text-muted-foreground">Already have an account? </span>
             <Link href="/login" className="text-primary hover:underline" data-testid="link-login">
               Sign in
             </Link>
+          </div>
+          
+          <div className="mt-2 text-center text-sm">
+            <span className="text-muted-foreground">Have a PIN? </span>
+            <button 
+              onClick={() => setRegistrationStatus("approved")}
+              className="text-primary hover:underline"
+              data-testid="link-have-pin"
+            >
+              Complete registration
+            </button>
           </div>
           
           <div className="mt-4 pt-4 border-t text-center">

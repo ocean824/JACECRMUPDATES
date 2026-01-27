@@ -32,12 +32,31 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Shield, Plus, Users, AlertCircle } from "lucide-react";
+import { Shield, Plus, Users, AlertCircle, UserPlus, Check, X, Clock } from "lucide-react";
+
+type PendingRegistration = {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  status: string;
+  createdAt: string;
+};
 
 type UserRole = {
   id: string;
@@ -73,14 +92,19 @@ export default function AdminPage() {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [newUserId, setNewUserId] = useState("");
   const [newRole, setNewRole] = useState("investor_relations");
+  const [registrationToReject, setRegistrationToReject] = useState<string | null>(null);
 
   const { data: currentRole } = useQuery<{ role: string }>({
     queryKey: ["/api/user/role"],
   });
 
-  const { data: roles, isLoading, isError, error } = useQuery<UserRole[]>({
+  const { data: roles, isLoading, isError } = useQuery<UserRole[]>({
     queryKey: ["/api/admin/roles"],
     enabled: currentRole?.role === "admin",
+  });
+
+  const { data: pendingRegistrations, isLoading: isPendingLoading } = useQuery<PendingRegistration[]>({
+    queryKey: ["/api/auth/pending-registrations"],
   });
 
   const addRoleMutation = useMutation({
@@ -102,6 +126,48 @@ export default function AdminPage() {
         variant: "destructive",
         title: "Error",
         description: "Failed to assign role. Please try again.",
+      });
+    },
+  });
+
+  const approveRegistrationMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("POST", `/api/auth/approve-registration/${id}`);
+    },
+    onSuccess: async (response) => {
+      const data = await response.json();
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/pending-registrations"] });
+      toast({
+        title: "Registration Approved",
+        description: `PIN ${data.pin} has been sent to the user via email.`,
+      });
+    },
+    onError: () => {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to approve registration. Please try again.",
+      });
+    },
+  });
+
+  const rejectRegistrationMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("POST", `/api/auth/reject-registration/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/pending-registrations"] });
+      toast({
+        title: "Registration Rejected",
+        description: "The registration request has been rejected.",
+      });
+      setRegistrationToReject(null);
+    },
+    onError: () => {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to reject registration. Please try again.",
       });
     },
   });
@@ -135,6 +201,91 @@ export default function AdminPage() {
           </p>
         </div>
       </div>
+
+      <Card className="mb-6">
+        <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <UserPlus className="h-5 w-5" />
+              Pending Registrations
+            </CardTitle>
+            <CardDescription>
+              Approve or reject user registration requests
+            </CardDescription>
+          </div>
+          {pendingRegistrations && pendingRegistrations.length > 0 && (
+            <Badge variant="secondary" className="flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              {pendingRegistrations.length} pending
+            </Badge>
+          )}
+        </CardHeader>
+        <CardContent>
+          {isPendingLoading ? (
+            <div className="space-y-2">
+              {Array.from({ length: 2 }).map((_, i) => (
+                <Skeleton key={i} className="h-12 w-full" />
+              ))}
+            </div>
+          ) : pendingRegistrations && pendingRegistrations.length > 0 ? (
+            <div className="border rounded-md">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Requested</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pendingRegistrations.map((reg) => (
+                    <TableRow key={reg.id} data-testid={`row-pending-${reg.id}`}>
+                      <TableCell className="font-medium">
+                        {reg.firstName} {reg.lastName}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {reg.email}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {new Date(reg.createdAt).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            size="sm"
+                            onClick={() => approveRegistrationMutation.mutate(reg.id)}
+                            disabled={approveRegistrationMutation.isPending}
+                            data-testid={`button-approve-${reg.id}`}
+                          >
+                            <Check className="h-4 w-4 mr-1" />
+                            Approve
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setRegistrationToReject(reg.id)}
+                            disabled={rejectRegistrationMutation.isPending}
+                            data-testid={`button-reject-${reg.id}`}
+                          >
+                            <X className="h-4 w-4 mr-1" />
+                            Reject
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <UserPlus className="h-10 w-10 mx-auto mb-3 opacity-50" />
+              <p>No pending registration requests</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
@@ -279,6 +430,27 @@ export default function AdminPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!registrationToReject} onOpenChange={() => setRegistrationToReject(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reject Registration?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will reject the user's registration request. They will need to submit a new request if they want to register again.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-reject">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => registrationToReject && rejectRegistrationMutation.mutate(registrationToReject)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-reject"
+            >
+              Reject Registration
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
