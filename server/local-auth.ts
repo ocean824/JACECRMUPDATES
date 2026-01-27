@@ -15,7 +15,7 @@ const registerSchema = z.object({
 
 const completeRegistrationSchema = z.object({
   email: z.string().email("Invalid email address"),
-  pin: z.string().length(4, "PIN must be 4 digits"),
+  pin: z.string().min(1, "PIN is required").max(9, "PIN must be at most 9 characters"),
 });
 
 const loginSchema = z.object({
@@ -23,11 +23,31 @@ const loginSchema = z.object({
   password: z.string().min(1, "Password is required"),
 });
 
+function generateInvitePin(): string {
+  const lowercase = 'abcdefghijklmnopqrstuvwxyz';
+  const numbers = '0123456789';
+  const specialChars = '!@#$%&*';
+  const alphanumeric = lowercase + numbers;
+  
+  const pinLength = 8;
+  let pin = '';
+  
+  for (let i = 0; i < pinLength - 1; i++) {
+    pin += alphanumeric.charAt(Math.floor(Math.random() * alphanumeric.length));
+  }
+  
+  const specialChar = specialChars.charAt(Math.floor(Math.random() * specialChars.length));
+  const insertPos = Math.floor(Math.random() * (pin.length + 1));
+  pin = pin.slice(0, insertPos) + specialChar + pin.slice(insertPos);
+  
+  return pin;
+}
+
 async function generateUniquePin(): Promise<string> {
   const maxAttempts = 100;
   
   for (let i = 0; i < maxAttempts; i++) {
-    const pin = Math.floor(1000 + Math.random() * 9000).toString();
+    const pin = generateInvitePin();
     
     const existing = await db
       .select()
@@ -164,6 +184,19 @@ export function setupLocalAuth(app: Express) {
         return res.status(400).json({ message: "Invalid email or PIN" });
       }
 
+      if (!pending.pinConfirmedAt) {
+        return res.status(400).json({ message: "This invite has not been confirmed by an admin yet" });
+      }
+
+      if (pending.pinExpiresAt && new Date() > new Date(pending.pinExpiresAt)) {
+        return res.status(400).json({ message: "This invite PIN has expired. Please request a new invitation." });
+      }
+
+      await db
+        .update(pendingRegistrations)
+        .set({ pinEnteredAt: new Date() })
+        .where(eq(pendingRegistrations.id, pending.id));
+
       const [newUser] = await db
         .insert(users)
         .values({
@@ -249,23 +282,28 @@ export function setupLocalAuth(app: Express) {
       }
 
       const pin = await generateUniquePin();
+      const now = new Date();
+      const expiresAt = new Date(now.getTime() + 2 * 60 * 60 * 1000);
 
       await db
         .update(pendingRegistrations)
         .set({
           status: "approved",
           pin,
-          approvedAt: new Date(),
+          pinExpiresAt: expiresAt,
+          pinConfirmedAt: now,
+          approvedAt: now,
           approvedBy: user.id,
-          updatedAt: new Date(),
+          updatedAt: now,
         })
         .where(eq(pendingRegistrations.id, id));
 
       await sendPinToUser(pending.email, pending.firstName, pin);
 
       res.json({
-        message: "Registration approved. PIN sent to user.",
+        message: "Registration approved. PIN sent to user. Expires in 2 hours.",
         pin,
+        expiresAt: expiresAt.toISOString(),
       });
     } catch (error) {
       console.error("Approve registration error:", error);
