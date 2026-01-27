@@ -399,6 +399,18 @@ export default function ExternalOnboardingPage() {
       toast({ title: "Onboarding submitted", description: "JACE received your onboarding. Returning you to BondAI..." });
 
       const parentOrigin = getParentOrigin();
+      // Send both message types for compatibility with different BondAI versions
+      window.parent?.postMessage(
+        {
+          type: "ONBOARDING_COMPLETED",
+          completedAt: json.completedAt,
+          submissionId: json.submissionId,
+          investorEmail: email,
+          status: "LIVE",
+        },
+        parentOrigin,
+      );
+      // Also send legacy message type for backward compatibility
       window.parent?.postMessage(
         {
           type: "JACE_ONBOARDING_COMPLETE",

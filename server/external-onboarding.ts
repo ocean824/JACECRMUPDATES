@@ -142,7 +142,13 @@ export function registerExternalOnboarding(app: Express) {
     return res.status(204).send();
   });
 
-  app.post("/api/external/onboarding/sessions", async (req, res) => {
+  app.options("/api/integrations/bondai/handoff", (req, res) => {
+    setCorsHeaders(req, res);
+    return res.status(204).send();
+  });
+
+  // Handler for creating onboarding sessions - shared between both endpoints
+  const handleCreateOnboardingSession = async (req: Request, res: Response) => {
     setCorsHeaders(req, res);
     try {
       const apiKey = req.header("x-api-key");
@@ -225,7 +231,11 @@ export function registerExternalOnboarding(app: Express) {
       console.error("Error creating external onboarding session:", err);
       return res.status(500).json({ message: err?.message || "Failed to create session" });
     }
-  });
+  };
+
+  // Register both endpoints for creating onboarding sessions
+  app.post("/api/external/onboarding/sessions", handleCreateOnboardingSession);
+  app.post("/api/integrations/bondai/handoff", handleCreateOnboardingSession);
 
   app.options("/api/external/onboarding/session", (req, res) => {
     setCorsHeaders(req, res);

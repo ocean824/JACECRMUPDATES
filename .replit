@@ -50,3 +50,6 @@ JACE_ONBOARDING_JWT_SECRET = "fa441b2e99062d3dab5278332fa3db381e9f868a35090e71fb
 JACE_ENCRYPTION_KEY_BASE64 = "oe+VCOpIX4aG0Xn902O31MHsPQlOL19o5crTClHEpi0="
 ONBOARDING_DEFAULT_OWNER_USER_ID = "1"
 BONDAI_WEBHOOK_SECRET = "fe7ed4f00ba9033502697e2ab6189a8532435d475685e34a100c5d0b3a22bbed"
+BONDAI_WEBHOOK_URL = "https://your-bond-ai.replit.app/api/jace/webhook"
+BONDAI_CORS_ORIGINS = "https://your-bond-ai.replit.app,https://jace-enterprise-crm.replit.app"
+BONDAI_ALLOWED_FRAME_ANCESTORS = "'self' https://your-bond-ai.replit.app"
