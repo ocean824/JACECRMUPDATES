@@ -1,0 +1,114 @@
+Thought for 56s
+
+Below is a short-form “GLBA Model Privacy Form–style” attachment you can use in JACE onboarding. It’s modeled on the federal Model Privacy Form format (Regulation P Appendix A / SEC model form), but your long-form document remains the authoritative record.
+
+JACE CRM — SHORT-FORM PRIVACY NOTICE (MODEL FORM STYLE)
+
+Attachment to: JACE Investor CIP/KYC Disclosure + Privacy Notice + Information Sharing Consent (Long-Form)
+Status: Convenience summary only; if anything conflicts, the Long-Form controls.
+
+Effective Date: ____________
+Tenant/Workspace: __________________________
+JACE Investor ID: __________________________
+Onboarding Session ID: __________________________
+
+FACTS — What does JACE do with your personal information?
+Why?
+
+Financial services providers choose how they share your personal information. Federal law gives consumers the right to limit some but not all sharing, and federal law requires certain disclosures about how we collect, share, and protect personal information.
+
+What?
+
+The types of personal information we collect and share depend on the product or service you have with us. This information can include:
+
+Social Security number / Tax ID (where applicable) and identity information
+
+Account, transaction, payment, settlement, and escrow activity
+
+Contact information and communications
+
+Device, security, and authentication data
+
+How?
+
+All financial services providers need to share customers’ personal information to run their everyday business. In the section below, we list the reasons financial services providers can share their customers’ personal information; the reasons JACE chooses to share; and whether you can limit this sharing.
+
+Reasons we can share your personal information
+Reasons we can share your personal information	Does JACE share?	Can you limit this sharing?
+For our everyday business purposes — such as to process transactions, maintain your account, respond to court orders and legal investigations, support compliance, and report as required	Yes	No
+For our marketing purposes — to offer our products and services to you	Yes	Yes
+For joint marketing with other financial companies (where applicable)	No (Default)	N/A
+For our affiliates’ everyday business purposes — information about your transactions and experiences	No (Default)	N/A
+For our affiliates’ everyday business purposes — information about your creditworthiness	No	N/A
+For our affiliates to market to you	No (Default)	N/A
+For nonaffiliates to market to you	No (Default)	Yes (if enabled)
+
+Note: JACE may share information with service providers and regulated partners for onboarding, identity verification, sanctions screening, transaction processing, fraud prevention, security, auditing, and legal compliance. These are generally considered part of “everyday business purposes.”
+
+To limit our sharing
+
+You can limit:
+
+Marketing offers from JACE
+
+Any optional “nonaffiliate marketing” sharing if JACE enables it for your tenant/workspace
+
+Methods (choose what you will implement in JACE UI):
+
+Call: ____________________
+
+Email: ___________________
+
+Online Preferences URL: ___________________
+
+In-App: Investor Profile → Privacy Preferences
+
+Please note: If you are a new customer, we can begin sharing your information [30] days from the date we sent this notice. When you are no longer our customer, we continue to share your information as described in this notice. You can contact us at any time to limit our sharing.
+
+Questions?
+
+Call ____________________ or email ____________________.
+
+Who we are
+
+Who is providing this notice?
+JACE, LLC (“JACE”) and its service providers and regulated escrow/payment/settlement partners supporting onboarding and transactions.
+
+What we do
+How does JACE protect my personal information?
+
+We maintain safeguards designed to protect your personal information from unauthorized access and use, including role-based access controls, audit logging, and security monitoring.
+
+How does JACE collect my personal information?
+
+We collect your personal information, for example, when you:
+
+Apply to onboard as an investor
+
+Provide identity/ownership information (if applicable)
+
+Initiate bids, fund escrow, or participate in settlement/payment activity
+
+Use the portal, communicate with support, or log in from a device/browser
+
+Why can’t I limit all sharing?
+
+Federal law gives you the right to limit only certain sharing. Federal law also requires us to share certain information to run our everyday business and to comply with legal requirements.
+
+Definitions
+
+Affiliates — Companies related by common ownership or control. (JACE default: no affiliate marketing sharing.)
+Nonaffiliates — Companies not related by common ownership or control. (JACE default: no sale of NPI; no nonaffiliate marketing sharing unless tenant enables it.)
+Joint marketing — A formal agreement between nonaffiliated financial companies that together market financial products or services to you.
+
+Investor acknowledgment (e-signature)
+
+By signing, you acknowledge you received this Short-Form Privacy Notice, and you understand the Long-Form Privacy Notice/Consent governs.
+
+Investor / Authorized Signatory: ____________________________________
+Signature: ____________________________________ Date: ____ / ____ / ______
+System Audit (auto-captured): IP __________ User Agent __________ Session ID __________
+
+Implementation note (JACE)
+
+Store as: PRIVACY_NOTICE_SHORTFORM attached to the same onboarding step as the long-form consent, with the same session ID and audit events. The “Can you limit” items should map to your privacy_sharing_tier / marketing toggles in the investor profile.

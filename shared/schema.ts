@@ -856,3 +856,258 @@ export const defaultCurrencies = [
   { code: "SGD", name: "Singapore Dollar", symbol: "S$", isDefault: false },
   { code: "HKD", name: "Hong Kong Dollar", symbol: "HK$", isDefault: false },
 ] as const;
+
+// ============ COMPLIANCE ONBOARDING ADDITIONS ============
+
+// Compliance document type enum
+export const complianceDocTypeEnum = pgEnum("compliance_doc_type", [
+  "AML_CERTIFICATION",
+  "PRIVACY_CIP_KYC_NOTICE_CONSENT",
+  "PRIVACY_NOTICE_SHORTFORM"
+]);
+
+// Privacy sharing tier enum
+export const privacySharingTierEnum = pgEnum("privacy_sharing_tier", [
+  "REQUIRED_ONLY",
+  "PRODUCT_COMMS",
+  "MARKETING_PLUS"
+]);
+
+// Source of funds enum
+export const sourceOfFundsEnum = pgEnum("source_of_funds", [
+  "employment_salary",
+  "business_income",
+  "investments",
+  "real_estate",
+  "inheritance_gift",
+  "savings",
+  "other"
+]);
+
+// Compliance investor type (for form purposes - individual vs entity)
+export const complianceInvestorTypeEnum = pgEnum("compliance_investor_type", [
+  "individual",
+  "entity"
+]);
+
+// Entity sub-type for entities
+export const entitySubTypeEnum = pgEnum("entity_sub_type", [
+  "llc",
+  "corporation",
+  "partnership",
+  "trust",
+  "fund",
+  "other"
+]);
+
+// Compliance Documents - stores signed compliance documents
+export const complianceDocuments = pgTable("compliance_documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  investorId: varchar("investor_id").notNull().references(() => investors.id),
+  documentType: complianceDocTypeEnum("document_type").notNull(),
+  version: varchar("version", { length: 20 }).default("1.0"),
+  formData: text("form_data").notNull(),
+  onboardingSessionId: varchar("onboarding_session_id", { length: 100 }),
+  status: varchar("status", { length: 50 }).default("signed").notNull(),
+  signedAt: timestamp("signed_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Electronic Signatures - audit trail for signatures
+export const electronicSignatures = pgTable("electronic_signatures", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  complianceDocumentId: varchar("compliance_document_id").notNull().references(() => complianceDocuments.id),
+  signatoryName: varchar("signatory_name", { length: 200 }).notNull(),
+  signatoryTitle: varchar("signatory_title", { length: 200 }),
+  signatureValue: text("signature_value").notNull(),
+  ipAddress: varchar("ip_address", { length: 45 }),
+  userAgent: text("user_agent"),
+  timezone: varchar("timezone", { length: 100 }),
+  signedAt: timestamp("signed_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Beneficial Owners - for entity investors
+export const beneficialOwners = pgTable("beneficial_owners", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  investorId: varchar("investor_id").notNull().references(() => investors.id),
+  fullName: varchar("full_name", { length: 200 }).notNull(),
+  dateOfBirth: timestamp("date_of_birth"),
+  address: text("address"),
+  ownershipPercentage: decimal("ownership_percentage", { precision: 5, scale: 2 }),
+  role: varchar("role", { length: 100 }),
+  govIdLast4: varchar("gov_id_last4", { length: 4 }),
+  isControlPerson: boolean("is_control_person").default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Investor Compliance - stores compliance preferences and status
+export const investorCompliance = pgTable("investor_compliance", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  investorId: varchar("investor_id").notNull().references(() => investors.id).unique(),
+  complianceInvestorType: complianceInvestorTypeEnum("compliance_investor_type").default("individual"),
+  entitySubType: entitySubTypeEnum("entity_sub_type"),
+  privacySharingTier: privacySharingTierEnum("privacy_sharing_tier").default("REQUIRED_ONLY"),
+  electronicDeliveryConsent: boolean("electronic_delivery_consent").default(false),
+  isActivated: boolean("is_activated").default(false),
+  activatedAt: timestamp("activated_at"),
+  amlCertificationSigned: boolean("aml_certification_signed").default(false),
+  privacyNoticeSigned: boolean("privacy_notice_signed").default(false),
+  shortFormPrivacySigned: boolean("short_form_privacy_signed").default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Compliance Audit Events - detailed audit trail for compliance actions
+export const complianceAuditEvents = pgTable("compliance_audit_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  investorId: varchar("investor_id").notNull().references(() => investors.id),
+  eventType: varchar("event_type", { length: 100 }).notNull(),
+  documentId: varchar("document_id"),
+  description: text("description"),
+  ipAddress: varchar("ip_address", { length: 45 }),
+  userAgent: text("user_agent"),
+  metadata: text("metadata"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Compliance Relations
+export const complianceDocumentRelations = relations(complianceDocuments, ({ one, many }) => ({
+  investor: one(investors, {
+    fields: [complianceDocuments.investorId],
+    references: [investors.id],
+  }),
+  signatures: many(electronicSignatures),
+}));
+
+export const electronicSignatureRelations = relations(electronicSignatures, ({ one }) => ({
+  complianceDocument: one(complianceDocuments, {
+    fields: [electronicSignatures.complianceDocumentId],
+    references: [complianceDocuments.id],
+  }),
+}));
+
+export const beneficialOwnerRelations = relations(beneficialOwners, ({ one }) => ({
+  investor: one(investors, {
+    fields: [beneficialOwners.investorId],
+    references: [investors.id],
+  }),
+}));
+
+export const investorComplianceRelations = relations(investorCompliance, ({ one }) => ({
+  investor: one(investors, {
+    fields: [investorCompliance.investorId],
+    references: [investors.id],
+  }),
+}));
+
+export const complianceAuditEventRelations = relations(complianceAuditEvents, ({ one }) => ({
+  investor: one(investors, {
+    fields: [complianceAuditEvents.investorId],
+    references: [investors.id],
+  }),
+}));
+
+// Compliance Insert Schemas
+export const insertComplianceDocumentSchema = createInsertSchema(complianceDocuments).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+});
+
+export const insertElectronicSignatureSchema = createInsertSchema(electronicSignatures).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertBeneficialOwnerSchema = createInsertSchema(beneficialOwners).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertInvestorComplianceSchema = createInsertSchema(investorCompliance).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertComplianceAuditEventSchema = createInsertSchema(complianceAuditEvents).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+});
+
+// Compliance Types
+export type ComplianceDocument = typeof complianceDocuments.$inferSelect;
+export type InsertComplianceDocument = z.infer<typeof insertComplianceDocumentSchema>;
+
+export type ElectronicSignature = typeof electronicSignatures.$inferSelect;
+export type InsertElectronicSignature = z.infer<typeof insertElectronicSignatureSchema>;
+
+export type BeneficialOwner = typeof beneficialOwners.$inferSelect;
+export type InsertBeneficialOwner = z.infer<typeof insertBeneficialOwnerSchema>;
+
+export type InvestorCompliance = typeof investorCompliance.$inferSelect;
+export type InsertInvestorCompliance = z.infer<typeof insertInvestorComplianceSchema>;
+
+export type ComplianceAuditEvent = typeof complianceAuditEvents.$inferSelect;
+export type InsertComplianceAuditEvent = z.infer<typeof insertComplianceAuditEventSchema>;
+
+// Compliance Document Types for UI
+export const complianceDocTypes = [
+  { value: "AML_CERTIFICATION", label: "AML/CTF & Sanctions Certification" },
+  { value: "PRIVACY_CIP_KYC_NOTICE_CONSENT", label: "CIP/KYC + Privacy Notice + Consent" },
+  { value: "PRIVACY_NOTICE_SHORTFORM", label: "Short-Form Privacy Notice" },
+] as const;
+
+export type ComplianceDocType = typeof complianceDocTypes[number]["value"];
+
+// Privacy Sharing Tier Labels for UI
+export const privacySharingTiers = [
+  { value: "REQUIRED_ONLY", label: "Required Sharing Only", description: "Only for compliance, processing, and legal requirements" },
+  { value: "PRODUCT_COMMS", label: "Plus Product Communications", description: "Required + product updates and onboarding help" },
+  { value: "MARKETING_PLUS", label: "Plus Marketing", description: "All above + marketing communications and partner sharing" },
+] as const;
+
+export type PrivacySharingTier = typeof privacySharingTiers[number]["value"];
+
+// Source of Funds Labels for UI
+export const sourceOfFundsOptions = [
+  { value: "employment_salary", label: "Employment/Salary" },
+  { value: "business_income", label: "Business Income" },
+  { value: "investments", label: "Investments" },
+  { value: "real_estate", label: "Real Estate" },
+  { value: "inheritance_gift", label: "Inheritance/Gift" },
+  { value: "savings", label: "Savings" },
+  { value: "other", label: "Other" },
+] as const;
+
+export type SourceOfFunds = typeof sourceOfFundsOptions[number]["value"];
+
+// Entity Sub-Types for UI
+export const entitySubTypes = [
+  { value: "llc", label: "LLC" },
+  { value: "corporation", label: "Corporation" },
+  { value: "partnership", label: "Partnership" },
+  { value: "trust", label: "Trust" },
+  { value: "fund", label: "Fund" },
+  { value: "other", label: "Other" },
+] as const;
+
+export type EntitySubType = typeof entitySubTypes[number]["value"];
+
+// Compliance Audit Event Types
+export const complianceAuditEventTypes = [
+  "document_created",
+  "document_signed",
+  "document_viewed",
+  "document_downloaded",
+  "preference_changed",
+  "investor_activated",
+] as const;
+
+export type ComplianceAuditEventType = typeof complianceAuditEventTypes[number];
