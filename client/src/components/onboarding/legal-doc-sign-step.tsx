@@ -17,6 +17,7 @@ interface LegalDocSignStepProps {
   documentBody: string;
   onComplete: () => void;
   signerEmail?: string;
+  token?: string;
 }
 
 export function LegalDocSignStep({
@@ -26,6 +27,7 @@ export function LegalDocSignStep({
   documentBody,
   onComplete,
   signerEmail,
+  token,
 }: LegalDocSignStepProps) {
   const { toast } = useToast();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -68,7 +70,11 @@ export function LegalDocSignStep({
 
   const signMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/investor-documents/sign", {
+      const endpoint = token 
+        ? `/api/external/investor-documents/sign?token=${encodeURIComponent(token)}`
+        : "/api/investor-documents/sign";
+      
+      const response = await apiRequest("POST", endpoint, {
         investorId,
         documentType,
         signerName: signerName.trim(),

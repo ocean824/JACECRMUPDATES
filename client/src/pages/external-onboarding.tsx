@@ -883,6 +883,7 @@ export default function ExternalOnboardingPage() {
                               documentBody={LEGAL_DOCUMENTS.AML_CERTIFICATION.body}
                               signerEmail={email}
                               onComplete={() => setAmlSigned(true)}
+                              token={token}
                             />
                           )}
                         </AccordionContent>
@@ -915,6 +916,7 @@ export default function ExternalOnboardingPage() {
                               documentBody={LEGAL_DOCUMENTS.CIP_KYC_PRIVACY_CONSENT.body}
                               signerEmail={email}
                               onComplete={() => setCipKycSigned(true)}
+                              token={token}
                             />
                           )}
                         </AccordionContent>
@@ -947,6 +949,7 @@ export default function ExternalOnboardingPage() {
                               documentBody={LEGAL_DOCUMENTS.PRIVACY_SHORTFORM.body}
                               signerEmail={email}
                               onComplete={() => setPrivacySigned(true)}
+                              token={token}
                             />
                           )}
                         </AccordionContent>

@@ -4,10 +4,11 @@ import crypto from "crypto";
 import path from "path";
 import fs from "fs/promises";
 import { db } from "./db";
-import { investorDocuments, complianceAuditEvents, investors } from "@shared/schema";
+import { investorDocuments, complianceAuditEvents, investors, externalOnboardingSessions } from "@shared/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { renderLegalPdf } from "./lib/pdf/renderLegalPdf";
 import { LEGAL_DOCUMENTS, type LegalDocumentType } from "@shared/legal-documents";
+import { verifyOnboardingJwt } from "./external-onboarding-security";
 
 const SignInvestorDocumentBody = z.object({
   investorId: z.string().min(1),
@@ -42,6 +43,15 @@ export function registerInvestorDocumentRoutes(app: Express, isAuthenticated: (r
       }
 
       const body = SignInvestorDocumentBody.parse(req.body);
+      
+      if (body.signatureMethod === "TYPED") {
+        if (!body.signatureValue || body.signatureValue.trim().length < 2) {
+          return res.status(400).json({ 
+            message: "Signature value must be at least 2 characters when using typed signature" 
+          });
+        }
+      }
+      
       const ip = getClientIp(req);
       const userAgent = req.headers["user-agent"] || null;
       const sessionId = (req as any).sessionID || null;
@@ -255,6 +265,179 @@ export function registerInvestorDocumentRoutes(app: Express, isAuthenticated: (r
     } catch (err: any) {
       console.error("Error downloading investor document:", err);
       return res.status(500).json({ message: err?.message || "Failed to download document" });
+    }
+  });
+}
+
+function envOrThrow(name: string): string {
+  const v = process.env[name];
+  if (!v) throw new Error(`${name} is required`);
+  return v;
+}
+
+export function registerExternalInvestorDocumentRoutes(app: Express) {
+  app.options("/api/external/investor-documents/sign", (req, res) => {
+    res.status(204).send();
+  });
+
+  app.post("/api/external/investor-documents/sign", async (req: Request, res: Response) => {
+    try {
+      const jwtSecret = envOrThrow("JACE_ONBOARDING_JWT_SECRET");
+      const token = (req.query.token as string) || "";
+      
+      if (!token) {
+        return res.status(400).json({ message: "token is required" });
+      }
+
+      let payload;
+      try {
+        payload = verifyOnboardingJwt(token, jwtSecret);
+      } catch (err: any) {
+        return res.status(401).json({ message: err?.message || "Invalid token" });
+      }
+
+      const sessionRows = await db
+        .select()
+        .from(externalOnboardingSessions)
+        .where(eq(externalOnboardingSessions.id, payload.sid))
+        .limit(1);
+
+      const session = sessionRows[0];
+      if (!session) {
+        return res.status(404).json({ message: "Session not found" });
+      }
+      
+      if (session.expiresAt && new Date(session.expiresAt).getTime() < Date.now()) {
+        return res.status(410).json({ message: "Session expired" });
+      }
+
+      const body = SignInvestorDocumentBody.parse(req.body);
+      
+      if (body.investorId !== payload.inv) {
+        return res.status(403).json({ message: "Investor ID does not match session" });
+      }
+      
+      if (body.signatureMethod === "TYPED") {
+        if (!body.signatureValue || body.signatureValue.trim().length < 2) {
+          return res.status(400).json({ 
+            message: "Signature value must be at least 2 characters when using typed signature" 
+          });
+        }
+      }
+
+      const ip = getClientIp(req);
+      const userAgent = req.headers["user-agent"] || null;
+      const sessionId = session.id;
+      const userId = session.userId;
+
+      const investorRows = await db
+        .select()
+        .from(investors)
+        .where(eq(investors.id, body.investorId))
+        .limit(1);
+
+      if (investorRows.length === 0) {
+        return res.status(404).json({ message: "Investor not found" });
+      }
+
+      const investor = investorRows[0];
+      const legalDoc = LEGAL_DOCUMENTS[body.documentType as LegalDocumentType];
+      
+      if (!legalDoc) {
+        return res.status(400).json({ message: "Invalid document type" });
+      }
+
+      const signedAtISO = new Date().toISOString();
+
+      const pdfBytes = await renderLegalPdf({
+        companyName: "JACE Management, LLC",
+        companyState: "Colorado",
+        contactEmail: "jacemgmt@gmail.com",
+        contactPhone: "970-710-9193",
+        governingState: "Colorado",
+        investorId: body.investorId,
+        documentType: body.documentType,
+        version: legalDoc.version,
+        title: legalDoc.title,
+        documentBody: legalDoc.body,
+        signerName: body.signerName,
+        signerEmail: body.signerEmail,
+        signerTitle: body.signerTitle,
+        signatureMethod: body.signatureMethod,
+        signatureValue: body.signatureValue,
+        consentSnapshot: body.consentSnapshot as Record<string, unknown>,
+        metadata: body.metadata as Record<string, unknown>,
+        signedAtISO,
+        ip,
+        userAgent,
+        sessionId,
+      });
+
+      const sha256Hex = crypto.createHash("sha256").update(pdfBytes).digest("hex");
+
+      const dir = path.join(process.cwd(), "uploads", "investors", body.investorId);
+      await fs.mkdir(dir, { recursive: true });
+
+      const filename = `${body.documentType}_v${legalDoc.version}_${Date.now()}.pdf`;
+      const filePath = path.join(dir, filename);
+      await fs.writeFile(filePath, pdfBytes);
+
+      const fileKey = `uploads/investors/${body.investorId}/${filename}`;
+      const fileSizeBytes = pdfBytes.length;
+
+      const [insertedDoc] = await db.insert(investorDocuments).values({
+        userId,
+        investorId: body.investorId,
+        documentType: body.documentType,
+        version: legalDoc.version,
+        title: legalDoc.title,
+        status: "SIGNED",
+        fileKey,
+        fileMime: "application/pdf",
+        fileSizeBytes,
+        sha256Hex,
+        signerName: body.signerName,
+        signerEmail: body.signerEmail,
+        signerTitle: body.signerTitle,
+        signatureMethod: body.signatureMethod,
+        signatureValue: body.signatureValue,
+        consentSnapshot: JSON.stringify(body.consentSnapshot),
+        metadata: JSON.stringify(body.metadata),
+        signedIp: ip,
+        signedUserAgent: userAgent,
+        signedSessionId: sessionId,
+      }).returning();
+
+      await db.insert(complianceAuditEvents).values({
+        userId,
+        investorId: body.investorId,
+        eventType: "DOC_SIGNED",
+        documentId: insertedDoc.id,
+        description: `Signed ${legalDoc.title} (${body.documentType}) via external onboarding`,
+        ipAddress: ip,
+        userAgent,
+        metadata: JSON.stringify({
+          documentType: body.documentType,
+          version: legalDoc.version,
+          fileKey,
+          sha256Hex,
+          externalSessionId: session.id,
+        }),
+      });
+
+      return res.json({
+        documentId: insertedDoc.id,
+        documentType: body.documentType,
+        title: legalDoc.title,
+        signedAt: insertedDoc.signedAt,
+        fileKey,
+      });
+    } catch (err: any) {
+      console.error("Error signing investor document (external):", err);
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation error", errors: err.errors });
+      }
+      return res.status(500).json({ message: err?.message || "Failed to sign document" });
     }
   });
 }

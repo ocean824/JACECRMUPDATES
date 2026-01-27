@@ -5,7 +5,7 @@ import { getSession } from "./replit_integrations/auth";
 import { setupLocalAuth, isLocalAuthenticated } from "./local-auth";
 import { handleHelpChat } from "./help-assistant";
 import { registerExternalOnboarding } from "./external-onboarding";
-import { registerInvestorDocumentRoutes } from "./investor-documents";
+import { registerInvestorDocumentRoutes, registerExternalInvestorDocumentRoutes } from "./investor-documents";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -47,6 +47,9 @@ export async function registerRoutes(
 
   // Investor Document Signing Routes
   registerInvestorDocumentRoutes(app, isAuthenticated);
+  
+  // External Investor Document Signing Routes (JWT token-based auth for external onboarding)
+  registerExternalInvestorDocumentRoutes(app);
 
   // AI Help Assistant
   app.post("/api/help-chat", isAuthenticated, handleHelpChat);
