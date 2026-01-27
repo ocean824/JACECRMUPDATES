@@ -64,6 +64,22 @@ import {
   type InsertEmailLog,
   type InvestorPortalUser,
   type InsertInvestorPortalUser,
+  // Compliance types
+  complianceDocuments,
+  electronicSignatures,
+  beneficialOwners,
+  investorCompliance,
+  complianceAuditEvents,
+  type ComplianceDocument,
+  type InsertComplianceDocument,
+  type ElectronicSignature,
+  type InsertElectronicSignature,
+  type BeneficialOwner,
+  type InsertBeneficialOwner,
+  type InvestorCompliance,
+  type InsertInvestorCompliance,
+  type ComplianceAuditEvent,
+  type InsertComplianceAuditEvent,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql, count, sum, gte, lte } from "drizzle-orm";
@@ -236,6 +252,32 @@ export interface IStorage {
   bulkUpdateTasks(userId: string, ids: string[], updates: Partial<InsertTask>): Promise<number>;
   bulkDeleteInvestors(userId: string, ids: string[]): Promise<number>;
   bulkDeleteTasks(userId: string, ids: string[]): Promise<number>;
+
+  // ============ COMPLIANCE ONBOARDING ============
+
+  // Compliance Documents
+  getComplianceDocuments(userId: string, investorId: string): Promise<ComplianceDocument[]>;
+  getComplianceDocument(id: string, userId: string): Promise<ComplianceDocument | undefined>;
+  createComplianceDocument(userId: string, doc: InsertComplianceDocument): Promise<ComplianceDocument>;
+  
+  // Electronic Signatures
+  getElectronicSignatures(complianceDocumentId: string): Promise<ElectronicSignature[]>;
+  createElectronicSignature(signature: InsertElectronicSignature): Promise<ElectronicSignature>;
+
+  // Beneficial Owners
+  getBeneficialOwners(investorId: string): Promise<BeneficialOwner[]>;
+  createBeneficialOwner(owner: InsertBeneficialOwner): Promise<BeneficialOwner>;
+  updateBeneficialOwner(id: string, owner: Partial<InsertBeneficialOwner>): Promise<BeneficialOwner | undefined>;
+  deleteBeneficialOwner(id: string): Promise<boolean>;
+
+  // Investor Compliance
+  getInvestorCompliance(investorId: string): Promise<InvestorCompliance | undefined>;
+  createInvestorCompliance(compliance: InsertInvestorCompliance): Promise<InvestorCompliance>;
+  updateInvestorCompliance(investorId: string, compliance: Partial<InsertInvestorCompliance>): Promise<InvestorCompliance | undefined>;
+
+  // Compliance Audit Events
+  getComplianceAuditEvents(investorId: string): Promise<ComplianceAuditEvent[]>;
+  createComplianceAuditEvent(userId: string, event: InsertComplianceAuditEvent): Promise<ComplianceAuditEvent>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1041,6 +1083,124 @@ export class DatabaseStorage implements IStorage {
     if (ids.length === 0) return 0;
     await db.delete(tasks).where(and(eq(tasks.userId, userId), sql`${tasks.id} = ANY(${ids})`));
     return ids.length;
+  }
+
+  // ============ COMPLIANCE ONBOARDING ============
+
+  // Compliance Documents
+  async getComplianceDocuments(userId: string, investorId: string): Promise<ComplianceDocument[]> {
+    return db
+      .select()
+      .from(complianceDocuments)
+      .where(and(eq(complianceDocuments.userId, userId), eq(complianceDocuments.investorId, investorId)))
+      .orderBy(desc(complianceDocuments.createdAt));
+  }
+
+  async getComplianceDocument(id: string, userId: string): Promise<ComplianceDocument | undefined> {
+    const [doc] = await db
+      .select()
+      .from(complianceDocuments)
+      .where(and(eq(complianceDocuments.id, id), eq(complianceDocuments.userId, userId)));
+    return doc;
+  }
+
+  async createComplianceDocument(userId: string, doc: InsertComplianceDocument): Promise<ComplianceDocument> {
+    const [newDoc] = await db
+      .insert(complianceDocuments)
+      .values({ ...doc, userId })
+      .returning();
+    return newDoc;
+  }
+
+  // Electronic Signatures
+  async getElectronicSignatures(complianceDocumentId: string): Promise<ElectronicSignature[]> {
+    return db
+      .select()
+      .from(electronicSignatures)
+      .where(eq(electronicSignatures.complianceDocumentId, complianceDocumentId))
+      .orderBy(desc(electronicSignatures.signedAt));
+  }
+
+  async createElectronicSignature(signature: InsertElectronicSignature): Promise<ElectronicSignature> {
+    const [newSig] = await db
+      .insert(electronicSignatures)
+      .values(signature)
+      .returning();
+    return newSig;
+  }
+
+  // Beneficial Owners
+  async getBeneficialOwners(investorId: string): Promise<BeneficialOwner[]> {
+    return db
+      .select()
+      .from(beneficialOwners)
+      .where(eq(beneficialOwners.investorId, investorId))
+      .orderBy(beneficialOwners.fullName);
+  }
+
+  async createBeneficialOwner(owner: InsertBeneficialOwner): Promise<BeneficialOwner> {
+    const [newOwner] = await db
+      .insert(beneficialOwners)
+      .values(owner)
+      .returning();
+    return newOwner;
+  }
+
+  async updateBeneficialOwner(id: string, owner: Partial<InsertBeneficialOwner>): Promise<BeneficialOwner | undefined> {
+    const [updated] = await db
+      .update(beneficialOwners)
+      .set({ ...owner, updatedAt: new Date() })
+      .where(eq(beneficialOwners.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteBeneficialOwner(id: string): Promise<boolean> {
+    const result = await db.delete(beneficialOwners).where(eq(beneficialOwners.id, id));
+    return true;
+  }
+
+  // Investor Compliance
+  async getInvestorCompliance(investorId: string): Promise<InvestorCompliance | undefined> {
+    const [compliance] = await db
+      .select()
+      .from(investorCompliance)
+      .where(eq(investorCompliance.investorId, investorId));
+    return compliance;
+  }
+
+  async createInvestorCompliance(compliance: InsertInvestorCompliance): Promise<InvestorCompliance> {
+    const [newCompliance] = await db
+      .insert(investorCompliance)
+      .values(compliance)
+      .returning();
+    return newCompliance;
+  }
+
+  async updateInvestorCompliance(investorId: string, compliance: Partial<InsertInvestorCompliance>): Promise<InvestorCompliance | undefined> {
+    const [updated] = await db
+      .update(investorCompliance)
+      .set({ ...compliance, updatedAt: new Date() })
+      .where(eq(investorCompliance.investorId, investorId))
+      .returning();
+    return updated;
+  }
+
+  // Compliance Audit Events
+  async getComplianceAuditEvents(investorId: string): Promise<ComplianceAuditEvent[]> {
+    return db
+      .select()
+      .from(complianceAuditEvents)
+      .where(eq(complianceAuditEvents.investorId, investorId))
+      .orderBy(desc(complianceAuditEvents.createdAt));
+  }
+
+  async createComplianceAuditEvent(userId: string, event: InsertComplianceAuditEvent): Promise<ComplianceAuditEvent> {
+    const [newEvent] = await db
+      .insert(complianceAuditEvents)
+      .values({ ...event, userId })
+      .returning();
+    return newEvent;
   }
 }
 
