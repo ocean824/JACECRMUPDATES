@@ -239,6 +239,15 @@ Preferred communication style: Simple, everyday language.
    - Event types: document_viewed, document_signed, preference_changed, investor_activated
    - Stores IP address, user agent, timestamps
    - API endpoint: GET `/api/compliance/audit/:investorId`
+6. **GLBA Model Privacy Form**: Federal-compliant privacy notice at `/privacy-notice`
+   - Two-page layout matching CFPB Model Form structure
+   - FACTS header with Why/What/How sections
+   - Disclosure table showing all sharing categories
+   - "To limit our sharing" instructions with opt-out methods
+   - Mail-in opt-out form with checkboxes
+   - Page 2: Who we are, What we do FAQs, Definitions (Affiliates, Nonaffiliates, Joint marketing)
+   - Print/PDF generation via browser print dialog
+   - React component template at `/client/src/templates/privacy-model-form.tsx`
 
 ### Design System
 - Professional blue primary color theme

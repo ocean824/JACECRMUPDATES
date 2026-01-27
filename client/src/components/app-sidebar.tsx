@@ -64,6 +64,7 @@ const managementItems = [
 
 const complianceItems = [
   { title: "Compliance Onboarding", url: "/compliance/demo", icon: FileCheck },
+  { title: "Privacy Notice (GLBA)", url: "/privacy-notice", icon: Shield },
 ];
 
 const systemItems = [
