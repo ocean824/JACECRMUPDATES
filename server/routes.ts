@@ -50,6 +50,13 @@ export async function registerRoutes(
   app.get("/api/user/role", isAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
+      const userSession = (req.session as any)?.user;
+      
+      // Check if user is admin from session first
+      if (userSession?.isAdmin === "true") {
+        return res.json({ userId, role: "admin" });
+      }
+      
       const role = await storage.getUserRole(userId);
       res.json(role || { userId, role: "investor_relations" });
     } catch (error) {
