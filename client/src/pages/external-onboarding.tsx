@@ -472,11 +472,12 @@ export default function ExternalOnboardingPage() {
             <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
               <div className="text-xs text-white/70">What's happening</div>
               <div className="mt-1">
-                You're being redirected to <span className="font-semibold">JACE</span> to complete investor onboarding for{" "}
-                <span className="font-semibold">BondAI</span>.
+                You have left <span className="font-semibold">BondAI</span> and are now on{" "}
+                <span className="font-semibold">JACE CRM</span> for Investor Onboarding.
               </div>
               <div className="text-xs text-white/60 mt-2">
-                Your submission is timestamped and your IP is captured server-side at completion.
+                All investing features on BondAI are locked until you complete this onboarding.
+                Your submission is timestamped with your IP address for compliance records.
               </div>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
@@ -560,12 +561,28 @@ export default function ExternalOnboardingPage() {
           </Button>
         </div>
 
+        <div className="mb-5 rounded-2xl border border-amber-400/30 bg-amber-500/10 backdrop-blur p-4">
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0 mt-0.5">
+              <ShieldCheck className="h-5 w-5 text-amber-400" />
+            </div>
+            <div>
+              <div className="font-semibold text-amber-200 text-sm">You have left BondAI</div>
+              <div className="text-amber-100/80 text-sm mt-1">
+                You are now on <span className="font-semibold">JACE CRM</span> to complete Investor Onboarding. 
+                All investing features on BondAI are locked until you complete this onboarding. 
+                Your information is processed securely by JACE Management, LLC.
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           <Card className="lg:col-span-2 rounded-3xl border-white/10 bg-white/5 backdrop-blur shadow-2xl">
             <CardHeader>
-              <CardTitle className="text-white">Complete onboarding in one page</CardTitle>
+              <CardTitle className="text-white">Complete JACE Onboarding to Go LIVE</CardTitle>
               <CardDescription className="text-white/70">
-                This form is handled by <span className="font-medium text-white">JACE</span>. Once submitted, BondAI is notified and live bidding is unlocked.
+                All investing features are locked until you complete JACE onboarding. Once submitted, BondAI is notified and live bidding is unlocked.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-8">
@@ -754,7 +771,17 @@ export default function ExternalOnboardingPage() {
                   <section className="space-y-4">
                     <div className="flex items-center gap-2 text-lg font-medium">
                       <FileText className="h-5 w-5" />
-                      Agreements
+                      Agreements, Terms & Conditions
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4 space-y-2 text-sm text-white/70">
+                      <p>Before proceeding, please review the following legal documents:</p>
+                      <div className="flex flex-wrap gap-3">
+                        <a href="/terms-of-use" target="_blank" rel="noopener noreferrer" className="underline hover:text-white" data-testid="link-terms">Terms of Use</a>
+                        <span className="text-white/30">|</span>
+                        <a href="/privacy" target="_blank" rel="noopener noreferrer" className="underline hover:text-white" data-testid="link-privacy">Privacy Policy</a>
+                        <span className="text-white/30">|</span>
+                        <a href="/disclosures" target="_blank" rel="noopener noreferrer" className="underline hover:text-white" data-testid="link-disclosures">Disclosures & Disclaimers</a>
+                      </div>
                     </div>
                     <div className="space-y-3">
                       <div className="flex items-start gap-3">
@@ -766,7 +793,7 @@ export default function ExternalOnboardingPage() {
                           data-testid="checkbox-agree"
                         />
                         <Label htmlFor="agree" className="text-sm text-white/80">
-                          I agree to the Investor User Agreement and authorize JACE and BondAI to process my onboarding data.
+                          I have read and agree to the <span className="font-medium text-white">Terms of Use</span>, <span className="font-medium text-white">Privacy Policy</span>, and <span className="font-medium text-white">Investor User Agreement</span>. I authorize JACE Management, LLC and BondAI to process my onboarding data for investor verification and bond settlement purposes.
                         </Label>
                       </div>
                       <div className="flex items-start gap-3">
@@ -778,7 +805,7 @@ export default function ExternalOnboardingPage() {
                           data-testid="checkbox-acknowledge"
                         />
                         <Label htmlFor="acknowledge" className="text-sm text-white/80">
-                          I acknowledge that my submission is timestamped with IP and may be used for compliance auditing.
+                          I acknowledge and consent that: (1) my submission is timestamped with my IP address, (2) my electronic signatures are legally binding, (3) my data may be shared between JACE and BondAI for compliance and auditing purposes, and (4) I have reviewed the <span className="font-medium text-white">Disclosures & Disclaimers</span> regarding investment risks.
                         </Label>
                       </div>
                     </div>
@@ -789,23 +816,26 @@ export default function ExternalOnboardingPage() {
                   <section className="space-y-6">
                     <div className="flex items-center gap-2 text-lg font-medium">
                       <PenTool className="h-5 w-5" />
-                      Signatures
+                      Electronic Signatures (Legally Binding)
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/70">
+                      <p>By signing below, you acknowledge that your electronic signatures are legally binding and have the same legal effect as a handwritten signature. Each signature will be timestamped and stored for compliance records.</p>
                     </div>
                     <SignaturePad
-                      label="1. KYC Attestation"
-                      helper="I attest that I am the person named and all documents are accurate."
+                      label="1. KYC Attestation Signature"
+                      helper="I attest that I am the person named in this application, all information provided is true and accurate, and all documents submitted are authentic."
                       value={signatureKyc}
                       onChange={setSignatureKyc}
                     />
                     <SignaturePad
-                      label="2. Investor & JACE Agreement"
-                      helper="I agree to the terms of service for investor onboarding."
+                      label="2. Investor User Agreement & Terms Signature"
+                      helper="I have read, understand, and agree to the Terms of Use, Privacy Policy, and Investor User Agreement between myself, JACE Management, LLC, and BondAI."
                       value={signatureAgreement}
                       onChange={setSignatureAgreement}
                     />
                     <SignaturePad
-                      label="3. Disclosure & Disclaimer"
-                      helper="I understand the risks and disclosures associated with bond investing."
+                      label="3. Disclosures & Disclaimers Acknowledgement Signature"
+                      helper="I acknowledge that I have reviewed and understand the Disclosures & Disclaimers regarding investment risks, regulatory requirements, and my obligations as an investor."
                       value={signatureDisclosure}
                       onChange={setSignatureDisclosure}
                     />
