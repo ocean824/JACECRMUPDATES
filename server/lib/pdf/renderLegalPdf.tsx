@@ -1,4 +1,6 @@
-import { Document, Page, Text, View, StyleSheet, pdf } from "@react-pdf/renderer";
+import React from "react";
+import { Document, Page, Text, View, StyleSheet, renderToStream } from "@react-pdf/renderer";
+import type { Readable } from "stream";
 
 type RenderLegalPdfArgs = {
   companyName: string;
@@ -100,22 +102,17 @@ function LegalPdfTemplate(a: RenderLegalPdfArgs) {
   );
 }
 
+function streamToBuffer(stream: Readable): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    stream.on("data", (chunk: Buffer) => chunks.push(chunk));
+    stream.on("end", () => resolve(Buffer.concat(chunks)));
+    stream.on("error", reject);
+  });
+}
+
 export async function renderLegalPdf(args: RenderLegalPdfArgs): Promise<Buffer> {
-  const instance = pdf(<LegalPdfTemplate {...args} />);
-  const stream = await instance.toBuffer();
-  
-  if (Buffer.isBuffer(stream)) {
-    return stream;
-  }
-  
-  const chunks: Uint8Array[] = [];
-  const reader = (stream as unknown as ReadableStream<Uint8Array>).getReader();
-  
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    if (value) chunks.push(value);
-  }
-  
-  return Buffer.concat(chunks);
+  const pdfStream = await renderToStream(<LegalPdfTemplate {...args} />);
+  const buffer = await streamToBuffer(pdfStream as unknown as Readable);
+  return buffer;
 }
