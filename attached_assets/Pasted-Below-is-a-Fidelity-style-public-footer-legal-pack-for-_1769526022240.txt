@@ -1,0 +1,819 @@
+Below is a Fidelity-style public footer legal pack for JACE, LLC, plus a ready-to-paste footer with clickable links to pages hosted in your app. The link list and “This is for persons in the US only.” line mirror the style Fidelity uses in its site footer.
+
+1) Public URL paths (host these pages in your app)
+
+Use these routes (adjust if your routing differs):
+
+/terms-of-use
+
+/privacy
+
+/security
+
+/site-map
+
+/accessibility
+
+/contact-us (open in new window)
+
+/share-your-screen
+
+/disclosures (open in new window)
+
+/cookie-preferences (“Manage My Targeting/Advertising Cookies” — open in new window)
+
+2) Footer snippet (clickable links)
+// FooterLegal.tsx (React / Next.js compatible)
+export function FooterLegal() {
+  return (
+    <footer style={{ padding: "24px 16px", borderTop: "1px solid #e5e7eb", fontSize: 13 }}>
+      <nav aria-label="Legal links" style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
+        <a href="/terms-of-use">Terms of Use</a>
+        <span>|</span>
+        <a href="/privacy">Privacy</a>
+        <span>|</span>
+        <a href="/security">Security</a>
+        <span>|</span>
+        <a href="/site-map">Site Map</a>
+        <span>|</span>
+        <a href="/accessibility">Accessibility</a>
+        <span>|</span>
+
+        <a href="/contact-us" target="_blank" rel="noopener noreferrer">
+          Contact Us
+        </a>
+        <span>,</span>
+        <span>(Opens in a new window)</span>
+
+        <span style={{ marginLeft: 6 }}>|</span>
+        <a href="/share-your-screen">Share Your Screen</a>
+        <span>|</span>
+
+        <a href="/disclosures" target="_blank" rel="noopener noreferrer">
+          Disclosures
+        </a>
+        <span>,</span>
+        <span>(Opens in a new window)</span>
+
+        <span style={{ marginLeft: 6 }}>|</span>
+        <a href="/cookie-preferences" target="_blank" rel="noopener noreferrer">
+          Manage My Targeting/Advertising Cookies
+        </a>
+      </nav>
+
+      <div style={{ marginTop: 10, color: "#111" }}>
+        This is for persons in the US only.
+      </div>
+    </footer>
+  );
+}
+
+3) Page content templates (copy/paste into each route)
+/terms-of-use — JACE, LLC Terms of Use
+
+Effective Date: [Month Day, Year]
+These Terms of Use (“Terms”) govern access to and use of websites, portals, and applications where these Terms are posted (the “Site”) operated by JACE, LLC (“JACE,” “we,” “us,” “our”).
+
+US Only. The Site is intended for persons located in the United States. By using the Site, you represent you are located in the U.S. and are using the Site for U.S.-related purposes.
+
+1. Acceptance of Terms
+
+By accessing or using the Site, you agree to these Terms and any additional terms disclosed within the Site (including product-specific terms).
+
+2. Not a Bank; No Investment Advice
+
+JACE provides software and operational services for CRM, investor onboarding, workflow automation, ledgering, reporting, and related business functions. JACE is not a bank and does not provide legal, tax, or investment advice. Any content is for informational purposes only.
+
+3. Eligibility and Account Security
+
+You may need an account to use certain features. You agree to:
+
+Provide accurate information and keep it updated.
+
+Maintain confidentiality of credentials and promptly notify us of suspected unauthorized access.
+
+Use multi-factor authentication where available.
+
+We may suspend or terminate access if we believe your account has been compromised, you violate these Terms, or risk is unacceptable.
+
+4. Permitted Use and Prohibited Conduct
+
+You may use the Site only for lawful purposes. You agree not to:
+
+Attempt unauthorized access, scanning, or exploitation of vulnerabilities.
+
+Interfere with service operation (DDoS, malware, scraping that harms performance).
+
+Misrepresent identity, submit fraudulent information, or violate AML/sanctions laws.
+
+Upload content that infringes IP or violates privacy rights.
+
+5. Intellectual Property
+
+The Site, including software, design, text, and logos, is owned by JACE or licensors and protected by applicable IP laws. You receive a limited, revocable, non-transferable license to use the Site as intended.
+
+6. Third-Party Services
+
+The Site may integrate third-party services (identity verification, payments, email, analytics). Third-party services are governed by their own terms and privacy practices.
+
+7. Disclaimers
+
+THE SITE IS PROVIDED “AS IS” AND “AS AVAILABLE.” TO THE MAXIMUM EXTENT PERMITTED BY LAW, JACE DISCLAIMS WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+
+8. Limitation of Liability
+
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, JACE WILL NOT BE LIABLE FOR INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR FOR LOST PROFITS/REVENUE, ARISING OUT OF OR RELATED TO YOUR USE OF THE SITE.
+
+9. Indemnification
+
+You agree to indemnify and hold harmless JACE from claims arising from your misuse of the Site, violation of these Terms, or violation of law.
+
+10. Changes
+
+We may update these Terms from time to time. The “Effective Date” indicates when changes apply. Continued use means you accept the updated Terms.
+
+11. Governing Law; Venue
+
+These Terms are governed by the laws of the State of [Florida], without regard to conflict of laws principles. Venue for disputes will be [County/State] unless otherwise required.
+
+12. Contact
+
+Questions: [support@jace.example
+] | [Phone] | [Mailing Address]
+
+/privacy — JACE, LLC Privacy Policy (US)
+
+Effective Date: [Month Day, Year]
+This Privacy Policy describes how JACE, LLC collects, uses, shares, and protects personal information when you visit or use the Site.
+
+US Only. This Policy applies to persons in the United States.
+
+1. Information We Collect
+
+We may collect:
+
+Identifiers & contact info: name, email, phone, business name, mailing address.
+
+Account & authentication data: username, login history, MFA status.
+
+Usage & device data: IP address, browser/device identifiers, pages viewed, log data.
+
+Communications: inquiries, support requests, chat messages.
+
+Cookies/SDK data: analytics and preference signals (see Cookie Preferences).
+
+If you are an onboarded investor or customer user, we may also collect onboarding and verification information, subject to applicable disclosures and consents provided during onboarding.
+
+2. How We Use Information
+
+We use information to:
+
+Provide and secure the Site, authenticate users, prevent fraud.
+
+Operate CRM workflows and provide requested services.
+
+Improve functionality, analytics, and support.
+
+Comply with legal requirements and enforce our policies.
+
+3. How We Share Information
+
+We may share information with:
+
+Service providers (hosting, security, support, analytics) under contract.
+
+Compliance/transaction partners where needed for onboarding or processing you request.
+
+Legal/Regulatory entities when required or permitted by law.
+We do not sell personal information in the ordinary sense. Where state privacy laws apply, you may have the right to opt out of certain “targeted advertising” or “sharing” (see Cookie Preferences and “Your Choices”).
+
+4. Cookies & Targeted Advertising
+
+We use cookies and similar technologies for:
+
+Strictly necessary operation (security, session management)
+
+Functional preferences
+
+Analytics performance measurement
+
+Targeting/advertising (if enabled for your tenant)
+You can manage choices at /cookie-preferences. This pattern is consistent with how Fidelity presents cookie preference controls.
+
+5. Security and Retention
+
+We use safeguards designed to protect information and retain it as needed for operations, compliance, dispute resolution, and auditing.
+
+6. Your Choices and Rights
+
+Depending on your state, you may have rights to request access, deletion, correction, or to opt out of targeted advertising. Submit requests via /contact-us.
+
+7. Updates
+
+We may update this Policy; changes become effective when posted with a revised Effective Date.
+
+/security — Security
+
+JACE uses layered safeguards designed to protect accounts and data, including role-based access controls, audit logging, and monitoring.
+
+What you can do:
+
+Use strong passwords + MFA
+
+Keep devices updated
+
+Watch for phishing
+
+Report suspicious activity immediately
+
+Report a security issue:
+Email [security@jace.example
+] or use /contact-us.
+
+(Style inspired by Fidelity’s security education pages and site structure.)
+
+/site-map — Site Map
+
+Public
+
+Home: /
+
+Terms of Use: /terms-of-use
+
+Privacy: /privacy
+
+Security: /security
+
+Site Map: /site-map
+
+Accessibility: /accessibility
+
+Contact Us: /contact-us
+
+Share Your Screen: /share-your-screen
+
+Disclosures: /disclosures
+
+Cookie Preferences: /cookie-preferences
+
+Authenticated (examples)
+
+Login: /login
+
+Investor Onboarding: /onboarding
+
+Dashboard: /app
+
+Documents: /app/documents
+
+/accessibility — Accessibility Statement
+
+JACE is committed to providing access to our digital experiences for all users. We aim to support accessibility best practices and continuously improve usability.
+
+Accessibility help:
+If you encounter an accessibility barrier, contact us at:
+
+Email: [accessibility@jace.example
+]
+
+Phone: [Phone]
+
+Contact form: /contact-us
+
+(Comparable to Fidelity’s accessibility “contact us about barriers” approach.)
+
+/contact-us — Contact Us
+
+Support (general): [support@jace.example
+]
+Security: [security@jace.example
+]
+Accessibility: [accessibility@jace.example
+]
+Phone: [Phone Number]
+Mailing Address: [JACE, LLC Address]
+
+Hours: [Business Hours / 24x7 if applicable]
+
+/share-your-screen — Share Your Screen (Co-Browsing)
+
+This feature lets you request optional, real-time assistance from JACE support by allowing a support representative to view (and if you separately permit, navigate) certain pages within the JACE Site during an active session.
+
+Important details:
+
+You must initiate the session and provide the session code/passcode to the representative.
+
+You can end the session at any time.
+
+Do not share passwords, MFA codes, or sensitive data you do not want viewed.
+
+Co-browsing is intended to help troubleshoot and guide navigation, similar to how Fidelity describes co-browsing consent with an “Accept” action and passcode.
+
+Your consent: By selecting “Accept” (or equivalent) and providing the session code, you consent to the co-browsing session for the duration of that session.
+
+/disclosures — Disclosures
+
+General: JACE provides software and workflow tooling. JACE is not a bank and does not provide legal, tax, or investment advice.
+No guarantee: Outputs, dashboards, and analytics are informational and may not reflect final records from third parties.
+Third-party services: Certain functions may be provided by third-party identity verification, payments, escrow, settlement, and messaging providers; their terms and privacy policies apply.
+Risk & compliance: Activities may be subject to AML/sanctions screening and other compliance checks as required by law or partners.
+Electronic communications: By using the Site, you consent to receive notices electronically where permitted.
+
+(“Disclosures” is presented as a separate footer destination in the Fidelity-style pattern.)
+
+/cookie-preferences — Manage My Targeting/Advertising Cookies
+
+You can control non-essential cookies. We categorize cookies as:
+
+Strictly necessary: required for security and core functionality
+
+Functional: preferences and enhanced features
+
+Analytics: usage measurement to improve performance
+
+Targeting/Advertising: helps present relevant marketing (if enabled)
+
+Your options:
+
+Accept all
+
+Reject non-essential
+
+Customize by category
+
+This structure follows the cookie preference-center style Fidelity uses (cookie purpose + duration + preference controls).
+
+Quick wiring note (so links work in JACE)
+
+Make these pages public (no auth).
+
+Add the FooterLegal component to your main public layout and optionally to logged-in layouts.
+
+For the “(Opens in a new window)” items, keep target="_blank" rel="noopener noreferrer" as shown.
+
+If you share your preferred support email/phone + JACE mailing address + governing state, I’ll “finalize” the placeholders across all pages into a clean, production-ready wording set.
+
+jacemgmt@gmail.com, Phone: 970-710-9193, JACE Management, LLC-Colorado:   , governing state is Colorado.
+Thought for 1m 50s
+
+Got it — I’ll “Fidelity-style” this footer pack for JACE Management, LLC (Colorado) using your contact info, and I’ll give you ready-to-paste Next.js routes + a footer component that links to each public page. Fidelity’s footer link set and “This is for persons in the US only.” line are reflected here.
+
+A) Footer (clickable links at bottom of the page)
+
+File: /apps/web/src/components/FooterLegal.tsx
+
+export function FooterLegal() {
+  const sep = <span aria-hidden="true">|</span>;
+
+  return (
+    <footer className="w-full border-t border-gray-200 px-4 py-6 text-[13px] text-gray-900">
+      <nav aria-label="Footer legal links" className="flex flex-wrap items-center gap-x-2 gap-y-2">
+        <a className="underline hover:no-underline" href="/terms-of-use">Terms of Use</a>
+        {sep}
+        <a className="underline hover:no-underline" href="/privacy">Privacy</a>
+        {sep}
+        <a className="underline hover:no-underline" href="/security">Security</a>
+        {sep}
+        <a className="underline hover:no-underline" href="/site-map">Site Map</a>
+        {sep}
+        <a className="underline hover:no-underline" href="/accessibility">Accessibility</a>
+        {sep}
+
+        <a className="underline hover:no-underline" href="/contact-us" target="_blank" rel="noopener noreferrer">
+          Contact Us
+        </a>
+        <span>,</span>
+        <span>(Opens in a new window)</span>
+
+        {sep}
+        <a className="underline hover:no-underline" href="/share-your-screen" target="_blank" rel="noopener noreferrer">
+          Share Your Screen
+        </a>
+        <span>,</span>
+        <span>(Opens in a new window)</span>
+
+        {sep}
+        <a className="underline hover:no-underline" href="/disclosures" target="_blank" rel="noopener noreferrer">
+          Disclosures
+        </a>
+        <span>,</span>
+        <span>(Opens in a new window)</span>
+
+        {sep}
+        <a className="underline hover:no-underline" href="/cookie-preferences" target="_blank" rel="noopener noreferrer">
+          Manage My Targeting/Advertising Cookies
+        </a>
+        <span>,</span>
+        <span>(Opens in a new window)</span>
+      </nav>
+
+      <div className="mt-3 text-gray-900">
+        This is for persons in the US only.
+      </div>
+    </footer>
+  );
+}
+
+B) Public pages (Next.js App Router)
+
+Put these under your public route group. If you don’t use (public), just drop the (public) folder.
+
+1) Terms of Use
+
+File: /apps/web/src/app/(public)/terms-of-use/page.tsx
+
+export default function TermsOfUsePage() {
+  return (
+    <main className="mx-auto max-w-3xl px-6 py-10">
+      <h1 className="text-2xl font-semibold">Terms of Use</h1>
+      <p className="mt-2 text-sm text-gray-700">Effective Date: January 27, 2026</p>
+
+      <p className="mt-6">
+        These Terms of Use (“Terms”) govern your access to and use of the websites, portals, and applications
+        where these Terms are posted (the “Site”) operated by <strong>JACE Management, LLC</strong>, a Colorado
+        limited liability company (“JACE,” “we,” “us,” “our”).
+      </p>
+
+      <p className="mt-4">
+        <strong>US Only.</strong> The Site is intended for persons located in the United States. By using the Site,
+        you represent you are located in the U.S. and are using the Site for U.S.-related purposes.
+      </p>
+
+      <h2 className="mt-8 text-xl font-semibold">1. Acceptance of Terms</h2>
+      <p className="mt-2">
+        By accessing or using the Site, you agree to these Terms and any additional terms disclosed within the Site,
+        including onboarding disclosures, product-specific terms, and consent documents.
+      </p>
+
+      <h2 className="mt-8 text-xl font-semibold">2. Not a Bank; No Professional Advice</h2>
+      <p className="mt-2">
+        JACE provides software and operational tooling for CRM, onboarding, workflow automation, document storage,
+        ledgering/reporting support, and related business functions. JACE is not a bank and does not provide legal,
+        tax, or investment advice. Any content is for informational purposes only.
+      </p>
+
+      <h2 className="mt-8 text-xl font-semibold">3. Account Registration & Security</h2>
+      <ul className="mt-2 list-disc pl-6">
+        <li>You agree to provide accurate information and keep it updated.</li>
+        <li>You are responsible for safeguarding your credentials and MFA factors.</li>
+        <li>You must notify us promptly if you suspect unauthorized access or compromise.</li>
+      </ul>
+
+      <h2 className="mt-8 text-xl font-semibold">4. Prohibited Conduct</h2>
+      <ul className="mt-2 list-disc pl-6">
+        <li>Attempting unauthorized access, scanning, or exploiting vulnerabilities.</li>
+        <li>Introducing malware or interfering with the Site’s operation.</li>
+        <li>Submitting false identity or onboarding information.</li>
+        <li>Using the Site for unlawful activity, including to evade sanctions or facilitate prohibited conduct.</li>
+      </ul>
+
+      <h2 className="mt-8 text-xl font-semibold">5. Intellectual Property</h2>
+      <p className="mt-2">
+        The Site and its contents are owned by JACE or its licensors and protected by applicable intellectual property laws.
+        You receive a limited, revocable, non-transferable license to use the Site as intended.
+      </p>
+
+      <h2 className="mt-8 text-xl font-semibold">6. Third-Party Services</h2>
+      <p className="mt-2">
+        The Site may integrate third-party services (e.g., identity verification, payments, email, analytics). Their terms
+        and privacy practices may apply.
+      </p>
+
+      <h2 className="mt-8 text-xl font-semibold">7. Disclaimers</h2>
+      <p className="mt-2">
+        THE SITE IS PROVIDED “AS IS” AND “AS AVAILABLE.” TO THE MAXIMUM EXTENT PERMITTED BY LAW, JACE DISCLAIMS
+        ALL WARRANTIES, INCLUDING MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+      </p>
+
+      <h2 className="mt-8 text-xl font-semibold">8. Limitation of Liability</h2>
+      <p className="mt-2">
+        TO THE MAXIMUM EXTENT PERMITTED BY LAW, JACE WILL NOT BE LIABLE FOR INDIRECT, INCIDENTAL, SPECIAL,
+        CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR LOST PROFITS/REVENUE, ARISING OUT OF OR RELATED TO YOUR USE
+        OF THE SITE.
+      </p>
+
+      <h2 className="mt-8 text-xl font-semibold">9. Governing Law & Venue</h2>
+      <p className="mt-2">
+        These Terms are governed by the laws of the State of <strong>Colorado</strong>, without regard to conflict of laws principles.
+        Venue will be in Colorado unless otherwise required by law.
+      </p>
+
+      <h2 className="mt-8 text-xl font-semibold">10. Contact</h2>
+      <p className="mt-2">
+        Email: <a className="underline" href="mailto:jacemgmt@gmail.com">jacemgmt@gmail.com</a><br />
+        Phone: <a className="underline" href="tel:+19707109193">970-710-9193</a><br />
+        Entity: JACE Management, LLC (Colorado)
+      </p>
+
+      <p className="mt-10 text-sm text-gray-700">This is for persons in the US only.</p>
+    </main>
+  );
+}
+
+2) Privacy (Colorado-forward + “targeted advertising cookie” controls)
+
+File: /apps/web/src/app/(public)/privacy/page.tsx
+
+export default function PrivacyPage() {
+  return (
+    <main className="mx-auto max-w-3xl px-6 py-10">
+      <h1 className="text-2xl font-semibold">Privacy Policy (US)</h1>
+      <p className="mt-2 text-sm text-gray-700">Effective Date: January 27, 2026</p>
+
+      <p className="mt-6">
+        This Privacy Policy explains how <strong>JACE Management, LLC</strong> (“JACE,” “we,” “us,” “our”)
+        collects, uses, shares, and protects personal information when you visit or use the Site.
+      </p>
+
+      <p className="mt-4">
+        <strong>US Only.</strong> This Site and this Privacy Policy are intended for persons in the United States.
+      </p>
+
+      <h2 className="mt-8 text-xl font-semibold">1. Information We Collect</h2>
+      <ul className="mt-2 list-disc pl-6">
+        <li>Identifiers and contact info (name, email, phone).</li>
+        <li>Account/authentication data (login events, MFA usage).</li>
+        <li>Usage and device data (IP address, browser/device identifiers, log data).</li>
+        <li>Communications (support requests, messages).</li>
+        <li>Cookies and similar technologies (see “Cookie Preferences”).</li>
+      </ul>
+
+      <h2 className="mt-8 text-xl font-semibold">2. How We Use Information</h2>
+      <ul className="mt-2 list-disc pl-6">
+        <li>Provide and secure the Site; authenticate users; prevent fraud.</li>
+        <li>Operate workflows and features you request.</li>
+        <li>Improve performance and user experience.</li>
+        <li>Comply with legal requirements and enforce policies.</li>
+      </ul>
+
+      <h2 className="mt-8 text-xl font-semibold">3. How We Share Information</h2>
+      <p className="mt-2">
+        We may share information with service providers (hosting, security, analytics) and with partners strictly
+        to provide requested services, maintain security, and meet legal obligations. We do not sell personal
+        information in the ordinary sense.
+      </p>
+
+      <h2 className="mt-8 text-xl font-semibold">4. Cookies, Targeting & Your Choices</h2>
+      <p className="mt-2">
+        We may use cookies for strictly necessary operation, functional preferences, analytics, and (if enabled)
+        targeting/advertising. You can manage non-essential cookie choices at{" "}
+        <a className="underline" href="/cookie-preferences">Cookie Preferences</a>.
+      </p>
+      <p className="mt-2">
+        If applicable, Colorado law requires covered businesses to honor user-selected universal opt-out signals
+        for targeted advertising and similar uses starting July 1, 2024. :contentReference[oaicite:1]{index=1}
+      </p>
+
+      <h2 className="mt-8 text-xl font-semibold">5. Colorado Privacy Act (CPA) — Notice of Rights (If Applicable)</h2>
+      <p className="mt-2">
+        If JACE is acting as a “controller” under the Colorado Privacy Act for your use of this Site, Colorado
+        residents may have rights including access, correction, deletion, portability, and the ability to opt out
+        of targeted advertising, sale of personal data, and certain profiling. :contentReference[oaicite:2]{index=2}
+      </p>
+      <p className="mt-2">
+        JACE will provide an appeal process for denied requests where required, and the CPA describes timeframes
+        and appeal handling expectations. :contentReference[oaicite:3]{index=3}
+      </p>
+
+      <h2 className="mt-8 text-xl font-semibold">6. Security & Retention</h2>
+      <p className="mt-2">
+        We use safeguards designed to protect information and retain it as needed for operations, security, dispute
+        resolution, and compliance.
+      </p>
+
+      <h2 className="mt-8 text-xl font-semibold">7. Contact</h2>
+      <p className="mt-2">
+        Email: <a className="underline" href="mailto:jacemgmt@gmail.com">jacemgmt@gmail.com</a><br />
+        Phone: <a className="underline" href="tel:+19707109193">970-710-9193</a>
+      </p>
+
+      <p className="mt-10 text-sm text-gray-700">This is for persons in the US only.</p>
+    </main>
+  );
+}
+
+3) Security (Fidelity-style headings)
+
+File: /apps/web/src/app/(public)/security/page.tsx
+
+export default function SecurityPage() {
+  return (
+    <main className="mx-auto max-w-3xl px-6 py-10">
+      <h1 className="text-2xl font-semibold">Security</h1>
+
+      <p className="mt-6">
+        We’re committed to helping protect your information and access to the JACE Site through layered safeguards,
+        monitoring, and secure account practices. (This page follows the general structure/style used on Fidelity’s
+        security pages.) :contentReference[oaicite:4]{index=4}
+      </p>
+
+      <h2 className="mt-8 text-xl font-semibold">What you can do</h2>
+      <ul className="mt-2 list-disc pl-6">
+        <li>Use strong passwords and enable multi-factor authentication (MFA) when available.</li>
+        <li>Don’t share one-time passcodes, passwords, or MFA tokens.</li>
+        <li>Watch for phishing; verify emails and links before clicking.</li>
+        <li>Review activity for anything unusual and report it immediately.</li>
+      </ul>
+
+      <h2 className="mt-8 text-xl font-semibold">Report a security concern</h2>
+      <p className="mt-2">
+        Email: <a className="underline" href="mailto:jacemgmt@gmail.com">jacemgmt@gmail.com</a><br />
+        Phone: <a className="underline" href="tel:+19707109193">970-710-9193</a>
+      </p>
+
+      <p className="mt-10 text-sm text-gray-700">This is for persons in the US only.</p>
+    </main>
+  );
+}
+
+4) Site Map
+
+File: /apps/web/src/app/(public)/site-map/page.tsx
+
+export default function SiteMapPage() {
+  return (
+    <main className="mx-auto max-w-3xl px-6 py-10">
+      <h1 className="text-2xl font-semibold">Site Map</h1>
+
+      <h2 className="mt-8 text-xl font-semibold">Public</h2>
+      <ul className="mt-2 list-disc pl-6">
+        <li><a className="underline" href="/terms-of-use">Terms of Use</a></li>
+        <li><a className="underline" href="/privacy">Privacy</a></li>
+        <li><a className="underline" href="/security">Security</a></li>
+        <li><a className="underline" href="/site-map">Site Map</a></li>
+        <li><a className="underline" href="/accessibility">Accessibility</a></li>
+        <li><a className="underline" href="/contact-us" target="_blank" rel="noopener noreferrer">Contact Us (Opens in a new window)</a></li>
+        <li><a className="underline" href="/share-your-screen" target="_blank" rel="noopener noreferrer">Share Your Screen (Opens in a new window)</a></li>
+        <li><a className="underline" href="/disclosures" target="_blank" rel="noopener noreferrer">Disclosures (Opens in a new window)</a></li>
+        <li><a className="underline" href="/cookie-preferences" target="_blank" rel="noopener noreferrer">Manage My Targeting/Advertising Cookies (Opens in a new window)</a></li>
+      </ul>
+
+      <p className="mt-10 text-sm text-gray-700">This is for persons in the US only.</p>
+    </main>
+  );
+}
+
+5) Accessibility
+
+File: /apps/web/src/app/(public)/accessibility/page.tsx
+
+export default function AccessibilityPage() {
+  return (
+    <main className="mx-auto max-w-3xl px-6 py-10">
+      <h1 className="text-2xl font-semibold">Accessibility</h1>
+
+      <p className="mt-6">
+        JACE Management, LLC is committed to providing an accessible experience for all users. If you encounter an
+        accessibility barrier, please contact us so we can help and improve.
+      </p>
+
+      <h2 className="mt-8 text-xl font-semibold">Accessibility support</h2>
+      <p className="mt-2">
+        Email: <a className="underline" href="mailto:jacemgmt@gmail.com">jacemgmt@gmail.com</a><br />
+        Phone: <a className="underline" href="tel:+19707109193">970-710-9193</a>
+      </p>
+
+      <p className="mt-10 text-sm text-gray-700">This is for persons in the US only.</p>
+    </main>
+  );
+}
+
+6) Contact Us (opens in new window)
+
+File: /apps/web/src/app/(public)/contact-us/page.tsx
+
+export default function ContactUsPage() {
+  return (
+    <main className="mx-auto max-w-3xl px-6 py-10">
+      <h1 className="text-2xl font-semibold">Contact Us</h1>
+
+      <p className="mt-6">
+        <strong>JACE Management, LLC (Colorado)</strong>
+      </p>
+
+      <p className="mt-4">
+        Email: <a className="underline" href="mailto:jacemgmt@gmail.com">jacemgmt@gmail.com</a><br />
+        Phone: <a className="underline" href="tel:+19707109193">970-710-9193</a>
+      </p>
+
+      <p className="mt-6 text-sm text-gray-700">
+        For privacy requests, include “Privacy Request” in your message subject.
+      </p>
+
+      <p className="mt-10 text-sm text-gray-700">This is for persons in the US only.</p>
+    </main>
+  );
+}
+
+7) Share Your Screen (opens in new window)
+
+File: /apps/web/src/app/(public)/share-your-screen/page.tsx
+
+export default function ShareYourScreenPage() {
+  return (
+    <main className="mx-auto max-w-3xl px-6 py-10">
+      <h1 className="text-2xl font-semibold">Share Your Screen</h1>
+
+      <p className="mt-6">
+        This feature allows you to optionally share your screen (or a portion of it) with JACE support during a live
+        support session to help troubleshoot and guide navigation. This page is modeled after common “Share Your Screen”
+        disclosures found in large financial platforms’ support flows. :contentReference[oaicite:5]{index=5}
+      </p>
+
+      <h2 className="mt-8 text-xl font-semibold">Important</h2>
+      <ul className="mt-2 list-disc pl-6">
+        <li>You must initiate the session and can stop sharing at any time.</li>
+        <li>Do not share passwords, MFA codes, or sensitive information you do not want viewed.</li>
+        <li>We may log basic session metadata (time, duration) for support and security purposes.</li>
+      </ul>
+
+      <h2 className="mt-8 text-xl font-semibold">Need help?</h2>
+      <p className="mt-2">
+        Email: <a className="underline" href="mailto:jacemgmt@gmail.com">jacemgmt@gmail.com</a><br />
+        Phone: <a className="underline" href="tel:+19707109193">970-710-9193</a>
+      </p>
+
+      <p className="mt-10 text-sm text-gray-700">This is for persons in the US only.</p>
+    </main>
+  );
+}
+
+8) Disclosures (opens in new window)
+
+File: /apps/web/src/app/(public)/disclosures/page.tsx
+
+export default function DisclosuresPage() {
+  return (
+    <main className="mx-auto max-w-3xl px-6 py-10">
+      <h1 className="text-2xl font-semibold">Disclosures</h1>
+
+      <p className="mt-6">
+        <strong>JACE Management, LLC (Colorado)</strong> provides software and operational tools. JACE is not a bank and
+        does not provide legal, tax, or investment advice.
+      </p>
+
+      <h2 className="mt-8 text-xl font-semibold">Third-party services</h2>
+      <p className="mt-2">
+        Some functionality may involve third-party providers (e.g., hosting, security, identity verification, email,
+        payments). Their terms and privacy practices may apply.
+      </p>
+
+      <h2 className="mt-8 text-xl font-semibold">Security and privacy</h2>
+      <p className="mt-2">
+        We provide privacy and cookie preference controls and may be required to honor certain opt-out signals for
+        targeted advertising and similar uses in Colorado. :contentReference[oaicite:6]{index=6}
+      </p>
+
+      <h2 className="mt-8 text-xl font-semibold">Contact</h2>
+      <p className="mt-2">
+        Email: <a className="underline" href="mailto:jacemgmt@gmail.com">jacemgmt@gmail.com</a><br />
+        Phone: <a className="underline" href="tel:+19707109193">970-710-9193</a>
+      </p>
+
+      <p className="mt-10 text-sm text-gray-700">This is for persons in the US only.</p>
+    </main>
+  );
+}
+
+9) Manage My Targeting/Advertising Cookies (opens in new window)
+
+File: /apps/web/src/app/(public)/cookie-preferences/page.tsx
+
+export default function CookiePreferencesPage() {
+  return (
+    <main className="mx-auto max-w-3xl px-6 py-10">
+      <h1 className="text-2xl font-semibold">Manage My Targeting/Advertising Cookies</h1>
+
+      <p className="mt-6">
+        Use this page to manage non-essential cookies and similar technologies. Large financial platforms commonly
+        provide a dedicated cookie preference center link from the footer. :contentReference[oaicite:7]{index=7}
+      </p>
+
+      <h2 className="mt-8 text-xl font-semibold">Cookie categories</h2>
+      <ul className="mt-2 list-disc pl-6">
+        <li><strong>Strictly necessary</strong> — required for core functionality and security</li>
+        <li><strong>Functional</strong> — preferences and enhanced features</li>
+        <li><strong>Analytics</strong> — measurement to improve performance</li>
+        <li><strong>Targeting/Advertising</strong> — helps deliver relevant marketing (if enabled)</li>
+      </ul>
+
+      <h2 className="mt-8 text-xl font-semibold">Colorado opt-out signals</h2>
+      <p className="mt-2">
+        Where applicable, Colorado law requires covered businesses to honor universal opt-out mechanisms for targeted
+        advertising and similar uses starting July 1, 2024. :contentReference[oaicite:8]{index=8}
+      </p>
+
+      <h2 className="mt-8 text-xl font-semibold">Need help?</h2>
+      <p className="mt-2">
+        Email: <a className="underline" href="mailto:jacemgmt@gmail.com">jacemgmt@gmail.com</a><br />
+        Phone: <a className="underline" href="tel:+19707109193">970-710-9193</a>
+      </p>
+
+      <p className="mt-10 text-sm text-gray-700">This is for persons in the US only.</p>
+    </main>
+  );
+}
+
+C) One-line “Fidelity-style” alignment note (for your internal record)
+
+Fidelity’s security page footer shows the same link set and US-only line, which is the pattern we mirrored for JACE.

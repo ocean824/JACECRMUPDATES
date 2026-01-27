@@ -44,6 +44,15 @@ import RegisterPage from "@/pages/register";
 import LoginPage from "@/pages/login";
 import AdminLoginPage from "@/pages/admin-login";
 import NotFound from "@/pages/not-found";
+import TermsOfUsePage from "@/pages/terms-of-use";
+import PrivacyPolicyPage from "@/pages/privacy-policy";
+import SecurityPage from "@/pages/security-page";
+import SiteMapPage from "@/pages/site-map";
+import AccessibilityPage from "@/pages/accessibility";
+import ContactUsPage from "@/pages/contact-us";
+import ShareYourScreenPage from "@/pages/share-your-screen";
+import DisclosuresPage from "@/pages/disclosures";
+import CookiePreferencesPage from "@/pages/cookie-preferences";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -151,6 +160,15 @@ function AppRouter() {
       <Route path="/login" component={LoginPage} />
       <Route path="/admin-login" component={AdminLoginPage} />
       <Route path="/external/onboarding" component={ExternalOnboardingPage} />
+      <Route path="/terms-of-use" component={TermsOfUsePage} />
+      <Route path="/privacy" component={PrivacyPolicyPage} />
+      <Route path="/security" component={SecurityPage} />
+      <Route path="/site-map" component={SiteMapPage} />
+      <Route path="/accessibility" component={AccessibilityPage} />
+      <Route path="/contact-us" component={ContactUsPage} />
+      <Route path="/share-your-screen" component={ShareYourScreenPage} />
+      <Route path="/disclosures" component={DisclosuresPage} />
+      <Route path="/cookie-preferences" component={CookiePreferencesPage} />
       <Route>
         {user ? <AuthenticatedRoutes /> : <LandingPage />}
       </Route>
