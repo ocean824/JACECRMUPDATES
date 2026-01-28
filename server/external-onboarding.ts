@@ -652,4 +652,188 @@ export function registerExternalOnboarding(app: Express) {
       }
     },
   );
+
+  // AI Onboarding Assistant - comprehensive, contextual guidance
+  app.post("/api/external/onboarding/assistant", async (req: Request, res: Response) => {
+    try {
+      const { message, conversationHistory = [], currentProgress = {} } = req.body;
+
+      if (!message || typeof message !== "string") {
+        return res.status(400).json({ error: "Message is required" });
+      }
+
+      // Validate message length
+      if (message.length > 1000) {
+        return res.status(400).json({ error: "Message too long. Please keep it under 1000 characters." });
+      }
+
+      // Limit conversation history
+      const limitedHistory = Array.isArray(conversationHistory) ? conversationHistory.slice(-10) : [];
+
+      // Check for required env vars
+      if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY || !process.env.AI_INTEGRATIONS_OPENAI_BASE_URL) {
+        console.error("AI integration env vars not configured");
+        return res.status(503).json({ error: "AI assistant temporarily unavailable" });
+      }
+
+      const OpenAI = (await import("openai")).default;
+      const openai = new OpenAI({
+        apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+        baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+      });
+
+      const systemPrompt = `You are JACE AI, a friendly, knowledgeable, and helpful onboarding assistant for JACE CRM's investor onboarding process. You work for JACE Management, LLC, a Colorado-based financial services company that partners with BondAI for bond investment management.
+
+## Your Role
+- Guide investors through the complete onboarding process
+- Answer ANY question about onboarding, documents, legal requirements, or the process
+- Be warm, professional, and reassuring - many investors are nervous about compliance
+- Provide step-by-step guidance when asked
+- Remember context from the conversation to give personalized help
+
+## The Onboarding Process (Complete Knowledge)
+Investors must complete these steps to go LIVE on BondAI:
+
+### 1. Personal Information
+- Full legal name (first and last)
+- Email address (pre-filled from BondAI)
+- Phone number with country code
+- This info must match government-issued ID exactly
+
+### 2. Home Address
+- Complete US mailing address required
+- Street address, city, state, ZIP code, country
+- Must be a residential address (not P.O. Box for primary)
+- This is used for tax reporting and compliance
+
+### 3. Identity Verification (KYC - Know Your Customer)
+Two document types accepted:
+- **Driver's License**: Upload BOTH front and back images (high-quality photos or scans)
+- **Passport**: Upload only the main page with photo and info
+
+Requirements:
+- Must be unexpired, government-issued
+- Clear, legible photos (no blur, glare, or shadows)
+- Entire document visible in frame
+- File types: JPG, PNG, PDF (max 10MB each)
+
+### 4. Proof of Life (Liveness Verification)
+- Upload a recent selfie or short video
+- Purpose: Verify you are a real person and match your ID
+- Face must be clearly visible, well-lit
+- Can be a photo or video file
+
+### 5. User Agreement & Acknowledgements
+- Accept the JACE User Agreement
+- Acknowledge understanding of investment risks
+- Both checkboxes must be checked to proceed
+
+### 6. Legal Document Signing (Compliance)
+Three required legal documents:
+- **AML Certification** (Anti-Money Laundering - USA PATRIOT Act / Bank Secrecy Act)
+- **CIP/KYC Privacy Consent** (Gramm-Leach-Bliley Act compliance)
+- **Privacy Short Form** (GLBA Model Privacy Notice)
+
+For each document:
+- Must scroll to the bottom to enable signing
+- Click "Sign Document" after reading
+- Documents are legally binding
+
+### 7. Banking Information
+For receiving investment returns:
+- **Account Type**: Personal or Trust account
+- **Bank Name**: Full legal name of your bank
+- **Bank Address**: Branch address
+- **Bank Phone**: Bank's customer service number
+- **Routing Number**: 9-digit ABA routing number
+- **Account Number**: Your account number
+
+Important: Double-check all digits! Errors cause payment delays.
+
+### 8. Electronic Signatures (3 Required)
+Three signature pads at the bottom:
+- **KYC Signature**: Certifies identity documents are authentic
+- **Agreement Signature**: Confirms acceptance of user agreement
+- **Disclosure Signature**: Acknowledges receipt of disclosures
+
+Tips for signing:
+- Use mouse/trackpad or finger on touchscreen
+- Draw your actual signature
+- Click "Clear" to redo if needed
+- Must complete all three to submit
+
+## After Submission
+- JACE reviews documents (usually 1-2 business days)
+- You receive confirmation email from JACE
+- BondAI is automatically notified via secure webhook
+- Your account status changes to "LIVE"
+- All investing features on BondAI become unlocked
+
+## Technical & Security Info
+- All data encrypted in transit (TLS) and at rest (AES-256)
+- Submissions are timestamped with IP for compliance audit trail
+- JACE Management, LLC is the data controller
+- Contact: jacemgmt@gmail.com or 970-710-9193
+
+## Current User Progress
+${JSON.stringify(currentProgress, null, 2)}
+
+## Guidelines for Responses
+- Be concise but complete (2-4 sentences usually)
+- Use simple, everyday language - avoid jargon
+- If unsure about something, say so and suggest they contact support
+- For technical issues, suggest refreshing the page or using a different browser
+- Always be encouraging - "You're almost there!" etc.
+- If they seem stuck, proactively suggest the next step`;
+
+      const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
+        { role: "system", content: systemPrompt },
+      ];
+
+      // Add conversation history for memory (already limited)
+      for (const msg of limitedHistory) {
+        if (msg.from === "you" || msg.from === "user") {
+          messages.push({ role: "user", content: String(msg.text || "").slice(0, 500) });
+        } else if (msg.from === "assistant") {
+          messages.push({ role: "assistant", content: String(msg.text || "").slice(0, 1000) });
+        }
+      }
+
+      messages.push({ role: "user", content: message });
+
+      // Set up SSE for streaming
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("Connection", "keep-alive");
+
+      const stream = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages,
+        stream: true,
+        max_tokens: 512,
+        temperature: 0.7,
+      });
+
+      let fullResponse = "";
+
+      for await (const chunk of stream) {
+        const content = chunk.choices[0]?.delta?.content || "";
+        if (content) {
+          fullResponse += content;
+          res.write(`data: ${JSON.stringify({ content })}\n\n`);
+        }
+      }
+
+      res.write(`data: ${JSON.stringify({ done: true, fullResponse })}\n\n`);
+      res.end();
+    } catch (error: any) {
+      console.error("AI assistant error:", error);
+      if (res.headersSent) {
+        res.write(`data: ${JSON.stringify({ error: "I'm having trouble responding right now. Please try again or contact support at jacemgmt@gmail.com" })}\n\n`);
+        res.end();
+      } else {
+        res.status(500).json({ error: "Failed to get AI response" });
+      }
+    }
+  });
 }

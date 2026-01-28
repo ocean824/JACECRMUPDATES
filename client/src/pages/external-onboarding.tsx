@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -207,8 +207,10 @@ export default function ExternalOnboardingPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [helpInput, setHelpInput] = useState("");
   const [helpLog, setHelpLog] = useState<Array<{ from: "you" | "assistant"; text: string }>>([
-    { from: "assistant", text: "Hi — I'm the JACE onboarding guide. Ask me anything about completing your onboarding." },
+    { from: "assistant", text: "Hi! I'm JACE AI, your personal onboarding guide. I can answer any question about the onboarding process, documents, signatures, banking info, and more. How can I help you today?" },
   ]);
+  const [aiLoading, setAiLoading] = useState(false);
+  const helpLogRef = useRef<HTMLDivElement>(null);
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -313,20 +315,133 @@ export default function ExternalOnboardingPage() {
     kycDocType,
   ]);
 
-  const handleHelpSend = () => {
-    const q = helpInput.trim();
-    if (!q) return;
-    setHelpLog((l) => [...l, { from: "you", text: q }]);
-    setHelpInput("");
+  // Auto-scroll chat log
+  useEffect(() => {
+    if (helpLogRef.current) {
+      helpLogRef.current.scrollTop = helpLogRef.current.scrollHeight;
+    }
+  }, [helpLog]);
 
-    const lower = q.toLowerCase();
-    let a =
-      "To finish onboarding, complete your personal info, upload identity + proof-of-life, fill banking details, accept agreements, and sign all three sections.";
-    if (lower.includes("passport")) a = "If you choose Passport, upload the passport image/PDF as Identity Front. No back side is required.";
-    if (lower.includes("driver")) a = "For Driver's License, upload both front and back images/PDFs.";
-    if (lower.includes("bank") || lower.includes("routing")) a = "Banking must include account type, routing number, account number, bank name, bank address, and bank phone.";
-    if (lower.includes("sign") || lower.includes("signature")) a = "Use the signature pads to sign with your mouse or finger. Hit \"Clear\" if you want to redo a signature.";
-    setTimeout(() => setHelpLog((l) => [...l, { from: "assistant", text: a }]), 400);
+  // Gather current progress for AI context
+  const getCurrentProgress = useCallback(() => {
+    const ok = (v: any) => Boolean(v && String(v).trim().length > 0);
+    return {
+      personalInfo: ok(firstName) && ok(lastName) && ok(email) && ok(phone),
+      address: ok(addressLine1) && ok(city) && ok(state) && ok(postalCode),
+      identityDocuments: identityFront && (kycDocType === "passport" || identityBack),
+      proofOfLife: !!proofOfLife,
+      agreements: agreeUserAgreement && acknowledge,
+      legalDocsSigned: { aml: amlSigned, cipKyc: cipKycSigned, privacy: privacySigned },
+      banking: ok(bankName) && ok(routingNumber) && ok(accountNumber),
+      signatures: { kyc: !!signatureKyc, agreement: !!signatureAgreement, disclosure: !!signatureDisclosure },
+      overallProgress: progress,
+      kycDocType,
+    };
+  }, [firstName, lastName, email, phone, addressLine1, city, state, postalCode, identityFront, identityBack, proofOfLife, agreeUserAgreement, acknowledge, amlSigned, cipKycSigned, privacySigned, bankName, routingNumber, accountNumber, signatureKyc, signatureAgreement, signatureDisclosure, progress, kycDocType]);
+
+  const handleHelpSend = async () => {
+    const q = helpInput.trim();
+    if (!q || aiLoading) return;
+    
+    const updatedLog = [...helpLog, { from: "you" as const, text: q }];
+    setHelpLog(updatedLog);
+    setHelpInput("");
+    setAiLoading(true);
+
+    // Timeout controller for stalled streams
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+
+    try {
+      const response = await fetch("/api/external/onboarding/assistant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: q,
+          conversationHistory: updatedLog.slice(-10), // Limit history to last 10 messages
+          currentProgress: getCurrentProgress(),
+        }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to get response");
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error("No reader");
+
+      const decoder = new TextDecoder();
+      let assistantMessage = "";
+      let buffer = ""; // Buffer for partial SSE chunks
+
+      // Add placeholder for streaming response
+      setHelpLog(prev => [...prev, { from: "assistant", text: "..." }]);
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        
+        // Process complete lines from buffer
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || ""; // Keep incomplete line in buffer
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          
+          try {
+            const data = JSON.parse(line.slice(6));
+            if (data.content) {
+              assistantMessage += data.content;
+              // Update the last message (streaming)
+              setHelpLog(prev => {
+                const newLog = [...prev];
+                newLog[newLog.length - 1] = { from: "assistant", text: assistantMessage };
+                return newLog;
+              });
+            }
+            if (data.error) {
+              setHelpLog(prev => {
+                const newLog = [...prev];
+                newLog[newLog.length - 1] = { from: "assistant", text: data.error };
+                return newLog;
+              });
+            }
+          } catch {
+            // Ignore parse errors for incomplete JSON
+          }
+        }
+      }
+
+      // If no content received, show fallback message
+      if (!assistantMessage) {
+        setHelpLog(prev => {
+          const newLog = [...prev];
+          newLog[newLog.length - 1] = { from: "assistant", text: "I couldn't generate a response. Please try again or contact support." };
+          return newLog;
+        });
+      }
+    } catch (error: any) {
+      console.error("AI assistant error:", error);
+      const errorMessage = error?.name === "AbortError" 
+        ? "The response took too long. Please try again with a shorter question."
+        : "I'm having trouble connecting right now. For help, contact jacemgmt@gmail.com or call 970-710-9193.";
+      
+      setHelpLog(prev => {
+        // Check if we already added a placeholder
+        if (prev[prev.length - 1]?.text === "...") {
+          const newLog = [...prev];
+          newLog[newLog.length - 1] = { from: "assistant", text: errorMessage };
+          return newLog;
+        }
+        return [...prev, { from: "assistant", text: errorMessage }];
+      });
+    } finally {
+      clearTimeout(timeoutId);
+      setAiLoading(false);
+    }
   };
 
   const submit = async () => {
@@ -474,13 +589,13 @@ export default function ExternalOnboardingPage() {
       <button
         type="button"
         onClick={() => setSidebarOpen((v) => !v)}
-        className="fixed right-2 top-1/2 -translate-y-1/2 z-50 rounded-full bg-white/10 border border-white/15 backdrop-blur px-3 py-2 shadow-lg hover:bg-white/15 transition"
-        aria-label="Toggle context panel"
-        data-testid="button-toggle-context"
+        className="fixed right-2 top-1/2 -translate-y-1/2 z-50 rounded-full bg-indigo-600/80 border border-indigo-400/30 backdrop-blur px-3 py-2 shadow-lg hover:bg-indigo-500/80 transition"
+        aria-label="Open AI onboarding guide"
+        data-testid="button-toggle-ai-guide"
       >
-        <div className="flex items-center gap-2 text-xs">
+        <div className="flex items-center gap-2 text-xs text-white">
           <Sparkles className="h-4 w-4" />
-          <span className="hidden sm:inline">{sidebarOpen ? "Close" : "Context"}</span>
+          <span className="hidden sm:inline">{sidebarOpen ? "Close" : "AI Guide"}</span>
         </div>
       </button>
 
@@ -535,8 +650,14 @@ export default function ExternalOnboardingPage() {
           <Separator className="my-3 bg-white/10" />
 
           <div className="flex-1 flex flex-col gap-3">
-            <div className="text-xs text-white/70">Ask the onboarding guide</div>
-            <div className="flex-1 overflow-auto rounded-2xl border border-white/10 bg-white/5 p-3 space-y-2">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-3 w-3 text-indigo-400" />
+              <div className="text-xs text-white/70">JACE AI - Your Onboarding Guide</div>
+            </div>
+            <div 
+              ref={helpLogRef}
+              className="flex-1 overflow-auto rounded-2xl border border-white/10 bg-white/5 p-3 space-y-2 max-h-[300px]"
+            >
               {helpLog.map((m, idx) => (
                 <div
                   key={idx}
@@ -546,24 +667,37 @@ export default function ExternalOnboardingPage() {
                       ? "bg-indigo-500/10 border-indigo-500/20 text-white/90"
                       : "bg-white/5 border-white/10 text-white/80 ml-6",
                   )}
+                  data-testid={`chat-message-${idx}`}
                 >
                   {m.text}
                 </div>
               ))}
+              {aiLoading && helpLog[helpLog.length - 1]?.text === "..." && (
+                <div className="flex items-center gap-2 text-xs text-white/60 pl-3">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  <span>Thinking...</span>
+                </div>
+              )}
             </div>
             <div className="flex gap-2">
               <Input
                 value={helpInput}
                 onChange={(e) => setHelpInput(e.target.value)}
-                placeholder="Ask about documents, signatures, banking..."
+                placeholder="Ask me anything about onboarding..."
                 className="bg-white/5 border-white/10 text-white placeholder:text-white/40 rounded-xl"
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") handleHelpSend();
+                  if (e.key === "Enter" && !aiLoading) handleHelpSend();
                 }}
+                disabled={aiLoading}
                 data-testid="input-help"
               />
-              <Button onClick={handleHelpSend} className="rounded-xl" data-testid="button-help-send">
-                Send
+              <Button 
+                onClick={handleHelpSend} 
+                className="rounded-xl" 
+                disabled={aiLoading}
+                data-testid="button-help-send"
+              >
+                {aiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send"}
               </Button>
             </div>
           </div>

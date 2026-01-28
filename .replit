@@ -53,3 +53,5 @@ BONDAI_WEBHOOK_SECRET = "fe7ed4f00ba9033502697e2ab6189a8532435d475685e34a100c5d0
 BONDAI_WEBHOOK_URL = "https://your-bond-ai.replit.app/api/jace/webhook"
 BONDAI_CORS_ORIGINS = "https://your-bond-ai.replit.app,https://jace-enterprise-crm.replit.app"
 BONDAI_ALLOWED_FRAME_ANCESTORS = "'self' https://your-bond-ai.replit.app"
+AI_INTEGRATIONS_OPENAI_BASE_URL = "http://localhost:1106/modelfarm/openai"
+AI_INTEGRATIONS_OPENAI_API_KEY = "_DUMMY_API_KEY_"
