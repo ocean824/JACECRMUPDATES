@@ -173,8 +173,8 @@ function SignaturePad(props: {
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <Label className="text-sm font-medium">{props.label}</Label>
-          {props.helper ? <p className="text-xs text-muted-foreground mt-0.5">{props.helper}</p> : null}
+          <Label className="text-sm font-medium text-white">{props.label}</Label>
+          {props.helper ? <p className="text-xs text-white/70 mt-0.5">{props.helper}</p> : null}
         </div>
         <Button type="button" variant="secondary" size="sm" onClick={clear} data-testid="button-clear-signature">
           Clear
@@ -651,7 +651,7 @@ export default function ExternalOnboardingPage() {
               ) : (
                 <>
                   <section className="space-y-4">
-                    <div className="flex items-center gap-2 text-lg font-medium">
+                    <div className="flex items-center gap-2 text-lg font-medium text-white">
                       <FileText className="h-5 w-5" />
                       Personal Information
                     </div>
@@ -678,7 +678,7 @@ export default function ExternalOnboardingPage() {
                   <Separator className="bg-white/10" />
 
                   <section className="space-y-4">
-                    <div className="flex items-center gap-2 text-lg font-medium">
+                    <div className="flex items-center gap-2 text-lg font-medium text-white">
                       <Landmark className="h-5 w-5" />
                       Address
                     </div>
@@ -715,7 +715,7 @@ export default function ExternalOnboardingPage() {
                   <Separator className="bg-white/10" />
 
                   <section className="space-y-4">
-                    <div className="flex items-center gap-2 text-lg font-medium">
+                    <div className="flex items-center gap-2 text-lg font-medium text-white">
                       <FileText className="h-5 w-5" />
                       KYC Documents
                     </div>
@@ -772,7 +772,7 @@ export default function ExternalOnboardingPage() {
                   <Separator className="bg-white/10" />
 
                   <section className="space-y-4">
-                    <div className="flex items-center gap-2 text-lg font-medium">
+                    <div className="flex items-center gap-2 text-lg font-medium text-white">
                       <Landmark className="h-5 w-5" />
                       Banking Information
                     </div>
@@ -815,7 +815,7 @@ export default function ExternalOnboardingPage() {
                   <Separator className="bg-white/10" />
 
                   <section className="space-y-4">
-                    <div className="flex items-center gap-2 text-lg font-medium">
+                    <div className="flex items-center gap-2 text-lg font-medium text-white">
                       <FileText className="h-5 w-5" />
                       Agreements, Terms & Conditions
                     </div>
@@ -860,7 +860,7 @@ export default function ExternalOnboardingPage() {
                   <Separator className="bg-white/10" />
 
                   <section className="space-y-4" data-testid="section-legal-compliance">
-                    <div className="flex items-center gap-2 text-lg font-medium">
+                    <div className="flex items-center gap-2 text-lg font-medium text-white">
                       <FileCheck className="h-5 w-5" />
                       Legal Compliance Documents
                     </div>
@@ -881,7 +881,7 @@ export default function ExternalOnboardingPage() {
                                 <FileText className="h-3 w-3 text-white/50" />
                               </div>
                             )}
-                            <span className="text-left">
+                            <span className="text-left text-white">
                               {LEGAL_DOCUMENTS.AML_CERTIFICATION.shortTitle}
                               {amlSigned && <span className="ml-2 text-xs text-green-400">Signed</span>}
                             </span>
@@ -914,7 +914,7 @@ export default function ExternalOnboardingPage() {
                                 <FileText className="h-3 w-3 text-white/50" />
                               </div>
                             )}
-                            <span className="text-left">
+                            <span className="text-left text-white">
                               {LEGAL_DOCUMENTS.CIP_KYC_PRIVACY_CONSENT.shortTitle}
                               {cipKycSigned && <span className="ml-2 text-xs text-green-400">Signed</span>}
                             </span>
@@ -947,7 +947,7 @@ export default function ExternalOnboardingPage() {
                                 <FileText className="h-3 w-3 text-white/50" />
                               </div>
                             )}
-                            <span className="text-left">
+                            <span className="text-left text-white">
                               {LEGAL_DOCUMENTS.PRIVACY_SHORTFORM.shortTitle}
                               {privacySigned && <span className="ml-2 text-xs text-green-400">Signed</span>}
                             </span>
