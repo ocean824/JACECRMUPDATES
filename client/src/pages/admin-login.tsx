@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Loader2, LogIn, Shield } from "lucide-react";
 import { Link } from "wouter";
 
@@ -44,11 +44,13 @@ export default function AdminLoginPage() {
         return;
       }
       
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/user/role"] });
       toast({
         title: "Admin Access Granted",
         description: "Welcome to the admin portal.",
       });
-      window.location.href = "/admin";
+      setLocation("/admin");
     } catch (error: any) {
       toast({
         title: "Login Failed",
