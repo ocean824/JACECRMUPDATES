@@ -605,18 +605,23 @@ export default function ExternalOnboardingPage() {
           sidebarOpen ? "translate-x-0" : "translate-x-full",
         )}
       >
-        <div className="h-full bg-slate-950/70 backdrop-blur border-l border-white/10 shadow-2xl p-4 flex flex-col">
-          <div className="flex items-center justify-between">
-            <div className="text-sm font-semibold flex items-center gap-2">
-              <HelpCircle className="h-4 w-4" />
-              Onboarding Context
+        <div className="h-full bg-slate-950/70 backdrop-blur border-l border-white/10 shadow-2xl flex flex-col">
+          {/* Fixed Header */}
+          <div className="flex-shrink-0 p-4 pb-0">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-semibold flex items-center gap-2">
+                <HelpCircle className="h-4 w-4" />
+                Onboarding Context
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(false)} aria-label="Close" data-testid="button-close-context">
+                <X className="h-4 w-4" />
+              </Button>
             </div>
-            <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(false)} aria-label="Close" data-testid="button-close-context">
-              <X className="h-4 w-4" />
-            </Button>
+            <Separator className="my-3 bg-white/10" />
           </div>
-          <Separator className="my-3 bg-white/10" />
-          <div className="space-y-3 text-sm">
+          
+          {/* Scrollable Content Area */}
+          <div className="flex-1 overflow-y-auto px-4 space-y-3 text-sm">
             <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
               <div className="text-xs text-white/70">What's happening</div>
               <div className="mt-1">
@@ -645,40 +650,45 @@ export default function ExternalOnboardingPage() {
                 <li>After completion, BondAI receives a confirmation webhook.</li>
               </ul>
             </div>
+
+            <Separator className="bg-white/10" />
+
+            {/* AI Chat Section */}
+            <div className="flex flex-col gap-3 pb-2">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-3 w-3 text-indigo-400" />
+                <div className="text-xs text-white/70">JACE AI - Your Onboarding Guide</div>
+              </div>
+              <div 
+                ref={helpLogRef}
+                className="rounded-2xl border border-white/10 bg-white/5 p-3 space-y-2 min-h-[120px] max-h-[250px] overflow-y-auto"
+              >
+                {helpLog.map((m, idx) => (
+                  <div
+                    key={idx}
+                    className={cx(
+                      "text-xs leading-relaxed rounded-xl px-3 py-2 border",
+                      m.from === "assistant"
+                        ? "bg-indigo-500/10 border-indigo-500/20 text-white/90"
+                        : "bg-white/5 border-white/10 text-white/80 ml-6",
+                    )}
+                    data-testid={`chat-message-${idx}`}
+                  >
+                    {m.text}
+                  </div>
+                ))}
+                {aiLoading && helpLog[helpLog.length - 1]?.text === "..." && (
+                  <div className="flex items-center gap-2 text-xs text-white/60 pl-3">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    <span>Thinking...</span>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
-
-          <Separator className="my-3 bg-white/10" />
-
-          <div className="flex-1 flex flex-col gap-3">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-3 w-3 text-indigo-400" />
-              <div className="text-xs text-white/70">JACE AI - Your Onboarding Guide</div>
-            </div>
-            <div 
-              ref={helpLogRef}
-              className="flex-1 overflow-auto rounded-2xl border border-white/10 bg-white/5 p-3 space-y-2 max-h-[300px]"
-            >
-              {helpLog.map((m, idx) => (
-                <div
-                  key={idx}
-                  className={cx(
-                    "text-xs leading-relaxed rounded-xl px-3 py-2 border",
-                    m.from === "assistant"
-                      ? "bg-indigo-500/10 border-indigo-500/20 text-white/90"
-                      : "bg-white/5 border-white/10 text-white/80 ml-6",
-                  )}
-                  data-testid={`chat-message-${idx}`}
-                >
-                  {m.text}
-                </div>
-              ))}
-              {aiLoading && helpLog[helpLog.length - 1]?.text === "..." && (
-                <div className="flex items-center gap-2 text-xs text-white/60 pl-3">
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                  <span>Thinking...</span>
-                </div>
-              )}
-            </div>
+          
+          {/* Fixed Input Area at Bottom */}
+          <div className="flex-shrink-0 p-4 pt-2 border-t border-white/10">
             <div className="flex gap-2">
               <Input
                 value={helpInput}
