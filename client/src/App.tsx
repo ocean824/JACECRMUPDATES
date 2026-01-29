@@ -15,6 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 
+// Existing Pages
 import LandingPage from "@/pages/landing";
 import DashboardPage from "@/pages/dashboard";
 import InvestorsPage from "@/pages/investors";
@@ -53,6 +54,25 @@ import ContactUsPage from "@/pages/contact-us";
 import ShareYourScreenPage from "@/pages/share-your-screen";
 import DisclosuresPage from "@/pages/disclosures";
 import CookiePreferencesPage from "@/pages/cookie-preferences";
+
+// Phase 4: New Pages - Financial
+import InvoicesPage from "@/pages/invoices";
+import ExpensesPage from "@/pages/expenses";
+import QuotesPage from "@/pages/quotes";
+import EscrowPage from "@/pages/escrow";
+
+// Phase 4: New Pages - HR
+import EmployeesPage from "@/pages/employees";
+import DepartmentsPage from "@/pages/departments";
+import TimeTrackingPage from "@/pages/time-tracking";
+import LeaveRequestsPage from "@/pages/leave-requests";
+import PayrollPage from "@/pages/payroll";
+
+// Phase 4: New Pages - Reports
+import { TrialBalancePage, IncomeStatementPage, BalanceSheetPage } from "@/pages/reports/financial-reports";
+
+// Phase 4: New Pages - Integrations
+import BondAIIntegrationPage from "@/pages/integrations/bondai";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -100,13 +120,38 @@ function AuthenticatedRoutes() {
   return (
     <AuthenticatedLayout>
       <Switch>
+        {/* Dashboard */}
         <Route path="/" component={DashboardPage} />
+        
+        {/* Investors */}
         <Route path="/investors" component={InvestorsPage} />
         <Route path="/investors/:id" component={InvestorDetailPage} />
         <Route path="/pipeline" component={PipelinePage} />
+        
+        {/* Accounting */}
         <Route path="/accounts" component={AccountsPage} />
         <Route path="/journal" component={JournalPage} />
         <Route path="/bonds" component={BondsPage} />
+        
+        {/* Financial (Phase 4) */}
+        <Route path="/invoices" component={InvoicesPage} />
+        <Route path="/quotes" component={QuotesPage} />
+        <Route path="/expenses" component={ExpensesPage} />
+        <Route path="/escrow" component={EscrowPage} />
+        
+        {/* Reports (Phase 4) */}
+        <Route path="/reports/trial-balance" component={TrialBalancePage} />
+        <Route path="/reports/income-statement" component={IncomeStatementPage} />
+        <Route path="/reports/balance-sheet" component={BalanceSheetPage} />
+        
+        {/* HR (Phase 4) */}
+        <Route path="/employees" component={EmployeesPage} />
+        <Route path="/departments" component={DepartmentsPage} />
+        <Route path="/time-tracking" component={TimeTrackingPage} />
+        <Route path="/leave-requests" component={LeaveRequestsPage} />
+        <Route path="/payroll" component={PayrollPage} />
+        
+        {/* Management */}
         <Route path="/tasks" component={TasksPage} />
         <Route path="/recurring-tasks" component={RecurringTasksPage} />
         <Route path="/calendar" component={CalendarPage} />
@@ -115,14 +160,23 @@ function AuthenticatedRoutes() {
         <Route path="/communications" component={CommunicationsPage} />
         <Route path="/email" component={EmailPage} />
         <Route path="/analytics" component={AnalyticsPage} />
+        
+        {/* Compliance */}
+        <Route path="/compliance/:investorId" component={ComplianceOnboardingPage} />
+        <Route path="/privacy-notice" component={PrivacyNoticePage} />
+        
+        {/* Integrations (Phase 4) */}
+        <Route path="/integrations/bondai" component={BondAIIntegrationPage} />
+        
+        {/* System */}
         <Route path="/audit-logs" component={AuditLogsPage} />
         <Route path="/admin" component={AdminPage} />
         <Route path="/settings" component={SettingsPage} />
         <Route path="/custom-fields" component={CustomFieldsPage} />
         <Route path="/import" component={ImportPage} />
         <Route path="/investor-portal" component={InvestorPortalPage} />
-        <Route path="/compliance/:investorId" component={ComplianceOnboardingPage} />
-        <Route path="/privacy-notice" component={PrivacyNoticePage} />
+        
+        {/* 404 */}
         <Route component={NotFound} />
       </Switch>
     </AuthenticatedLayout>

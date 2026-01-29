@@ -5,6 +5,7 @@ import { getSession } from "./replit_integrations/auth";
 import { setupLocalAuth, isLocalAuthenticated } from "./local-auth";
 import { handleHelpChat } from "./help-assistant";
 import { registerExternalOnboarding } from "./external-onboarding";
+import { registerPhase4Routes } from "./routes-phase4";
 import { registerInvestorDocumentRoutes, registerExternalInvestorDocumentRoutes } from "./investor-documents";
 import multer from "multer";
 import path from "path";
@@ -2112,6 +2113,9 @@ export async function registerRoutes(
   });
 
   registerExternalOnboarding(app);
+
+  // Register Phase 4 routes (Invoicing, Expenses, HR, BondAI Integration)
+  registerPhase4Routes(app, isAuthenticated);
 
   return httpServer;
 }

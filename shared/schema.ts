@@ -1227,3 +1227,737 @@ export const complianceAuditEventTypes = [
 ] as const;
 
 export type ComplianceAuditEventType = typeof complianceAuditEventTypes[number];
+
+
+// ============ PHASE 4: INVOICING, EXPENSES, HR, AND BONDAI INTEGRATION ============
+
+// Invoice status enum
+export const invoiceStatusEnum = pgEnum("invoice_status", [
+  "draft",
+  "sent",
+  "viewed",
+  "partial",
+  "paid",
+  "overdue",
+  "cancelled",
+  "void"
+]);
+
+// Expense status enum
+export const expenseStatusEnum = pgEnum("expense_status", [
+  "pending",
+  "approved",
+  "rejected",
+  "reimbursed"
+]);
+
+// Expense category enum
+export const expenseCategoryEnum = pgEnum("expense_category", [
+  "travel",
+  "meals",
+  "office_supplies",
+  "software",
+  "professional_services",
+  "marketing",
+  "utilities",
+  "rent",
+  "insurance",
+  "payroll",
+  "other"
+]);
+
+// Employee status enum
+export const employeeStatusEnum = pgEnum("employee_status", [
+  "active",
+  "inactive",
+  "on_leave",
+  "terminated"
+]);
+
+// Employment type enum
+export const employmentTypeEnum = pgEnum("employment_type", [
+  "full_time",
+  "part_time",
+  "contractor",
+  "intern"
+]);
+
+// Leave type enum
+export const leaveTypeEnum = pgEnum("leave_type", [
+  "vacation",
+  "sick",
+  "personal",
+  "bereavement",
+  "parental",
+  "unpaid"
+]);
+
+// Leave status enum
+export const leaveStatusEnum = pgEnum("leave_status", [
+  "pending",
+  "approved",
+  "rejected",
+  "cancelled"
+]);
+
+// BondAI webhook status enum
+export const bondaiWebhookStatusEnum = pgEnum("bondai_webhook_status", [
+  "received",
+  "processing",
+  "processed",
+  "failed",
+  "duplicate"
+]);
+
+// ============ INVOICING TABLES ============
+
+// Invoices table
+export const invoices = pgTable("invoices", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  investorId: varchar("investor_id").references(() => investors.id),
+  invoiceNumber: varchar("invoice_number", { length: 50 }).notNull(),
+  status: invoiceStatusEnum("status").default("draft").notNull(),
+  issueDate: timestamp("issue_date").defaultNow().notNull(),
+  dueDate: timestamp("due_date").notNull(),
+  subtotal: decimal("subtotal", { precision: 15, scale: 2 }).default("0").notNull(),
+  taxRate: decimal("tax_rate", { precision: 5, scale: 2 }).default("0"),
+  taxAmount: decimal("tax_amount", { precision: 15, scale: 2 }).default("0"),
+  discountAmount: decimal("discount_amount", { precision: 15, scale: 2 }).default("0"),
+  totalAmount: decimal("total_amount", { precision: 15, scale: 2 }).default("0").notNull(),
+  paidAmount: decimal("paid_amount", { precision: 15, scale: 2 }).default("0"),
+  currency: varchar("currency", { length: 3 }).default("USD"),
+  notes: text("notes"),
+  terms: text("terms"),
+  billingAddress: text("billing_address"),
+  sentAt: timestamp("sent_at"),
+  viewedAt: timestamp("viewed_at"),
+  paidAt: timestamp("paid_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Invoice line items
+export const invoiceLineItems = pgTable("invoice_line_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  invoiceId: varchar("invoice_id").notNull().references(() => invoices.id, { onDelete: "cascade" }),
+  description: varchar("description", { length: 500 }).notNull(),
+  quantity: decimal("quantity", { precision: 10, scale: 2 }).default("1").notNull(),
+  unitPrice: decimal("unit_price", { precision: 15, scale: 2 }).notNull(),
+  amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
+  accountId: varchar("account_id").references(() => accounts.id),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Invoice payments
+export const invoicePayments = pgTable("invoice_payments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  invoiceId: varchar("invoice_id").notNull().references(() => invoices.id, { onDelete: "cascade" }),
+  amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
+  paymentMethod: varchar("payment_method", { length: 50 }),
+  paymentReference: varchar("payment_reference", { length: 255 }),
+  notes: text("notes"),
+  paidAt: timestamp("paid_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ============ QUOTES TABLES ============
+
+// Quote status enum
+export const quoteStatusEnum = pgEnum("quote_status", [
+  "draft",
+  "sent",
+  "accepted",
+  "rejected",
+  "expired",
+  "converted"
+]);
+
+// Quotes table
+export const quotes = pgTable("quotes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  investorId: varchar("investor_id").references(() => investors.id),
+  quoteNumber: varchar("quote_number", { length: 50 }).notNull(),
+  status: quoteStatusEnum("status").default("draft").notNull(),
+  issueDate: timestamp("issue_date").defaultNow().notNull(),
+  validUntil: timestamp("valid_until").notNull(),
+  subtotal: decimal("subtotal", { precision: 15, scale: 2 }).default("0").notNull(),
+  taxRate: decimal("tax_rate", { precision: 5, scale: 2 }).default("0"),
+  taxAmount: decimal("tax_amount", { precision: 15, scale: 2 }).default("0"),
+  discountAmount: decimal("discount_amount", { precision: 15, scale: 2 }).default("0"),
+  totalAmount: decimal("total_amount", { precision: 15, scale: 2 }).default("0").notNull(),
+  currency: varchar("currency", { length: 3 }).default("USD"),
+  notes: text("notes"),
+  terms: text("terms"),
+  convertedToInvoiceId: varchar("converted_to_invoice_id").references(() => invoices.id),
+  sentAt: timestamp("sent_at"),
+  acceptedAt: timestamp("accepted_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Quote line items
+export const quoteLineItems = pgTable("quote_line_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  quoteId: varchar("quote_id").notNull().references(() => quotes.id, { onDelete: "cascade" }),
+  description: varchar("description", { length: 500 }).notNull(),
+  quantity: decimal("quantity", { precision: 10, scale: 2 }).default("1").notNull(),
+  unitPrice: decimal("unit_price", { precision: 15, scale: 2 }).notNull(),
+  amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ============ EXPENSES TABLES ============
+
+// Expenses table
+export const expenses = pgTable("expenses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  category: expenseCategoryEnum("category").notNull(),
+  status: expenseStatusEnum("status").default("pending").notNull(),
+  description: varchar("description", { length: 500 }).notNull(),
+  amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
+  currency: varchar("currency", { length: 3 }).default("USD"),
+  vendor: varchar("vendor", { length: 255 }),
+  expenseDate: timestamp("expense_date").defaultNow().notNull(),
+  receiptFilename: varchar("receipt_filename", { length: 255 }),
+  receiptPath: varchar("receipt_path", { length: 500 }),
+  accountId: varchar("account_id").references(() => accounts.id),
+  investorId: varchar("investor_id").references(() => investors.id),
+  notes: text("notes"),
+  approvedBy: varchar("approved_by"),
+  approvedAt: timestamp("approved_at"),
+  reimbursedAt: timestamp("reimbursed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// ============ HR TABLES ============
+
+// Departments table
+export const departments = pgTable("departments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  name: varchar("name", { length: 200 }).notNull(),
+  code: varchar("code", { length: 20 }),
+  description: text("description"),
+  managerId: varchar("manager_id"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Employees table
+export const employees = pgTable("employees", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  employeeNumber: varchar("employee_number", { length: 50 }).notNull(),
+  firstName: varchar("first_name", { length: 100 }).notNull(),
+  lastName: varchar("last_name", { length: 100 }).notNull(),
+  email: varchar("email", { length: 255 }).notNull(),
+  phone: varchar("phone", { length: 50 }),
+  departmentId: varchar("department_id").references(() => departments.id),
+  jobTitle: varchar("job_title", { length: 200 }),
+  employmentType: employmentTypeEnum("employment_type").default("full_time").notNull(),
+  status: employeeStatusEnum("status").default("active").notNull(),
+  hireDate: timestamp("hire_date").notNull(),
+  terminationDate: timestamp("termination_date"),
+  salary: decimal("salary", { precision: 15, scale: 2 }),
+  salaryFrequency: varchar("salary_frequency", { length: 20 }).default("annual"),
+  addressLine1: varchar("address_line1", { length: 255 }),
+  addressLine2: varchar("address_line2", { length: 255 }),
+  city: varchar("city", { length: 120 }),
+  state: varchar("state", { length: 120 }),
+  postalCode: varchar("postal_code", { length: 30 }),
+  country: varchar("country", { length: 120 }),
+  emergencyContactName: varchar("emergency_contact_name", { length: 200 }),
+  emergencyContactPhone: varchar("emergency_contact_phone", { length: 50 }),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Leave requests table
+export const leaveRequests = pgTable("leave_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  employeeId: varchar("employee_id").notNull().references(() => employees.id),
+  leaveType: leaveTypeEnum("leave_type").notNull(),
+  status: leaveStatusEnum("status").default("pending").notNull(),
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date").notNull(),
+  totalDays: decimal("total_days", { precision: 5, scale: 1 }).notNull(),
+  reason: text("reason"),
+  approvedBy: varchar("approved_by"),
+  approvedAt: timestamp("approved_at"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Payroll records table
+export const payrollRecords = pgTable("payroll_records", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  employeeId: varchar("employee_id").notNull().references(() => employees.id),
+  payPeriodStart: timestamp("pay_period_start").notNull(),
+  payPeriodEnd: timestamp("pay_period_end").notNull(),
+  grossPay: decimal("gross_pay", { precision: 15, scale: 2 }).notNull(),
+  deductions: decimal("deductions", { precision: 15, scale: 2 }).default("0"),
+  taxes: decimal("taxes", { precision: 15, scale: 2 }).default("0"),
+  netPay: decimal("net_pay", { precision: 15, scale: 2 }).notNull(),
+  paymentMethod: varchar("payment_method", { length: 50 }),
+  paymentReference: varchar("payment_reference", { length: 255 }),
+  status: varchar("status", { length: 50 }).default("pending"),
+  paidAt: timestamp("paid_at"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Time entries table
+export const timeEntries = pgTable("time_entries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  employeeId: varchar("employee_id").notNull().references(() => employees.id),
+  date: timestamp("date").notNull(),
+  hoursWorked: decimal("hours_worked", { precision: 5, scale: 2 }).notNull(),
+  overtimeHours: decimal("overtime_hours", { precision: 5, scale: 2 }).default("0"),
+  description: text("description"),
+  projectCode: varchar("project_code", { length: 50 }),
+  investorId: varchar("investor_id").references(() => investors.id),
+  isBillable: boolean("is_billable").default(false),
+  approvedBy: varchar("approved_by"),
+  approvedAt: timestamp("approved_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// ============ BONDAI INTEGRATION TABLES ============
+
+// BondAI webhook events table
+export const bondaiWebhookEvents = pgTable("bondai_webhook_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id", { length: 255 }).notNull().unique(),
+  eventType: varchar("event_type", { length: 100 }).notNull(),
+  correlationId: varchar("correlation_id", { length: 255 }),
+  payload: text("payload").notNull(),
+  status: bondaiWebhookStatusEnum("status").default("received").notNull(),
+  processedAt: timestamp("processed_at"),
+  errorMessage: text("error_message"),
+  retryCount: integer("retry_count").default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// BondAI investor sync table
+export const bondaiInvestorSync = pgTable("bondai_investor_sync", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  investorId: varchar("investor_id").notNull().references(() => investors.id),
+  bondaiUserId: varchar("bondai_user_id", { length: 255 }),
+  bondaiEmail: varchar("bondai_email", { length: 255 }),
+  syncStatus: varchar("sync_status", { length: 50 }).default("pending"),
+  lastSyncAt: timestamp("last_sync_at"),
+  kycStatus: varchar("kyc_status", { length: 50 }),
+  onboardingStatus: varchar("onboarding_status", { length: 50 }),
+  paymentStatus: varchar("payment_status", { length: 50 }),
+  metadata: text("metadata"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Escrow accounts table
+export const escrowAccounts = pgTable("escrow_accounts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  accountName: varchar("account_name", { length: 255 }).notNull(),
+  accountNumber: varchar("account_number", { length: 100 }),
+  bankName: varchar("bank_name", { length: 255 }),
+  routingNumber: varchar("routing_number", { length: 50 }),
+  accountType: varchar("account_type", { length: 50 }).default("escrow"),
+  balance: decimal("balance", { precision: 15, scale: 2 }).default("0"),
+  currency: varchar("currency", { length: 3 }).default("USD"),
+  isActive: boolean("is_active").default(true),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Escrow transactions table
+export const escrowTransactions = pgTable("escrow_transactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  escrowAccountId: varchar("escrow_account_id").notNull().references(() => escrowAccounts.id),
+  investorId: varchar("investor_id").references(() => investors.id),
+  bondSettlementId: varchar("bond_settlement_id").references(() => bondSettlements.id),
+  transactionType: varchar("transaction_type", { length: 50 }).notNull(),
+  amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
+  reference: varchar("reference", { length: 255 }),
+  description: text("description"),
+  status: varchar("status", { length: 50 }).default("pending"),
+  processedAt: timestamp("processed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ============ RELATIONS ============
+
+export const invoiceRelations = relations(invoices, ({ one, many }) => ({
+  investor: one(investors, {
+    fields: [invoices.investorId],
+    references: [investors.id],
+  }),
+  lineItems: many(invoiceLineItems),
+  payments: many(invoicePayments),
+}));
+
+export const invoiceLineItemRelations = relations(invoiceLineItems, ({ one }) => ({
+  invoice: one(invoices, {
+    fields: [invoiceLineItems.invoiceId],
+    references: [invoices.id],
+  }),
+  account: one(accounts, {
+    fields: [invoiceLineItems.accountId],
+    references: [accounts.id],
+  }),
+}));
+
+export const invoicePaymentRelations = relations(invoicePayments, ({ one }) => ({
+  invoice: one(invoices, {
+    fields: [invoicePayments.invoiceId],
+    references: [invoices.id],
+  }),
+}));
+
+export const quoteRelations = relations(quotes, ({ one, many }) => ({
+  investor: one(investors, {
+    fields: [quotes.investorId],
+    references: [investors.id],
+  }),
+  lineItems: many(quoteLineItems),
+  convertedInvoice: one(invoices, {
+    fields: [quotes.convertedToInvoiceId],
+    references: [invoices.id],
+  }),
+}));
+
+export const quoteLineItemRelations = relations(quoteLineItems, ({ one }) => ({
+  quote: one(quotes, {
+    fields: [quoteLineItems.quoteId],
+    references: [quotes.id],
+  }),
+}));
+
+export const expenseRelations = relations(expenses, ({ one }) => ({
+  account: one(accounts, {
+    fields: [expenses.accountId],
+    references: [accounts.id],
+  }),
+  investor: one(investors, {
+    fields: [expenses.investorId],
+    references: [investors.id],
+  }),
+}));
+
+export const employeeRelations = relations(employees, ({ one, many }) => ({
+  department: one(departments, {
+    fields: [employees.departmentId],
+    references: [departments.id],
+  }),
+  leaveRequests: many(leaveRequests),
+  payrollRecords: many(payrollRecords),
+  timeEntries: many(timeEntries),
+}));
+
+export const leaveRequestRelations = relations(leaveRequests, ({ one }) => ({
+  employee: one(employees, {
+    fields: [leaveRequests.employeeId],
+    references: [employees.id],
+  }),
+}));
+
+export const payrollRecordRelations = relations(payrollRecords, ({ one }) => ({
+  employee: one(employees, {
+    fields: [payrollRecords.employeeId],
+    references: [employees.id],
+  }),
+}));
+
+export const timeEntryRelations = relations(timeEntries, ({ one }) => ({
+  employee: one(employees, {
+    fields: [timeEntries.employeeId],
+    references: [employees.id],
+  }),
+  investor: one(investors, {
+    fields: [timeEntries.investorId],
+    references: [investors.id],
+  }),
+}));
+
+export const bondaiInvestorSyncRelations = relations(bondaiInvestorSync, ({ one }) => ({
+  investor: one(investors, {
+    fields: [bondaiInvestorSync.investorId],
+    references: [investors.id],
+  }),
+}));
+
+export const escrowTransactionRelations = relations(escrowTransactions, ({ one }) => ({
+  escrowAccount: one(escrowAccounts, {
+    fields: [escrowTransactions.escrowAccountId],
+    references: [escrowAccounts.id],
+  }),
+  investor: one(investors, {
+    fields: [escrowTransactions.investorId],
+    references: [investors.id],
+  }),
+  bondSettlement: one(bondSettlements, {
+    fields: [escrowTransactions.bondSettlementId],
+    references: [bondSettlements.id],
+  }),
+}));
+
+// ============ INSERT SCHEMAS ============
+
+export const insertInvoiceSchema = createInsertSchema(invoices).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertInvoiceLineItemSchema = createInsertSchema(invoiceLineItems).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertInvoicePaymentSchema = createInsertSchema(invoicePayments).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertQuoteSchema = createInsertSchema(quotes).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertQuoteLineItemSchema = createInsertSchema(quoteLineItems).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertExpenseSchema = createInsertSchema(expenses).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertDepartmentSchema = createInsertSchema(departments).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertEmployeeSchema = createInsertSchema(employees).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertLeaveRequestSchema = createInsertSchema(leaveRequests).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPayrollRecordSchema = createInsertSchema(payrollRecords).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertTimeEntrySchema = createInsertSchema(timeEntries).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertBondaiWebhookEventSchema = createInsertSchema(bondaiWebhookEvents).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertBondaiInvestorSyncSchema = createInsertSchema(bondaiInvestorSync).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertEscrowAccountSchema = createInsertSchema(escrowAccounts).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertEscrowTransactionSchema = createInsertSchema(escrowTransactions).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+});
+
+// ============ TYPES ============
+
+export type Invoice = typeof invoices.$inferSelect;
+export type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
+
+export type InvoiceLineItem = typeof invoiceLineItems.$inferSelect;
+export type InsertInvoiceLineItem = z.infer<typeof insertInvoiceLineItemSchema>;
+
+export type InvoicePayment = typeof invoicePayments.$inferSelect;
+export type InsertInvoicePayment = z.infer<typeof insertInvoicePaymentSchema>;
+
+export type Quote = typeof quotes.$inferSelect;
+export type InsertQuote = z.infer<typeof insertQuoteSchema>;
+
+export type QuoteLineItem = typeof quoteLineItems.$inferSelect;
+export type InsertQuoteLineItem = z.infer<typeof insertQuoteLineItemSchema>;
+
+export type Expense = typeof expenses.$inferSelect;
+export type InsertExpense = z.infer<typeof insertExpenseSchema>;
+
+export type Department = typeof departments.$inferSelect;
+export type InsertDepartment = z.infer<typeof insertDepartmentSchema>;
+
+export type Employee = typeof employees.$inferSelect;
+export type InsertEmployee = z.infer<typeof insertEmployeeSchema>;
+
+export type LeaveRequest = typeof leaveRequests.$inferSelect;
+export type InsertLeaveRequest = z.infer<typeof insertLeaveRequestSchema>;
+
+export type PayrollRecord = typeof payrollRecords.$inferSelect;
+export type InsertPayrollRecord = z.infer<typeof insertPayrollRecordSchema>;
+
+export type TimeEntry = typeof timeEntries.$inferSelect;
+export type InsertTimeEntry = z.infer<typeof insertTimeEntrySchema>;
+
+export type BondaiWebhookEvent = typeof bondaiWebhookEvents.$inferSelect;
+export type InsertBondaiWebhookEvent = z.infer<typeof insertBondaiWebhookEventSchema>;
+
+export type BondaiInvestorSync = typeof bondaiInvestorSync.$inferSelect;
+export type InsertBondaiInvestorSync = z.infer<typeof insertBondaiInvestorSyncSchema>;
+
+export type EscrowAccount = typeof escrowAccounts.$inferSelect;
+export type InsertEscrowAccount = z.infer<typeof insertEscrowAccountSchema>;
+
+export type EscrowTransaction = typeof escrowTransactions.$inferSelect;
+export type InsertEscrowTransaction = z.infer<typeof insertEscrowTransactionSchema>;
+
+// ============ UI LABELS ============
+
+export const invoiceStatuses = [
+  { value: "draft", label: "Draft", color: "bg-gray-500" },
+  { value: "sent", label: "Sent", color: "bg-blue-500" },
+  { value: "viewed", label: "Viewed", color: "bg-purple-500" },
+  { value: "partial", label: "Partially Paid", color: "bg-yellow-500" },
+  { value: "paid", label: "Paid", color: "bg-green-500" },
+  { value: "overdue", label: "Overdue", color: "bg-red-500" },
+  { value: "cancelled", label: "Cancelled", color: "bg-gray-400" },
+  { value: "void", label: "Void", color: "bg-gray-600" },
+] as const;
+
+export type InvoiceStatus = typeof invoiceStatuses[number]["value"];
+
+export const expenseCategories = [
+  { value: "travel", label: "Travel", icon: "Plane" },
+  { value: "meals", label: "Meals & Entertainment", icon: "Utensils" },
+  { value: "office_supplies", label: "Office Supplies", icon: "Package" },
+  { value: "software", label: "Software & Subscriptions", icon: "Monitor" },
+  { value: "professional_services", label: "Professional Services", icon: "Briefcase" },
+  { value: "marketing", label: "Marketing", icon: "Megaphone" },
+  { value: "utilities", label: "Utilities", icon: "Zap" },
+  { value: "rent", label: "Rent", icon: "Building" },
+  { value: "insurance", label: "Insurance", icon: "Shield" },
+  { value: "payroll", label: "Payroll", icon: "Users" },
+  { value: "other", label: "Other", icon: "MoreHorizontal" },
+] as const;
+
+export type ExpenseCategory = typeof expenseCategories[number]["value"];
+
+export const expenseStatuses = [
+  { value: "pending", label: "Pending", color: "bg-yellow-500" },
+  { value: "approved", label: "Approved", color: "bg-green-500" },
+  { value: "rejected", label: "Rejected", color: "bg-red-500" },
+  { value: "reimbursed", label: "Reimbursed", color: "bg-blue-500" },
+] as const;
+
+export type ExpenseStatus = typeof expenseStatuses[number]["value"];
+
+export const employeeStatuses = [
+  { value: "active", label: "Active", color: "bg-green-500" },
+  { value: "inactive", label: "Inactive", color: "bg-gray-500" },
+  { value: "on_leave", label: "On Leave", color: "bg-yellow-500" },
+  { value: "terminated", label: "Terminated", color: "bg-red-500" },
+] as const;
+
+export type EmployeeStatus = typeof employeeStatuses[number]["value"];
+
+export const employmentTypes = [
+  { value: "full_time", label: "Full-Time" },
+  { value: "part_time", label: "Part-Time" },
+  { value: "contractor", label: "Contractor" },
+  { value: "intern", label: "Intern" },
+] as const;
+
+export type EmploymentType = typeof employmentTypes[number]["value"];
+
+export const leaveTypes = [
+  { value: "vacation", label: "Vacation", icon: "Palmtree" },
+  { value: "sick", label: "Sick Leave", icon: "Thermometer" },
+  { value: "personal", label: "Personal", icon: "User" },
+  { value: "bereavement", label: "Bereavement", icon: "Heart" },
+  { value: "parental", label: "Parental", icon: "Baby" },
+  { value: "unpaid", label: "Unpaid", icon: "DollarSign" },
+] as const;
+
+export type LeaveType = typeof leaveTypes[number]["value"];
+
+export const leaveStatuses = [
+  { value: "pending", label: "Pending", color: "bg-yellow-500" },
+  { value: "approved", label: "Approved", color: "bg-green-500" },
+  { value: "rejected", label: "Rejected", color: "bg-red-500" },
+  { value: "cancelled", label: "Cancelled", color: "bg-gray-500" },
+] as const;
+
+export type LeaveStatus = typeof leaveStatuses[number]["value"];
+
+export const bondaiWebhookStatuses = [
+  { value: "received", label: "Received", color: "bg-blue-500" },
+  { value: "processing", label: "Processing", color: "bg-yellow-500" },
+  { value: "processed", label: "Processed", color: "bg-green-500" },
+  { value: "failed", label: "Failed", color: "bg-red-500" },
+  { value: "duplicate", label: "Duplicate", color: "bg-gray-500" },
+] as const;
+
+export type BondaiWebhookStatus = typeof bondaiWebhookStatuses[number]["value"];
+
+export const quoteStatuses = [
+  { value: "draft", label: "Draft", color: "bg-gray-500" },
+  { value: "sent", label: "Sent", color: "bg-blue-500" },
+  { value: "accepted", label: "Accepted", color: "bg-green-500" },
+  { value: "rejected", label: "Rejected", color: "bg-red-500" },
+  { value: "expired", label: "Expired", color: "bg-yellow-500" },
+  { value: "converted", label: "Converted to Invoice", color: "bg-purple-500" },
+] as const;
+
+export type QuoteStatus = typeof quoteStatuses[number]["value"];

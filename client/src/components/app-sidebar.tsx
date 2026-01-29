@@ -23,6 +23,18 @@ import {
   Upload,
   Eye,
   FileCheck,
+  Receipt,
+  CreditCard,
+  DollarSign,
+  UserCog,
+  Briefcase,
+  Clock,
+  CalendarOff,
+  Banknote,
+  Link2,
+  PieChart,
+  Scale,
+  FileSpreadsheet,
 } from "lucide-react";
 import {
   Sidebar,
@@ -51,6 +63,27 @@ const accountingItems = [
   { title: "Bond Settlements", url: "/bonds", icon: Landmark },
 ];
 
+const financialItems = [
+  { title: "Invoices", url: "/invoices", icon: Receipt },
+  { title: "Quotes", url: "/quotes", icon: FileSpreadsheet },
+  { title: "Expenses", url: "/expenses", icon: CreditCard },
+  { title: "Escrow Accounts", url: "/escrow", icon: Banknote },
+];
+
+const reportsItems = [
+  { title: "Trial Balance", url: "/reports/trial-balance", icon: Scale },
+  { title: "Income Statement", url: "/reports/income-statement", icon: PieChart },
+  { title: "Balance Sheet", url: "/reports/balance-sheet", icon: DollarSign },
+];
+
+const hrItems = [
+  { title: "Employees", url: "/employees", icon: UserCog },
+  { title: "Departments", url: "/departments", icon: Briefcase },
+  { title: "Time Tracking", url: "/time-tracking", icon: Clock },
+  { title: "Leave Requests", url: "/leave-requests", icon: CalendarOff },
+  { title: "Payroll", url: "/payroll", icon: Banknote },
+];
+
 const managementItems = [
   { title: "Tasks", url: "/tasks", icon: CheckSquare },
   { title: "Recurring Tasks", url: "/recurring-tasks", icon: RefreshCw },
@@ -65,6 +98,10 @@ const managementItems = [
 const complianceItems = [
   { title: "Compliance Onboarding", url: "/compliance/demo", icon: FileCheck },
   { title: "Privacy Notice (GLBA)", url: "/privacy-notice", icon: Shield },
+];
+
+const integrationItems = [
+  { title: "BondAI Integration", url: "/integrations/bondai", icon: Link2 },
 ];
 
 const systemItems = [
@@ -85,6 +122,11 @@ export function AppSidebar() {
     return (first + last).toUpperCase() || "U";
   };
 
+  const isActive = (url: string) => {
+    if (url === "/") return location === "/";
+    return location.startsWith(url);
+  };
+
   return (
     <Sidebar>
       <SidebarHeader className="px-4 py-5 border-b border-sidebar-border">
@@ -99,7 +141,7 @@ export function AppSidebar() {
         </Link>
       </SidebarHeader>
 
-      <SidebarContent className="px-2">
+      <SidebarContent className="px-2 overflow-y-auto">
         <SidebarGroup>
           <SidebarGroupLabel className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-3 py-2">
             Overview
@@ -110,7 +152,7 @@ export function AppSidebar() {
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild
-                    isActive={location === item.url}
+                    isActive={isActive(item.url)}
                     className="h-10"
                   >
                     <Link href={item.url} data-testid={`nav-${item.title.toLowerCase()}`}>
@@ -134,7 +176,79 @@ export function AppSidebar() {
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild
-                    isActive={location === item.url}
+                    isActive={isActive(item.url)}
+                    className="h-10"
+                  >
+                    <Link href={item.url} data-testid={`nav-${item.title.toLowerCase().replace(/\s+/g, "-")}`}>
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-3 py-2">
+            Financial
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {financialItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive(item.url)}
+                    className="h-10"
+                  >
+                    <Link href={item.url} data-testid={`nav-${item.title.toLowerCase().replace(/\s+/g, "-")}`}>
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-3 py-2">
+            Reports
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {reportsItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive(item.url)}
+                    className="h-10"
+                  >
+                    <Link href={item.url} data-testid={`nav-${item.title.toLowerCase().replace(/\s+/g, "-")}`}>
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-3 py-2">
+            Human Resources
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {hrItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive(item.url)}
                     className="h-10"
                   >
                     <Link href={item.url} data-testid={`nav-${item.title.toLowerCase().replace(/\s+/g, "-")}`}>
@@ -158,7 +272,7 @@ export function AppSidebar() {
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild
-                    isActive={location === item.url}
+                    isActive={isActive(item.url)}
                     className="h-10"
                   >
                     <Link href={item.url} data-testid={`nav-${item.title.toLowerCase()}`}>
@@ -182,7 +296,31 @@ export function AppSidebar() {
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild
-                    isActive={location.startsWith("/compliance")}
+                    isActive={location.startsWith("/compliance") || location === item.url}
+                    className="h-10"
+                  >
+                    <Link href={item.url} data-testid={`nav-${item.title.toLowerCase().replace(/\s+/g, "-")}`}>
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-3 py-2">
+            Integrations
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {integrationItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive(item.url)}
                     className="h-10"
                   >
                     <Link href={item.url} data-testid={`nav-${item.title.toLowerCase().replace(/\s+/g, "-")}`}>
@@ -206,7 +344,7 @@ export function AppSidebar() {
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild
-                    isActive={location === item.url}
+                    isActive={isActive(item.url)}
                     className="h-10"
                   >
                     <Link href={item.url} data-testid={`nav-${item.title.toLowerCase().replace(/\s+/g, "-")}`}>
