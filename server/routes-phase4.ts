@@ -1002,4 +1002,91 @@ export function registerPhase4Routes(app: Express, isAuthenticated: (req: Reques
       res.status(500).json({ message: "Failed to generate balance sheet" });
     }
   });
+
+  // ============ VENDORS API ============
+
+  // Get all vendors
+  app.get("/api/vendors", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const vendors = await (storage as any).getVendors(userId);
+      res.json(vendors);
+    } catch (error) {
+      console.error("Error fetching vendors:", error);
+      res.status(500).json({ message: "Failed to fetch vendors" });
+    }
+  });
+
+  // Get single vendor
+  app.get("/api/vendors/:id", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const vendor = await (storage as any).getVendor(req.params.id, userId);
+      if (!vendor) {
+        return res.status(404).json({ message: "Vendor not found" });
+      }
+      res.json(vendor);
+    } catch (error) {
+      console.error("Error fetching vendor:", error);
+      res.status(500).json({ message: "Failed to fetch vendor" });
+    }
+  });
+
+  // Get next vendor account number
+  app.get("/api/vendors/next-account-number", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const accountNumber = await (storage as any).getNextVendorAccountNumber(userId);
+      res.json({ accountNumber });
+    } catch (error) {
+      console.error("Error generating vendor account number:", error);
+      res.status(500).json({ message: "Failed to generate account number" });
+    }
+  });
+
+  // Create vendor
+  app.post("/api/vendors", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const vendor = await (storage as any).createVendor(userId, req.body);
+      await logAudit(userId, "create", "vendor", vendor.id, `Created vendor: ${vendor.name}`);
+      res.status(201).json(vendor);
+    } catch (error) {
+      console.error("Error creating vendor:", error);
+      res.status(500).json({ message: "Failed to create vendor" });
+    }
+  });
+
+  // Update vendor
+  app.patch("/api/vendors/:id", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const vendor = await (storage as any).updateVendor(req.params.id, userId, req.body);
+      if (!vendor) {
+        return res.status(404).json({ message: "Vendor not found" });
+      }
+      await logAudit(userId, "update", "vendor", vendor.id, `Updated vendor: ${vendor.name}`);
+      res.json(vendor);
+    } catch (error) {
+      console.error("Error updating vendor:", error);
+      res.status(500).json({ message: "Failed to update vendor" });
+    }
+  });
+
+  // Delete vendor
+  app.delete("/api/vendors/:id", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const vendor = await (storage as any).getVendor(req.params.id, userId);
+      if (!vendor) {
+        return res.status(404).json({ message: "Vendor not found" });
+      }
+      await (storage as any).deleteVendor(req.params.id, userId);
+      await logAudit(userId, "delete", "vendor", req.params.id, `Deleted vendor: ${vendor.name}`);
+      res.json({ message: "Vendor deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting vendor:", error);
+      res.status(500).json({ message: "Failed to delete vendor" });
+    }
+  });
 }
