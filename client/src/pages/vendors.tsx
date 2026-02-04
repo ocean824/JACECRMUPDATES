@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -53,6 +53,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Building2, Pencil, Trash2 } from "lucide-react";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { insertVendorSchema, type Vendor } from "@shared/schema";
 
 const createFormSchema = insertVendorSchema.extend({
@@ -89,7 +90,6 @@ function CreateVendorDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const { toast } = useToast();
-  const queryClient = useQueryClient();
 
   const form = useForm<CreateFormValues>({
     resolver: zodResolver(createFormSchema),
@@ -110,13 +110,7 @@ function CreateVendorDialog({
 
   const createMutation = useMutation({
     mutationFn: async (data: CreateFormValues) => {
-      const res = await fetch("/api/vendors", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Failed to create vendor");
+      const res = await apiRequest("POST", "/api/vendors", data);
       return res.json();
     },
     onSuccess: () => {
@@ -305,7 +299,6 @@ function EditVendorDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const { toast } = useToast();
-  const queryClient = useQueryClient();
 
   const form = useForm<EditFormValues>({
     resolver: zodResolver(editFormSchema),
@@ -338,13 +331,7 @@ function EditVendorDialog({
 
   const updateMutation = useMutation({
     mutationFn: async (data: EditFormValues) => {
-      const res = await fetch(`/api/vendors/${vendor.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Failed to update vendor");
+      const res = await apiRequest("PATCH", `/api/vendors/${vendor.id}`, data);
       return res.json();
     },
     onSuccess: () => {
@@ -752,7 +739,6 @@ export default function VendorsPage() {
   const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
   const [deletingVendor, setDeletingVendor] = useState<Vendor | null>(null);
   const { toast } = useToast();
-  const queryClient = useQueryClient();
 
   const { data: vendors = [], isLoading } = useQuery<Vendor[]>({
     queryKey: ["/api/vendors"],
@@ -760,11 +746,7 @@ export default function VendorsPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`/api/vendors/${id}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Failed to delete vendor");
+      await apiRequest("DELETE", `/api/vendors/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/vendors"] });
@@ -862,7 +844,7 @@ export default function VendorsPage() {
               </TableHeader>
               <TableBody>
                 {vendors.map((vendor) => (
-                  <TableRow key={vendor.id} data-testid={`table-vendor-${vendor.id}`}>
+                  <TableRow key={vendor.id} data-testid={`table-row-vendor-${vendor.id}`}>
                     <TableCell className="font-medium">{vendor.vendorAccountNumber}</TableCell>
                     <TableCell>{vendor.name}</TableCell>
                     <TableCell>{vendor.organizationNumber || "—"}</TableCell>
