@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage, logAudit } from "./storage";
 import { getSession } from "./replit_integrations/auth";
 import { setupLocalAuth, isLocalAuthenticated } from "./local-auth";
-import { handleHelpChat } from "./help-assistant";
+import { handleHelpChat, handleVoiceAssistant } from "./help-assistant";
 import { registerExternalOnboarding } from "./external-onboarding";
 import { registerPhase4Routes } from "./routes-phase4";
 import { registerInvestorDocumentRoutes, registerExternalInvestorDocumentRoutes } from "./investor-documents";
@@ -54,6 +54,9 @@ export async function registerRoutes(
 
   // AI Help Assistant
   app.post("/api/help-chat", isAuthenticated, handleHelpChat);
+
+  // AI Voice Assistant (authenticated users)
+  app.post("/api/voice-assistant", isAuthenticated, handleVoiceAssistant);
 
   // User Role API
   app.get("/api/user/role", isAuthenticated, async (req, res) => {

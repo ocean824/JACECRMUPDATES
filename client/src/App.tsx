@@ -10,6 +10,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { NotificationsDropdown } from "@/components/notifications";
 import { GlobalSearch } from "@/components/global-search";
 import { HelpChat } from "@/components/help-chat";
+import { VoiceAssistantWidget } from "@/components/VoiceAssistantWidget";
 import { useAuth } from "@/hooks/use-auth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -306,12 +307,32 @@ function AppRouter() {
   );
 }
 
+function GlobalVoiceAssistant() {
+  const { user } = useAuth();
+  const [location] = useLocation();
+  
+  // Don't show on external onboarding (has its own voice assistant) or public pages
+  const excludedPaths = ["/external/onboarding", "/login", "/register", "/admin-login"];
+  const isExcluded = excludedPaths.some(path => location.startsWith(path));
+  
+  if (!user || isExcluded) return null;
+  
+  return (
+    <VoiceAssistantWidget
+      context={{ currentPage: location }}
+      label="Voice Help"
+      offset={24}
+    />
+  );
+}
+
 function App() {
   return (
     <ThemeProvider defaultTheme="system" storageKey="jace-crm-theme">
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <AppRouter />
+          <GlobalVoiceAssistant />
           <Toaster />
         </TooltipProvider>
       </QueryClientProvider>

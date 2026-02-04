@@ -13,12 +13,14 @@ interface VoiceAssistantWidgetProps {
   context?: Record<string, any>;
   label?: string;
   offset?: number;
+  apiEndpoint?: string;
 }
 
 export function VoiceAssistantWidget({
   context = {},
   label = "Voice Help",
   offset = 24,
+  apiEndpoint = "/api/voice-assistant",
 }: VoiceAssistantWidgetProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -54,7 +56,7 @@ export function VoiceAssistantWidget({
           fileReader.readAsDataURL(blob);
         });
 
-        const response = await fetch("/api/external/onboarding/voice-assistant", {
+        const response = await fetch(apiEndpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

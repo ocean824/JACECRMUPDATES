@@ -1239,6 +1239,7 @@ export default function ExternalOnboardingPage() {
         context={voiceContext}
         label="Voice Help"
         offset={24}
+        apiEndpoint="/api/external/onboarding/voice-assistant"
       />
     </div>
   );

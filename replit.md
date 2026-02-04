@@ -51,7 +51,7 @@ Preferred communication style: Simple, everyday language.
   - Privacy Short Form (GLBA Model Privacy Notice)
 - **External Onboarding**: Secure, external investor onboarding flow integrated with BondAI, including document uploads, banking info, legal document signing, and e-signatures.
 - **AI Onboarding Assistant**: GPT-4o-mini powered chat assistant with streaming SSE responses, contextual guidance based on user progress, and conversation memory.
-- **Voice Assistant Widget**: Integrated voice assistant using OpenAI speech-to-text and text-to-speech (gpt-audio model), with microphone recording and audio playback.
+- **Voice Assistant Widget**: Integrated voice assistant using OpenAI speech-to-text and text-to-speech (gpt-audio model), with microphone recording and audio playback. Available on all authenticated pages via floating "Voice Help" button.
 - **Reporting**: KPI dashboards, analytics, CSV exports.
 
 ### Design Patterns

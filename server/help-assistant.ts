@@ -347,3 +347,89 @@ export async function handleHelpChat(req: Request, res: Response) {
     }
   }
 }
+
+// Voice Assistant Handler - accepts audio, returns AI response with TTS
+export async function handleVoiceAssistant(req: Request, res: Response) {
+  try {
+    const { audio, conversationHistory = [], context = "" } = req.body;
+
+    if (!audio || typeof audio !== "string") {
+      return res.status(400).json({ error: "Audio data is required" });
+    }
+
+    // Check for required env vars
+    if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY || !process.env.AI_INTEGRATIONS_OPENAI_BASE_URL) {
+      console.error("AI integration env vars not configured");
+      return res.status(503).json({ error: "Voice assistant temporarily unavailable" });
+    }
+
+    // Import audio utilities
+    const { ensureCompatibleFormat, speechToText, textToSpeechStream } = await import("./replit_integrations/audio/client");
+
+    // Convert base64 audio to buffer and ensure compatible format
+    const audioBuffer = Buffer.from(audio, "base64");
+    const { buffer: wavBuffer, format } = await ensureCompatibleFormat(audioBuffer);
+
+    // Transcribe user's speech
+    const userTranscript = await speechToText(wavBuffer, format);
+
+    if (!userTranscript || userTranscript.trim().length === 0) {
+      return res.status(400).json({ error: "Could not understand audio. Please try again." });
+    }
+
+    // Build conversation messages for the AI
+    const systemPrompt = `${CRM_SYSTEM_PROMPT}
+
+${context ? `Current context: ${context}` : ""}
+
+Keep your spoken responses concise and natural - they will be read aloud. Limit responses to 2-3 sentences when possible.`;
+
+    const messages: ChatMessage[] = [
+      { role: "system", content: systemPrompt },
+      ...conversationHistory.map((msg: { role: string; content: string }) => ({
+        role: msg.role as "user" | "assistant",
+        content: msg.content,
+      })),
+      { role: "user", content: userTranscript },
+    ];
+
+    // Get AI response
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4.1",
+      messages,
+      max_completion_tokens: 512,
+    });
+
+    const assistantResponse = completion.choices[0]?.message?.content || "I'm sorry, I couldn't generate a response.";
+
+    // Set up SSE for streaming audio
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+
+    // Send transcripts first
+    res.write(`data: ${JSON.stringify({ type: "user_transcript", data: userTranscript })}\n\n`);
+    res.write(`data: ${JSON.stringify({ type: "transcript", data: assistantResponse })}\n\n`);
+
+    // Stream TTS audio
+    try {
+      const audioStream = await textToSpeechStream(assistantResponse, "nova");
+      for await (const chunk of audioStream) {
+        res.write(`data: ${JSON.stringify({ type: "audio", data: chunk })}\n\n`);
+      }
+    } catch (ttsError) {
+      console.error("TTS error:", ttsError);
+    }
+
+    res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
+    res.end();
+  } catch (error) {
+    console.error("Error in voice assistant:", error);
+    if (res.headersSent) {
+      res.write(`data: ${JSON.stringify({ type: "error", error: "Failed to process voice" })}\n\n`);
+      res.end();
+    } else {
+      res.status(500).json({ error: "Failed to process voice request" });
+    }
+  }
+}
