@@ -1309,6 +1309,60 @@ export const bondaiWebhookStatusEnum = pgEnum("bondai_webhook_status", [
   "duplicate"
 ]);
 
+// ============ VENDOR TABLES ============
+
+// Vendors table for accounts payable
+export const vendors = pgTable("vendors", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  vendorAccountNumber: varchar("vendor_account_number", { length: 50 }).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  organizationNumber: varchar("organization_number", { length: 50 }),
+  email: varchar("email", { length: 255 }),
+  phone: varchar("phone", { length: 50 }),
+  website: varchar("website", { length: 255 }),
+  // Payment settings
+  paymentTerms: varchar("payment_terms", { length: 50 }).default("NET30"),
+  currency: varchar("currency", { length: 3 }).default("USD"),
+  taxGroup: varchar("tax_group", { length: 50 }),
+  // E-invoicing
+  eInvoicingEnabled: boolean("e_invoicing_enabled").default(false),
+  electronicInvoiceEmail: varchar("electronic_invoice_email", { length: 255 }),
+  // Recurring invoice settings
+  recurringInvoiceEnabled: boolean("recurring_invoice_enabled").default(false),
+  recurringBillingStartDate: timestamp("recurring_billing_start_date"),
+  recurringBillingEndDate: timestamp("recurring_billing_end_date"),
+  recurringBillingFrequency: varchar("recurring_billing_frequency", { length: 20 }),
+  // Invoice address
+  invoiceAddressStreet: varchar("invoice_address_street", { length: 255 }),
+  invoiceAddressCity: varchar("invoice_address_city", { length: 100 }),
+  invoiceAddressState: varchar("invoice_address_state", { length: 100 }),
+  invoiceAddressZip: varchar("invoice_address_zip", { length: 20 }),
+  invoiceAddressCountry: varchar("invoice_address_country", { length: 100 }),
+  // Remit-to address
+  remitToAddressStreet: varchar("remit_to_address_street", { length: 255 }),
+  remitToAddressCity: varchar("remit_to_address_city", { length: 100 }),
+  remitToAddressState: varchar("remit_to_address_state", { length: 100 }),
+  remitToAddressZip: varchar("remit_to_address_zip", { length: 20 }),
+  remitToAddressCountry: varchar("remit_to_address_country", { length: 100 }),
+  // Notes
+  notes: text("notes"),
+  // Status
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertVendorSchema = createInsertSchema(vendors).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertVendor = z.infer<typeof insertVendorSchema>;
+export type Vendor = typeof vendors.$inferSelect;
+
 // ============ INVOICING TABLES ============
 
 // Invoices table
