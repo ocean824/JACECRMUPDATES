@@ -96,6 +96,7 @@ import {
   bondaiInvestorSync,
   escrowAccounts,
   escrowTransactions,
+  vendors,
   type Invoice,
   type InsertInvoice,
   type InvoiceLineItem,
@@ -126,6 +127,8 @@ import {
   type InsertEscrowAccount,
   type EscrowTransaction,
   type InsertEscrowTransaction,
+  type Vendor,
+  type InsertVendor,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql, count, sum, gte, lte } from "drizzle-orm";
@@ -1380,6 +1383,14 @@ export interface IStorageExtended extends IStorage {
   getEscrowTransactions(escrowAccountId: string, userId: string): Promise<EscrowTransaction[]>;
   createEscrowTransaction(userId: string, transaction: InsertEscrowTransaction): Promise<EscrowTransaction>;
 
+  // Vendors
+  getVendors(userId: string): Promise<Vendor[]>;
+  getVendor(id: string, userId: string): Promise<Vendor | undefined>;
+  createVendor(userId: string, vendor: InsertVendor): Promise<Vendor>;
+  updateVendor(id: string, userId: string, vendor: Partial<InsertVendor>): Promise<Vendor | undefined>;
+  deleteVendor(id: string, userId: string): Promise<boolean>;
+  getNextVendorAccountNumber(userId: string): Promise<string>;
+
   // Financial Reports
   getTrialBalance(userId: string): Promise<{ accountId: string; accountName: string; accountType: string; debitTotal: string; creditTotal: string; balance: string }[]>;
   getIncomeStatement(userId: string, startDate: Date, endDate: Date): Promise<{ revenues: any[]; expenses: any[]; totalRevenue: string; totalExpenses: string; netIncome: string }>;
@@ -1714,6 +1725,37 @@ DatabaseStorage.prototype.getEscrowTransactions = async function(escrowAccountId
 DatabaseStorage.prototype.createEscrowTransaction = async function(userId: string, transaction: InsertEscrowTransaction): Promise<EscrowTransaction> {
   const [created] = await db.insert(escrowTransactions).values({ ...transaction, userId }).returning();
   return created;
+};
+
+// Vendors
+DatabaseStorage.prototype.getVendors = async function(userId: string): Promise<Vendor[]> {
+  return db.select().from(vendors).where(eq(vendors.userId, userId)).orderBy(vendors.name);
+};
+
+DatabaseStorage.prototype.getVendor = async function(id: string, userId: string): Promise<Vendor | undefined> {
+  const [vendor] = await db.select().from(vendors).where(and(eq(vendors.id, id), eq(vendors.userId, userId)));
+  return vendor;
+};
+
+DatabaseStorage.prototype.createVendor = async function(userId: string, vendor: InsertVendor): Promise<Vendor> {
+  const [created] = await db.insert(vendors).values({ ...vendor, userId }).returning();
+  return created;
+};
+
+DatabaseStorage.prototype.updateVendor = async function(id: string, userId: string, vendor: Partial<InsertVendor>): Promise<Vendor | undefined> {
+  const [updated] = await db.update(vendors).set({ ...vendor, updatedAt: new Date() }).where(and(eq(vendors.id, id), eq(vendors.userId, userId))).returning();
+  return updated;
+};
+
+DatabaseStorage.prototype.deleteVendor = async function(id: string, userId: string): Promise<boolean> {
+  const result = await db.delete(vendors).where(and(eq(vendors.id, id), eq(vendors.userId, userId)));
+  return (result.rowCount || 0) > 0;
+};
+
+DatabaseStorage.prototype.getNextVendorAccountNumber = async function(userId: string): Promise<string> {
+  const vendorsList = await db.select().from(vendors).where(eq(vendors.userId, userId));
+  const nextNumber = vendorsList.length + 1;
+  return `VND-${String(nextNumber).padStart(5, '0')}`;
 };
 
 // Financial Reports
