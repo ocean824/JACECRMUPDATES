@@ -836,4 +836,106 @@ ${JSON.stringify(currentProgress, null, 2)}
       }
     }
   });
+
+  // Voice Assistant endpoint - accepts audio, returns AI response with TTS
+  app.post("/api/external/onboarding/voice-assistant", async (req: Request, res: Response) => {
+    try {
+      const { audio, conversationHistory = [], currentProgress = {} } = req.body;
+
+      if (!audio || typeof audio !== "string") {
+        return res.status(400).json({ error: "Audio data is required" });
+      }
+
+      // Check for required env vars
+      if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY || !process.env.AI_INTEGRATIONS_OPENAI_BASE_URL) {
+        console.error("AI integration env vars not configured");
+        return res.status(503).json({ error: "Voice assistant temporarily unavailable" });
+      }
+
+      // Import audio utilities
+      const { ensureCompatibleFormat, speechToText, textToSpeechStream } = await import("./replit_integrations/audio/client");
+      const OpenAI = (await import("openai")).default;
+      const openai = new OpenAI({
+        apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+        baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+      });
+
+      // Convert base64 audio to buffer and ensure compatible format
+      const audioBuffer = Buffer.from(audio, "base64");
+      const { buffer: wavBuffer, format } = await ensureCompatibleFormat(audioBuffer);
+
+      // Transcribe user's speech
+      const userTranscript = await speechToText(wavBuffer, format);
+
+      if (!userTranscript || userTranscript.trim().length === 0) {
+        return res.status(400).json({ error: "Could not understand audio. Please try again." });
+      }
+
+      // Limit conversation history
+      const limitedHistory = Array.isArray(conversationHistory) ? conversationHistory.slice(-10) : [];
+
+      const systemPrompt = `You are JACE AI, a friendly voice assistant for investor onboarding. Keep responses SHORT (1-2 sentences) since they will be spoken aloud. Be warm and helpful.
+
+## Current User Progress
+${JSON.stringify(currentProgress, null, 2)}
+
+## Key Info
+- Guide investors through the onboarding steps: personal info, address, identity docs, proof of life, agreements, legal docs, banking info, and signatures
+- All data is encrypted and secure
+- Contact: jacemgmt@gmail.com or 970-710-9193`;
+
+      const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
+        { role: "system", content: systemPrompt },
+      ];
+
+      // Add conversation history
+      for (const msg of limitedHistory) {
+        if (msg.from === "you" || msg.from === "user") {
+          messages.push({ role: "user", content: String(msg.text || "").slice(0, 500) });
+        } else if (msg.from === "assistant") {
+          messages.push({ role: "assistant", content: String(msg.text || "").slice(0, 500) });
+        }
+      }
+
+      messages.push({ role: "user", content: userTranscript });
+
+      // Set up SSE for streaming
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("Connection", "keep-alive");
+
+      // Send user transcript first
+      res.write(`data: ${JSON.stringify({ type: "user_transcript", data: userTranscript })}\n\n`);
+
+      // Get AI text response (non-streaming for TTS)
+      const chatResponse = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages,
+        max_tokens: 150,
+        temperature: 0.7,
+      });
+
+      const responseText = chatResponse.choices[0]?.message?.content || "I'm sorry, I couldn't generate a response.";
+
+      // Send text transcript
+      res.write(`data: ${JSON.stringify({ type: "transcript", data: responseText })}\n\n`);
+
+      // Stream TTS audio
+      const audioStream = await textToSpeechStream(responseText, "nova");
+      for await (const chunk of audioStream) {
+        res.write(`data: ${JSON.stringify({ type: "audio", data: chunk })}\n\n`);
+      }
+
+      res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
+      res.end();
+    } catch (error: any) {
+      console.error("Voice assistant error:", error);
+      if (res.headersSent) {
+        res.write(`data: ${JSON.stringify({ type: "error", error: "Voice processing failed. Please try again." })}\n\n`);
+        res.end();
+      } else {
+        res.status(500).json({ error: "Failed to process voice request" });
+      }
+    }
+  });
 }

@@ -13,9 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, ShieldCheck, FileText, PenTool, Landmark, ArrowLeft, Sparkles, HelpCircle, X, FileCheck, Check } from "lucide-react";
 import { LegalDocSignStep } from "@/components/onboarding/legal-doc-sign-step";
 import { LEGAL_DOCUMENTS } from "@shared/legal-documents";
-import VoiceAssistantWidget from "@/components/VoiceAssistantWidget";
-
-const VOICE_AGENT_URL = import.meta.env.VITE_VOICE_AGENT_URL || "";
+import { VoiceAssistantWidget } from "@/components/VoiceAssistantWidget";
 
 type SessionResponse = {
   session: {
@@ -1237,14 +1235,11 @@ export default function ExternalOnboardingPage() {
       </div>
 
       {/* Voice Assistant Widget */}
-      {VOICE_AGENT_URL && (
-        <VoiceAssistantWidget
-          agentBaseUrl={VOICE_AGENT_URL}
-          context={voiceContext}
-          label="Voice Help"
-          offset={24}
-        />
-      )}
+      <VoiceAssistantWidget
+        context={voiceContext}
+        label="Voice Help"
+        offset={24}
+      />
     </div>
   );
 }

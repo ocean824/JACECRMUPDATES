@@ -1,218 +1,272 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useLocation } from "wouter";
+import { useState, useCallback, useRef, useEffect } from "react";
+import { Mic, MicOff, X, Volume2, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useVoiceRecorder } from "../../replit_integrations/audio/useVoiceRecorder";
+import { useAudioPlayback } from "../../replit_integrations/audio/useAudioPlayback";
 
-type Props = {
-  /** Public URL of the voice-agent app, e.g. https://your-voice-agent.replit.app */
-  agentBaseUrl: string;
-  /** Show on these path prefixes only. If omitted, shows everywhere. */
-  onlyOnPaths?: string[];
-  /** Bottom/right spacing in px */
-  offset?: number;
-  /** Button label */
-  label?: string;
-
-  /** Optional non-sensitive context to pass into the voice agent (via postMessage). */
-  context?: {
-    firstName?: string;
-    email?: string;
-    progress?: number;
-    page?: string;
-    [key: string]: unknown;
-  };
-};
-
-function normalizeBase(url: string): string {
-  return (url || "").trim().replace(/\/$/, "");
+interface VoiceMessage {
+  from: "you" | "assistant";
+  text: string;
 }
 
-export default function VoiceAssistantWidget({
-  agentBaseUrl,
-  onlyOnPaths,
-  offset = 18,
-  label = "Voice Assistant",
-  context,
-}: Props) {
-  const [location] = useLocation();
-  const base = useMemo(() => normalizeBase(agentBaseUrl), [agentBaseUrl]);
-  const [open, setOpen] = useState(false);
-  const [ready, setReady] = useState(false);
-  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+interface VoiceAssistantWidgetProps {
+  context?: Record<string, any>;
+  label?: string;
+  offset?: number;
+}
 
-  const agentOrigin = useMemo(() => {
-    try {
-      return new URL(base).origin;
-    } catch {
-      return "";
+export function VoiceAssistantWidget({
+  context = {},
+  label = "Voice Help",
+  offset = 24,
+}: VoiceAssistantWidgetProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [messages, setMessages] = useState<VoiceMessage[]>([]);
+  const [currentTranscript, setCurrentTranscript] = useState<string>("");
+
+  const recorder = useVoiceRecorder();
+  const playback = useAudioPlayback();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, currentTranscript]);
+
+  const handleMicClick = useCallback(async () => {
+    setError(null);
+
+    if (recorder.state === "recording") {
+      setIsProcessing(true);
+      const blob = await recorder.stopRecording();
+
+      try {
+        await playback.init();
+        playback.clear();
+
+        const base64Audio = await new Promise<string>((resolve) => {
+          const fileReader = new FileReader();
+          fileReader.onload = () => {
+            const result = fileReader.result as string;
+            resolve(result.split(",")[1]);
+          };
+          fileReader.readAsDataURL(blob);
+        });
+
+        const response = await fetch("/api/external/onboarding/voice-assistant", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            audio: base64Audio,
+            conversationHistory: messages,
+            currentProgress: context,
+          }),
+        });
+
+        if (!response.ok) {
+          const err = await response.json();
+          throw new Error(err.error || "Voice request failed");
+        }
+
+        const streamReader = response.body?.getReader();
+        if (!streamReader) throw new Error("No response body");
+
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let userText = "";
+        let assistantText = "";
+
+        while (true) {
+          const { done, value } = await streamReader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+
+            try {
+              const event = JSON.parse(line.slice(6));
+
+              switch (event.type) {
+                case "user_transcript":
+                  userText = event.data;
+                  setMessages((prev) => [...prev, { from: "you", text: userText }]);
+                  break;
+                case "transcript":
+                  assistantText = event.data;
+                  setCurrentTranscript(assistantText);
+                  break;
+                case "audio":
+                  playback.pushAudio(event.data);
+                  break;
+                case "done":
+                  playback.signalComplete();
+                  if (assistantText) {
+                    setMessages((prev) => [...prev, { from: "assistant", text: assistantText }]);
+                    setCurrentTranscript("");
+                  }
+                  break;
+                case "error":
+                  throw new Error(event.error);
+              }
+            } catch (e) {
+              if (!(e instanceof SyntaxError)) {
+                setError((e as Error).message);
+                // Ensure playback is terminated on event errors
+                playback.signalComplete();
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Voice assistant error:", e);
+        setError((e as Error).message || "Failed to process voice");
+        // Ensure playback is properly terminated on error
+        playback.signalComplete();
+      } finally {
+        setIsProcessing(false);
+      }
+    } else {
+      try {
+        await recorder.startRecording();
+      } catch (e) {
+        setError("Microphone access denied. Please allow microphone access.");
+      }
     }
-  }, [base]);
+  }, [recorder, playback, messages, context]);
 
-  // If the voice agent URL isn't set, do nothing (avoids broken iframes in prod).
-  if (!base) return null;
+  const handleClose = useCallback(() => {
+    setIsOpen(false);
+    playback.clear();
+    if (recorder.state === "recording") {
+      recorder.stopRecording();
+    }
+  }, [playback, recorder]);
 
-  if (onlyOnPaths && onlyOnPaths.length > 0) {
-    const ok = onlyOnPaths.some((p) => location.startsWith(p));
-    if (!ok) return null;
+  if (!isOpen) {
+    return (
+      <Button
+        onClick={() => setIsOpen(true)}
+        className="fixed z-50 rounded-full shadow-lg bg-primary hover:bg-primary/90 text-primary-foreground"
+        style={{ bottom: offset, right: offset }}
+        size="lg"
+        data-testid="button-voice-assistant-open"
+      >
+        <Mic className="w-5 h-5 mr-2" />
+        {label}
+      </Button>
+    );
   }
 
-  const src = `${base}/agent?embed=1&parentOrigin=${encodeURIComponent(window.location.origin)}`;
-
-  // Handshake: wait for the iframe to announce readiness, then send context.
-  useEffect(() => {
-    if (!open) return;
-    if (!agentOrigin) return;
-
-    const onMessage = (evt: MessageEvent) => {
-      if (evt.origin !== agentOrigin) return;
-      const data: any = evt.data;
-      if (!data || typeof data !== "object") return;
-      if (data.type === "VOICE_AGENT_READY") {
-        setReady(true);
-      }
-    };
-
-    window.addEventListener("message", onMessage);
-    return () => window.removeEventListener("message", onMessage);
-  }, [open, agentOrigin]);
-
-  // Push context once ready (and whenever it changes while open).
-  useEffect(() => {
-    if (!open || !ready) return;
-    if (!agentOrigin) return;
-    const iframe = iframeRef.current;
-    if (!iframe?.contentWindow) return;
-    if (!context || typeof context !== "object") return;
-
-    iframe.contentWindow.postMessage(
-      { type: "VOICE_AGENT_CONTEXT", payload: context },
-      agentOrigin
-    );
-  }, [open, ready, agentOrigin, context]);
-
   return (
-    <>
-      {/* Floating button */}
-      <button
-        type="button"
-        onClick={() => {
-          setReady(false);
-          setOpen(true);
-        }}
-        style={{
-          position: "fixed",
-          right: offset,
-          bottom: offset,
-          zIndex: 9999,
-          borderRadius: 999,
-          padding: "12px 18px",
-          border: "1px solid rgba(99, 102, 241, 0.4)",
-          background: "linear-gradient(135deg, rgba(99, 102, 241, 0.9) 0%, rgba(139, 92, 246, 0.9) 100%)",
-          color: "white",
-          boxShadow: "0 10px 30px rgba(99, 102, 241, 0.35)",
-          cursor: "pointer",
-          backdropFilter: "blur(10px)",
-          display: "flex",
-          alignItems: "center",
-          gap: "8px",
-          fontWeight: 600,
-          fontSize: "14px",
-        }}
-        aria-label="Open voice assistant"
-        title="Voice assistant"
-        data-testid="button-voice-assistant"
-      >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
-          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-          <line x1="12" x2="12" y1="19" y2="22"/>
-        </svg>
-        {label}
-      </button>
-
-      {/* Modal overlay */}
-      {open && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          onClick={() => {
-            setOpen(false);
-            setReady(false);
-          }}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.55)",
-            zIndex: 10000,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 16,
-          }}
+    <div
+      className="fixed z-50 bg-background border border-border rounded-xl shadow-2xl flex flex-col"
+      style={{
+        bottom: offset,
+        right: offset,
+        width: 360,
+        height: 480,
+      }}
+    >
+      <div className="flex items-center justify-between p-4 border-b border-border">
+        <div className="flex items-center gap-2">
+          <Volume2 className="w-5 h-5 text-primary" />
+          <span className="font-semibold">Voice Assistant</span>
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleClose}
+          data-testid="button-voice-assistant-close"
         >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: "min(980px, 96vw)",
-              height: "min(680px, 86vh)",
-              background: "rgba(2, 6, 23, 0.92)",
-              border: "1px solid rgba(255,255,255,0.12)",
-              borderRadius: 18,
-              overflow: "hidden",
-              boxShadow: "0 18px 60px rgba(0,0,0,0.45)",
-              display: "flex",
-              flexDirection: "column",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: "10px 16px",
-                borderBottom: "1px solid rgba(255,255,255,0.08)",
-                color: "white",
-                background: "linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(139, 92, 246, 0.15) 100%)",
-              }}
-            >
-              <div style={{ fontWeight: 700, display: "flex", alignItems: "center", gap: "8px" }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
-                  <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-                  <line x1="12" x2="12" y1="19" y2="22"/>
-                </svg>
-                JACE Voice Assistant
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setOpen(false);
-                  setReady(false);
-                }}
-                style={{
-                  border: "1px solid rgba(255,255,255,0.15)",
-                  background: "rgba(255,255,255,0.06)",
-                  color: "white",
-                  borderRadius: 10,
-                  padding: "6px 14px",
-                  cursor: "pointer",
-                  fontWeight: 500,
-                }}
-                data-testid="button-close-voice-assistant"
-              >
-                Close
-              </button>
-            </div>
+          <X className="w-4 h-4" />
+        </Button>
+      </div>
 
-            <iframe
-              title="Voice Assistant"
-              src={src}
-              ref={iframeRef}
-              style={{ width: "100%", height: "100%", border: 0, background: "transparent" }}
-              // Critical for mic + autoplay in an iframe.
-              allow="microphone; autoplay"
-            />
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        {messages.length === 0 && !currentTranscript && (
+          <div className="text-center text-muted-foreground py-8">
+            <Mic className="w-12 h-12 mx-auto mb-4 opacity-50" />
+            <p className="text-sm">Tap the microphone and ask a question about the onboarding process.</p>
           </div>
+        )}
+
+        {messages.map((msg, idx) => (
+          <div
+            key={idx}
+            className={`p-3 rounded-lg text-sm ${
+              msg.from === "you"
+                ? "bg-primary/10 text-foreground ml-8"
+                : "bg-muted text-foreground mr-8"
+            }`}
+          >
+            <span className="text-xs font-medium text-muted-foreground block mb-1">
+              {msg.from === "you" ? "You" : "JACE AI"}
+            </span>
+            {msg.text}
+          </div>
+        ))}
+
+        {currentTranscript && (
+          <div className="p-3 rounded-lg text-sm bg-muted text-foreground mr-8">
+            <span className="text-xs font-medium text-muted-foreground block mb-1">
+              JACE AI
+            </span>
+            {currentTranscript}
+          </div>
+        )}
+
+        <div ref={messagesEndRef} />
+      </div>
+
+      {error && (
+        <div className="px-4 py-2 bg-destructive/10 text-destructive text-sm">
+          {error}
         </div>
       )}
-    </>
+
+      <div className="p-4 border-t border-border">
+        <Button
+          onClick={handleMicClick}
+          disabled={isProcessing}
+          className={`w-full h-14 rounded-full text-lg font-medium ${
+            recorder.state === "recording"
+              ? "bg-destructive hover:bg-destructive/90 animate-pulse"
+              : ""
+          }`}
+          variant={recorder.state === "recording" ? "destructive" : "default"}
+          data-testid="button-voice-assistant-record"
+        >
+          {isProcessing ? (
+            <>
+              <Loader2 className="w-6 h-6 mr-2 animate-spin" />
+              Processing...
+            </>
+          ) : recorder.state === "recording" ? (
+            <>
+              <MicOff className="w-6 h-6 mr-2" />
+              Tap to Stop
+            </>
+          ) : (
+            <>
+              <Mic className="w-6 h-6 mr-2" />
+              Tap to Speak
+            </>
+          )}
+        </Button>
+
+        {playback.state === "playing" && (
+          <p className="text-center text-xs text-muted-foreground mt-2">
+            Speaking...
+          </p>
+        )}
+      </div>
+    </div>
   );
 }
+
+export default VoiceAssistantWidget;

@@ -51,7 +51,7 @@ Preferred communication style: Simple, everyday language.
   - Privacy Short Form (GLBA Model Privacy Notice)
 - **External Onboarding**: Secure, external investor onboarding flow integrated with BondAI, including document uploads, banking info, legal document signing, and e-signatures.
 - **AI Onboarding Assistant**: GPT-4o-mini powered chat assistant with streaming SSE responses, contextual guidance based on user progress, and conversation memory.
-- **Voice Assistant Widget**: Embeddable voice agent (requires separate voice agent Replit app) with postMessage bridge for passing context.
+- **Voice Assistant Widget**: Integrated voice assistant using OpenAI speech-to-text and text-to-speech (gpt-audio model), with microphone recording and audio playback.
 - **Reporting**: KPI dashboards, analytics, CSV exports.
 
 ### Design Patterns
@@ -104,7 +104,6 @@ Preferred communication style: Simple, everyday language.
 - `BONDAI_WEBHOOK_URL`: Webhook endpoint for BondAI.
 - `BONDAI_WEBHOOK_SECRET`: Webhook signature secret for BondAI.
 - `BONDAI_ALLOWED_FRAME_ANCESTORS`: CSP frame-ancestors for BondAI.
-- `VITE_VOICE_AGENT_URL`: (Optional) URL of voice agent Replit app for voice assistant widget.
 
 ### Public Legal Pages (Fidelity-Style) - January 2026
 Public legal pages with Fidelity-style footer for JACE Management, LLC (Colorado):
