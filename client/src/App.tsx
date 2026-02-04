@@ -61,6 +61,7 @@ import InvoicesPage from "@/pages/invoices";
 import ExpensesPage from "@/pages/expenses";
 import QuotesPage from "@/pages/quotes";
 import EscrowPage from "@/pages/escrow";
+import VendorsPage from "@/pages/vendors";
 
 // Phase 4: New Pages - HR
 import EmployeesPage from "@/pages/employees";
@@ -86,6 +87,7 @@ const navigationHierarchy: Record<string, { parent: string; label: string }> = {
   "/quotes": { parent: "/invoices", label: "Invoices" },
   "/expenses": { parent: "/", label: "Dashboard" },
   "/escrow": { parent: "/", label: "Dashboard" },
+  "/vendors": { parent: "/", label: "Dashboard" },
   
   // Accounting section
   "/accounts": { parent: "/", label: "Dashboard" },
@@ -215,6 +217,7 @@ function AuthenticatedRoutes() {
         <Route path="/quotes" component={QuotesPage} />
         <Route path="/expenses" component={ExpensesPage} />
         <Route path="/escrow" component={EscrowPage} />
+        <Route path="/vendors" component={VendorsPage} />
         
         {/* Reports (Phase 4) */}
         <Route path="/reports/trial-balance" component={TrialBalancePage} />

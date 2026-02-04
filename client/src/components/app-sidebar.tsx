@@ -68,6 +68,7 @@ const financialItems = [
   { title: "Quotes", url: "/quotes", icon: FileSpreadsheet },
   { title: "Expenses", url: "/expenses", icon: CreditCard },
   { title: "Escrow Accounts", url: "/escrow", icon: Banknote },
+  { title: "Vendors", url: "/vendors", icon: Building2 },
 ];
 
 const reportsItems = [

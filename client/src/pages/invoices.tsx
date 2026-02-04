@@ -31,7 +31,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, FileText, Send, Eye, DollarSign, Trash2 } from "lucide-react";
+import { Plus, FileText, Send, Eye, DollarSign, Trash2, Building2 } from "lucide-react";
+import { Link } from "wouter";
 import { format } from "date-fns";
 
 interface Invoice {
@@ -170,13 +171,20 @@ export default function InvoicesPage() {
           <h1 className="text-3xl font-bold">Invoices</h1>
           <p className="text-muted-foreground">Manage customer invoices and payments</p>
         </div>
-        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              New Invoice
+        <div className="flex items-center gap-2">
+          <Link href="/vendors">
+            <Button variant="outline" data-testid="button-add-vendor">
+              <Building2 className="h-4 w-4 mr-2" />
+              Add Vendor
             </Button>
-          </DialogTrigger>
+          </Link>
+          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+            <DialogTrigger asChild>
+              <Button data-testid="button-new-invoice">
+                <Plus className="h-4 w-4 mr-2" />
+                New Invoice
+              </Button>
+            </DialogTrigger>
           <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle>Create New Invoice</DialogTitle>
@@ -259,6 +267,7 @@ export default function InvoicesPage() {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Summary Cards */}
