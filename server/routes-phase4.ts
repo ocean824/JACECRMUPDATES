@@ -1,6 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { storage, logAudit } from "./storage";
 import crypto from "crypto";
+import { insertVendorSchema } from "@shared/schema";
 
 // Get user ID from session
 function getUserId(req: Request): string {
@@ -1048,7 +1049,11 @@ export function registerPhase4Routes(app: Express, isAuthenticated: (req: Reques
   app.post("/api/vendors", isAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
-      const vendor = await (storage as any).createVendor(userId, req.body);
+      const parsed = insertVendorSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid vendor data", errors: parsed.error.errors });
+      }
+      const vendor = await (storage as any).createVendor(userId, parsed.data);
       await logAudit(userId, "create", "vendor", vendor.id, `Created vendor: ${vendor.name}`);
       res.status(201).json(vendor);
     } catch (error) {
@@ -1061,7 +1066,11 @@ export function registerPhase4Routes(app: Express, isAuthenticated: (req: Reques
   app.patch("/api/vendors/:id", isAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
-      const vendor = await (storage as any).updateVendor(req.params.id, userId, req.body);
+      const parsed = insertVendorSchema.partial().safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid vendor data", errors: parsed.error.errors });
+      }
+      const vendor = await (storage as any).updateVendor(req.params.id, userId, parsed.data);
       if (!vendor) {
         return res.status(404).json({ message: "Vendor not found" });
       }
