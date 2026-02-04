@@ -13,6 +13,9 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, ShieldCheck, FileText, PenTool, Landmark, ArrowLeft, Sparkles, HelpCircle, X, FileCheck, Check } from "lucide-react";
 import { LegalDocSignStep } from "@/components/onboarding/legal-doc-sign-step";
 import { LEGAL_DOCUMENTS } from "@shared/legal-documents";
+import VoiceAssistantWidget from "@/components/VoiceAssistantWidget";
+
+const VOICE_AGENT_URL = import.meta.env.VITE_VOICE_AGENT_URL || "";
 
 type SessionResponse = {
   session: {
@@ -338,6 +341,14 @@ export default function ExternalOnboardingPage() {
       kycDocType,
     };
   }, [firstName, lastName, email, phone, addressLine1, city, state, postalCode, identityFront, identityBack, proofOfLife, agreeUserAgreement, acknowledge, amlSigned, cipKycSigned, privacySigned, bankName, routingNumber, accountNumber, signatureKyc, signatureAgreement, signatureDisclosure, progress, kycDocType]);
+
+  // Voice assistant context (non-sensitive data only)
+  const voiceContext = useMemo(() => ({
+    firstName: firstName || undefined,
+    email: email || undefined,
+    progress,
+    page: "external-onboarding",
+  }), [firstName, email, progress]);
 
   const handleHelpSend = async () => {
     const q = helpInput.trim();
@@ -1224,6 +1235,16 @@ export default function ExternalOnboardingPage() {
           </div>
         </div>
       </div>
+
+      {/* Voice Assistant Widget */}
+      {VOICE_AGENT_URL && (
+        <VoiceAssistantWidget
+          agentBaseUrl={VOICE_AGENT_URL}
+          context={voiceContext}
+          label="Voice Help"
+          offset={24}
+        />
+      )}
     </div>
   );
 }
