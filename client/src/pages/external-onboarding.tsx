@@ -114,17 +114,26 @@ function SignaturePad(props: {
   const commit = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const width = canvas.getBoundingClientRect().width;
-    const height = canvas.getBoundingClientRect().height;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     const dataUrl = canvas.toDataURL("image/png");
     try {
-      const imageData = ctx.getImageData(0, 0, Math.min(20, Math.floor(width)), Math.min(20, Math.floor(height)));
-      const hasInk = Array.from(imageData.data).some((v, i) => i % 4 === 3 && v !== 0);
+      // Check entire canvas for any drawn strokes (check alpha channel for non-transparent pixels)
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const pixels = imageData.data;
+      let hasInk = false;
+      // Check every 100th pixel for performance (still covers the whole canvas)
+      for (let i = 3; i < pixels.length; i += 400) {
+        if (pixels[i] > 0) {
+          hasInk = true;
+          break;
+        }
+      }
       if (!hasInk) return;
     } catch {
-      // ignore
+      // If getImageData fails (e.g., tainted canvas), still save the signature
+      props.onChange(dataUrl);
+      return;
     }
     props.onChange(dataUrl);
   };

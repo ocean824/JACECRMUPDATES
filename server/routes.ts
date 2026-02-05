@@ -43,6 +43,18 @@ export async function registerRoutes(
   app.use(getSession());
   setupLocalAuth(app);
 
+  // Public health check endpoint (no auth required) - used for uptime monitoring and warm-up
+  app.get("/api/health", async (_req, res) => {
+    try {
+      // Quick DB check to ensure connection is alive
+      const { pool } = await import("./db");
+      await pool.query("SELECT 1");
+      res.json({ status: "ok", timestamp: new Date().toISOString() });
+    } catch (error: any) {
+      res.status(503).json({ status: "error", message: error.message });
+    }
+  });
+
   // Alias for middleware
   const isAuthenticated = isLocalAuthenticated;
 
