@@ -1,0 +1,58 @@
+For the JACE Live Settlement integration to work, JACE CRM needs to implement the following:
+
+1. Settlement Page Endpoint
+JACE needs a page that accepts the settlement session via URL parameter:
+
+GET https://jace-enterprise-crm.replit.app/settlement?session={JWT_TOKEN}
+The JWT token contains:
+
+sid - Session ID
+tradeId - BondAI trade ID
+bondId - Bond being purchased
+investorId - Investor user ID
+amount - Settlement amount in dollars
+bondName - Display name of the bond
+investorEmail - Investor's email
+exp - Expiration timestamp (2 hours from creation)
+JACE should verify the JWT signature using the shared JACE_SETTLEMENT_SECRET.
+
+2. PostMessage Events (iframe → parent)
+When loaded in the BondAI iframe, JACE must send these postMessage events to the parent window:
+
+// When payment is successful
+window.parent.postMessage({ type: "JACE_SETTLEMENT_COMPLETE" }, "*");
+// When user cancels
+window.parent.postMessage({ type: "JACE_SETTLEMENT_CANCELLED" }, "*");
+3. Webhook Callbacks to BondAI
+JACE should POST webhook events to BondAI's JACE webhook endpoint:
+
+POST https://bondai-platform.replit.app/api/jace/webhook
+With payload structure:
+
+{
+  "eventType": "settlement.completed",
+  "eventId": "unique-event-id",
+  "correlationId": "optional-correlation-id",
+  "data": {
+    "sessionId": "the-session-id",
+    "tradeId": 123,
+    "paymentReference": "JACE-PAY-12345"
+  }
+}
+Event types JACE should send:
+
+settlement.completed - Payment successful
+settlement.failed - Payment failed
+settlement.cancelled - User cancelled
+The webhook should be signed with HMAC-SHA256 using JACE_WEBHOOK_SECRET in the x-jace-signature header.
+
+4. Environment Variables (Both Sides)
+BondAI needs:
+
+JACE_CRM_BASE_URL - JACE's base URL
+JACE_WEBHOOK_SECRET - For verifying inbound webhooks
+JACE_SETTLEMENT_SECRET - For signing JWT tokens
+JACE needs:
+
+BONDAI_SETTLEMENT_SECRET - Same as BondAI's JACE_SETTLEMENT_SECRET (for verifying tokens)
+BONDAI_WEBHOOK_URL - BondAI's webhook endpoint

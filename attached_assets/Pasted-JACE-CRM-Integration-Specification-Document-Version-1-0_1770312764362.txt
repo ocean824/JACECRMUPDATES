@@ -1,0 +1,425 @@
+JACE CRM Integration Specification
+Document Version: 1.0
+Last Updated: February 2026
+Integration Type: Settlement Processing
+Protocol: HTTPS + JWT + Webhooks
+
+Table of Contents
+Overview
+Architecture
+Authentication & Security
+Settlement Flow
+JACE Implementation Requirements
+API Specifications
+PostMessage Events
+Webhook Events
+Error Handling
+Testing
+Environment Variables
+Overview
+This document specifies the integration between BondAI Platform and JACE CRM for processing bond purchase settlements. The integration enables investors who have completed JACE onboarding to settle their bond purchases through JACE's payment infrastructure.
+
+Integration Goals
+Seamless settlement experience within BondAI's investor portal
+Secure, JWT-signed session handoff to JACE
+Real-time settlement status updates via webhooks
+Full audit trail for compliance requirements
+Architecture
+┌─────────────────────────────────────────────────────────────────────┐
+│                        BondAI Platform                               │
+│  ┌─────────────┐    ┌──────────────────┐    ┌───────────────────┐  │
+│  │ Investor UI │───▶│ Settlement Modal │───▶│ Backend API       │  │
+│  │ (Bids Won)  │    │ (iframe host)    │    │ /api/jace/...     │  │
+│  └─────────────┘    └────────┬─────────┘    └─────────┬─────────┘  │
+│                              │                        │             │
+└──────────────────────────────┼────────────────────────┼─────────────┘
+                               │                        │
+                    ┌──────────┼────────────────────────┼──────────┐
+                    │          ▼                        ▼          │
+                    │  ┌───────────────┐    ┌───────────────────┐  │
+                    │  │ Settlement    │    │ Webhook Endpoint  │  │
+                    │  │ Page (iframe) │───▶│ /webhook/bondai   │  │
+                    │  └───────────────┘    └───────────────────┘  │
+                    │                  JACE CRM                     │
+                    └───────────────────────────────────────────────┘
+Flow Summary
+BondAI creates a JWT-signed settlement session
+JACE settlement page loads in iframe with session token
+Investor completes payment in JACE
+JACE sends postMessage to iframe parent (BondAI)
+JACE sends webhook to BondAI backend for server-side confirmation
+Authentication & Security
+JWT Token Signing
+All settlement sessions are authenticated using JWT tokens signed with a shared secret.
+
+Parameter	Value
+Algorithm	HS256
+Expiration	2 hours from creation
+Shared Secret	JACE_SETTLEMENT_SECRET (environment variable)
+Token Structure
+{
+  "sid": "sess_abc123xyz",
+  "tradeId": 456,
+  "bondId": 789,
+  "investorId": 123,
+  "amount": "25000.00",
+  "bondName": "Johnson v. Smith Recovery Bond",
+  "investorEmail": "investor@example.com",
+  "iat": 1709234567,
+  "exp": 1709241767
+}
+Token Claims Reference
+Claim	Type	Description
+sid	string	Unique session identifier (format: sess_{nanoid})
+tradeId	number	BondAI exchange trade ID
+bondId	number	Bond being purchased
+investorId	number	BondAI investor user ID
+amount	string	Settlement amount in USD (decimal string)
+bondName	string	Human-readable bond name
+investorEmail	string	Investor's email address
+iat	number	Token issued-at timestamp (Unix epoch)
+exp	number	Token expiration timestamp (Unix epoch)
+Webhook Signature Verification
+All webhooks from JACE to BondAI must be signed using HMAC-SHA256.
+
+Header: x-jace-signature
+
+Signature Generation:
+
+const crypto = require('crypto');
+function signWebhook(payload, secret) {
+  const hmac = crypto.createHmac('sha256', secret);
+  hmac.update(JSON.stringify(payload));
+  return hmac.digest('hex');
+}
+Settlement Flow
+Step-by-Step Process
+1. Investor clicks "Settle Now" on BondAI Bids Won page
+   │
+2. BondAI creates settlement session
+   POST /api/jace/settlement/session
+   Returns: { settlementUrl, sessionId, expiresAt }
+   │
+3. BondAI opens modal with iframe pointing to settlementUrl
+   │
+4. JACE receives request, validates JWT token
+   GET /settlement?session={JWT_TOKEN}
+   │
+5. JACE displays payment UI to investor
+   │
+6. Investor completes payment in JACE
+   │
+7. JACE sends postMessage to parent window (immediate UI feedback)
+   window.parent.postMessage({ type: "JACE_SETTLEMENT_COMPLETE" }, "*")
+   │
+8. JACE sends webhook to BondAI (server-side confirmation)
+   POST https://bondai-platform/api/jace/webhook
+   │
+9. BondAI updates trade status, generates receipt
+   │
+10. BondAI closes modal, shows success message
+Sequence Diagram
+Investor          BondAI              JACE CRM
+   │                 │                    │
+   │─── Click ──────▶│                    │
+   │                 │                    │
+   │                 │── Create Session ─▶│
+   │                 │◀── JWT Token ──────│
+   │                 │                    │
+   │◀── Open Modal ──│                    │
+   │                 │                    │
+   │─────────────────────── Load iframe ─▶│
+   │                 │                    │
+   │                 │    ┌───────────────┤
+   │                 │    │ Verify JWT    │
+   │                 │    └───────────────┤
+   │                 │                    │
+   │◀─────────────────── Show Payment UI ─│
+   │                 │                    │
+   │─────────────────────── Pay ─────────▶│
+   │                 │                    │
+   │◀─────────────── postMessage ─────────│
+   │                 │                    │
+   │                 │◀──── Webhook ──────│
+   │                 │                    │
+   │◀── Close Modal ─│                    │
+   │                 │                    │
+JACE Implementation Requirements
+1. Settlement Page Endpoint
+JACE must implement a page that accepts settlement sessions:
+
+URL Pattern:
+
+GET https://{JACE_CRM_BASE_URL}/settlement?session={JWT_TOKEN}
+Requirements:
+
+Accept the session query parameter containing the JWT token
+Validate the JWT signature using the shared secret
+Check token expiration (exp claim)
+Display payment UI appropriate for the settlement amount
+Support being loaded in an iframe (no X-Frame-Options: DENY)
+Example URL:
+
+https://jace-enterprise-crm.replit.app/settlement?session=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+2. JWT Verification
+const jwt = require('jsonwebtoken');
+function verifySettlementToken(token) {
+  try {
+    const decoded = jwt.verify(token, process.env.BONDAI_SETTLEMENT_SECRET);
+    return {
+      valid: true,
+      session: decoded
+    };
+  } catch (error) {
+    return {
+      valid: false,
+      error: error.message
+    };
+  }
+}
+3. Iframe Compatibility
+The settlement page must be embeddable in an iframe:
+
+// Remove or modify these headers to allow iframe embedding
+X-Frame-Options: ALLOW-FROM https://bondai-platform.replit.app
+// Or use CSP:
+Content-Security-Policy: frame-ancestors https://bondai-platform.replit.app
+4. PostMessage Communication
+JACE must send postMessage events to the parent window:
+
+// When payment is successful
+function notifySuccess() {
+  if (window.parent !== window) {
+    window.parent.postMessage({
+      type: "JACE_SETTLEMENT_COMPLETE",
+      sessionId: currentSessionId,
+      paymentReference: paymentRef
+    }, "*");
+  }
+}
+// When user cancels
+function notifyCancel() {
+  if (window.parent !== window) {
+    window.parent.postMessage({
+      type: "JACE_SETTLEMENT_CANCELLED",
+      sessionId: currentSessionId
+    }, "*");
+  }
+}
+// When payment fails
+function notifyFailure(reason) {
+  if (window.parent !== window) {
+    window.parent.postMessage({
+      type: "JACE_SETTLEMENT_FAILED",
+      sessionId: currentSessionId,
+      reason: reason
+    }, "*");
+  }
+}
+5. Webhook Notifications
+JACE must send webhook notifications to BondAI:
+
+const axios = require('axios');
+const crypto = require('crypto');
+async function sendSettlementWebhook(eventType, data) {
+  const payload = {
+    eventType: eventType,
+    eventId: generateUniqueId(),
+    timestamp: new Date().toISOString(),
+    data: data
+  };
+  const signature = crypto
+    .createHmac('sha256', process.env.BONDAI_WEBHOOK_SECRET)
+    .update(JSON.stringify(payload))
+    .digest('hex');
+  await axios.post(process.env.BONDAI_WEBHOOK_URL, payload, {
+    headers: {
+      'Content-Type': 'application/json',
+      'x-jace-signature': signature
+    }
+  });
+}
+// Usage examples:
+await sendSettlementWebhook('settlement.completed', {
+  sessionId: 'sess_abc123',
+  tradeId: 456,
+  paymentReference: 'JACE-PAY-789'
+});
+await sendSettlementWebhook('settlement.failed', {
+  sessionId: 'sess_abc123',
+  tradeId: 456,
+  reason: 'Payment declined'
+});
+API Specifications
+BondAI Endpoints (For Reference)
+These are the endpoints BondAI exposes. JACE will call the webhook endpoint.
+
+POST /api/jace/settlement/session
+Creates a new settlement session. Called by BondAI frontend.
+
+Request:
+
+{
+  "tradeId": 456
+}
+Response:
+
+{
+  "settlementUrl": "https://jace-crm.app/settlement?session=eyJ...",
+  "sessionId": "sess_abc123xyz",
+  "expiresAt": "2026-02-05T19:30:00.000Z"
+}
+GET /api/jace/settlement/status/:tradeId
+Checks settlement status for a trade.
+
+Response:
+
+{
+  "tradeId": 456,
+  "status": "INITIATED",
+  "jaceSessionId": "sess_abc123xyz",
+  "jaceSessionStatus": "INITIATED",
+  "jacePaidAt": null
+}
+POST /api/jace/webhook
+Receives webhook events from JACE. JACE must call this endpoint.
+
+PostMessage Events
+Event: JACE_SETTLEMENT_COMPLETE
+Sent when payment is successfully processed.
+
+{
+  type: "JACE_SETTLEMENT_COMPLETE",
+  sessionId: "sess_abc123xyz",        // Optional
+  paymentReference: "JACE-PAY-789"    // Optional
+}
+Event: JACE_SETTLEMENT_CANCELLED
+Sent when user cancels the settlement.
+
+{
+  type: "JACE_SETTLEMENT_CANCELLED",
+  sessionId: "sess_abc123xyz"         // Optional
+}
+Event: JACE_SETTLEMENT_FAILED
+Sent when payment fails.
+
+{
+  type: "JACE_SETTLEMENT_FAILED",
+  sessionId: "sess_abc123xyz",        // Optional
+  reason: "Insufficient funds"        // Optional
+}
+Webhook Events
+Webhook Endpoint
+POST https://{BONDAI_BASE_URL}/api/jace/webhook
+Headers
+Header	Required	Description
+Content-Type	Yes	application/json
+x-jace-signature	Yes	HMAC-SHA256 signature of payload
+Event: settlement.completed
+{
+  "eventType": "settlement.completed",
+  "eventId": "evt_unique_id_123",
+  "timestamp": "2026-02-05T17:30:00.000Z",
+  "correlationId": "optional_correlation_id",
+  "data": {
+    "sessionId": "sess_abc123xyz",
+    "tradeId": 456,
+    "paymentReference": "JACE-PAY-789",
+    "paidAmount": "25000.00",
+    "paidAt": "2026-02-05T17:29:55.000Z"
+  }
+}
+Event: settlement.failed
+{
+  "eventType": "settlement.failed",
+  "eventId": "evt_unique_id_124",
+  "timestamp": "2026-02-05T17:30:00.000Z",
+  "data": {
+    "sessionId": "sess_abc123xyz",
+    "tradeId": 456,
+    "reason": "Payment declined by processor",
+    "errorCode": "CARD_DECLINED"
+  }
+}
+Event: settlement.cancelled
+{
+  "eventType": "settlement.cancelled",
+  "eventId": "evt_unique_id_125",
+  "timestamp": "2026-02-05T17:30:00.000Z",
+  "data": {
+    "sessionId": "sess_abc123xyz",
+    "tradeId": 456
+  }
+}
+Error Handling
+JWT Validation Errors
+Error	HTTP Status	Action
+Token expired	401	Display "Session expired" message, prompt to retry
+Invalid signature	401	Display "Invalid session" message
+Missing claims	400	Display "Malformed session" message
+Payment Errors
+JACE should handle payment errors gracefully and:
+
+Display appropriate error message to user
+Send JACE_SETTLEMENT_FAILED postMessage
+Send settlement.failed webhook
+Webhook Delivery
+Webhooks should be retried up to 3 times with exponential backoff
+Retry intervals: 1s, 5s, 30s
+Log failed webhook deliveries for manual review
+Testing
+Test Environment
+Environment	BondAI URL	JACE URL
+Development	http://localhost:5000	http://localhost:3000
+Staging	https://bondai-staging.replit.app	https://jace-staging.replit.app
+Production	https://bondai.app	https://jace-crm.app
+Test Cases
+Happy Path
+
+Create session → Load iframe → Complete payment → Verify postMessage → Verify webhook
+Expired Token
+
+Wait 2+ hours after session creation → Load iframe → Verify 401 response
+User Cancellation
+
+Create session → Load iframe → Click cancel → Verify postMessage
+Payment Failure
+
+Create session → Load iframe → Use test card that declines → Verify error handling
+Webhook Failure
+
+Create session → Complete payment → Block webhook endpoint → Verify retry logic
+Test JWT Token
+For development testing, here's a sample token structure:
+
+const testPayload = {
+  sid: "sess_test_123",
+  tradeId: 999,
+  bondId: 888,
+  investorId: 777,
+  amount: "1000.00",
+  bondName: "Test Bond",
+  investorEmail: "test@example.com"
+};
+// Sign with shared secret
+const token = jwt.sign(testPayload, 'your-shared-secret', { expiresIn: '2h' });
+Environment Variables
+BondAI Configuration
+Variable	Description	Example
+JACE_CRM_BASE_URL	JACE CRM base URL	https://jace-enterprise-crm.replit.app
+JACE_WEBHOOK_SECRET	Secret for verifying inbound webhooks	whsec_...
+JACE_SETTLEMENT_SECRET	JWT signing secret for session tokens	jwtsec_...
+JACE_INTEGRATION_KEY	API key for outbound requests	key_...
+JACE Configuration
+Variable	Description	Example
+BONDAI_SETTLEMENT_SECRET	JWT verification secret (same as BondAI's JACE_SETTLEMENT_SECRET)	jwtsec_...
+BONDAI_WEBHOOK_URL	BondAI webhook endpoint	https://bondai.app/api/jace/webhook
+BONDAI_WEBHOOK_SECRET	Secret for signing outbound webhooks (same as BondAI's JACE_WEBHOOK_SECRET)	whsec_...
+Support & Contacts
+For integration support, please contact:
+
+BondAI Technical Team: integration@bondai.app
+Integration Status Page: https://status.bondai.app
+Changelog
+Version	Date	Changes
+1.0	Feb 2026	Initial specification

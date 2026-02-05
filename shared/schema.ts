@@ -100,6 +100,29 @@ export const externalOnboardingSessions = pgTable("external_onboarding_sessions"
   completedAt: timestamp("completed_at", { withTimezone: true }),
 });
 
+// Settlement Sessions (BondAI -> JACE for bond settlement processing)
+export const settlementSessions = pgTable("settlement_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id", { length: 64 }).notNull().unique(),
+  tradeId: integer("trade_id").notNull(),
+  bondId: integer("bond_id"),
+  investorId: varchar("investor_id").references(() => investors.id),
+  bondaiInvestorId: integer("bondai_investor_id"),
+  amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
+  bondName: varchar("bond_name", { length: 300 }),
+  investorName: varchar("investor_name", { length: 200 }),
+  investorEmail: varchar("investor_email", { length: 255 }),
+  ipAddress: varchar("ip_address", { length: 45 }),
+  userAgent: text("user_agent"),
+  status: varchar("status", { length: 30 }).default("pending").notNull(),
+  paymentReference: varchar("payment_reference", { length: 100 }),
+  failureReason: text("failure_reason"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+  settledAt: timestamp("settled_at", { withTimezone: true }),
+  cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+});
+
 // Investor Onboarding Submissions (encrypted payload)
 export const investorOnboardingSubmissions = pgTable("investor_onboarding_submissions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -297,6 +320,11 @@ export const insertExternalOnboardingSessionSchema = createInsertSchema(external
   createdAt: true,
 });
 
+export const insertSettlementSessionSchema = createInsertSchema(settlementSessions).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertInvestorOnboardingSubmissionSchema = createInsertSchema(investorOnboardingSubmissions).omit({
   id: true,
   submittedAt: true,
@@ -350,6 +378,9 @@ export type InsertDocument = z.infer<typeof insertDocumentSchema>;
 
 export type ExternalOnboardingSession = typeof externalOnboardingSessions.$inferSelect;
 export type InsertExternalOnboardingSession = z.infer<typeof insertExternalOnboardingSessionSchema>;
+
+export type SettlementSession = typeof settlementSessions.$inferSelect;
+export type InsertSettlementSession = z.infer<typeof insertSettlementSessionSchema>;
 
 export type InvestorOnboardingSubmission = typeof investorOnboardingSubmissions.$inferSelect;
 export type InsertInvestorOnboardingSubmission = z.infer<typeof insertInvestorOnboardingSubmissionSchema>;
