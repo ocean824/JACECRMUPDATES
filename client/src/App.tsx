@@ -42,6 +42,7 @@ import InvestorPortalPage from "@/pages/investor-portal";
 import ComplianceOnboardingPage from "@/pages/compliance-onboarding";
 import PrivacyNoticePage from "@/pages/privacy-notice";
 import ExternalOnboardingPage from "@/pages/external-onboarding";
+import SettlementPage from "@/pages/settlement";
 import RegisterPage from "@/pages/register";
 import LoginPage from "@/pages/login";
 import AdminLoginPage from "@/pages/admin-login";
@@ -294,6 +295,7 @@ function AppRouter() {
       <Route path="/login" component={LoginPage} />
       <Route path="/admin-login" component={AdminLoginPage} />
       <Route path="/external/onboarding" component={ExternalOnboardingPage} />
+      <Route path="/settlement" component={SettlementPage} />
       <Route path="/terms-of-use" component={TermsOfUsePage} />
       <Route path="/privacy" component={PrivacyPolicyPage} />
       <Route path="/security" component={SecurityPage} />
@@ -314,8 +316,8 @@ function GlobalVoiceAssistant() {
   const { user } = useAuth();
   const [location] = useLocation();
   
-  // Don't show on external onboarding (has its own voice assistant) or public pages
-  const excludedPaths = ["/external/onboarding", "/login", "/register", "/admin-login"];
+  // Don't show on external onboarding (has its own voice assistant), settlement (iframe), or public pages
+  const excludedPaths = ["/external/onboarding", "/settlement", "/login", "/register", "/admin-login"];
   const isExcluded = excludedPaths.some(path => location.startsWith(path));
   
   if (!user || isExcluded) return null;

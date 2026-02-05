@@ -6,6 +6,7 @@ import { setupLocalAuth, isLocalAuthenticated } from "./local-auth";
 import { handleHelpChat, handleVoiceAssistant } from "./help-assistant";
 import { registerExternalOnboarding } from "./external-onboarding";
 import { registerPhase4Routes } from "./routes-phase4";
+import { registerSettlementRoutes } from "./settlement-routes";
 import { registerInvestorDocumentRoutes, registerExternalInvestorDocumentRoutes } from "./investor-documents";
 import multer from "multer";
 import path from "path";
@@ -2128,6 +2129,9 @@ export async function registerRoutes(
   });
 
   registerExternalOnboarding(app);
+
+  // Register Settlement routes (BondAI settlement processing)
+  registerSettlementRoutes(app);
 
   // Register Phase 4 routes (Invoicing, Expenses, HR, BondAI Integration)
   registerPhase4Routes(app, isAuthenticated);
