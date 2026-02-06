@@ -574,6 +574,18 @@ export default function ExternalOnboardingPage() {
         },
         parentOrigin,
       );
+
+      // Auto-redirect back to BondAI after a short delay
+      setTimeout(() => {
+        if (returnUrl) {
+          window.top ? window.top.location.href = returnUrl : window.location.href = returnUrl;
+        } else {
+          const bondaiOrigin = getParentOrigin();
+          if (bondaiOrigin && bondaiOrigin !== "*") {
+            window.top ? window.top.location.href = bondaiOrigin : window.location.href = bondaiOrigin;
+          }
+        }
+      }, 2500);
     } catch (e: any) {
       toast({ title: "Submission failed", description: e?.message || "Please try again.", variant: "destructive" });
     } finally {
@@ -808,7 +820,26 @@ export default function ExternalOnboardingPage() {
                     Submission ID: <span className="font-mono text-xs">{completed.submissionId}</span>
                   </div>
                   <div className="text-xs text-white/60">Completed at {completed.at}</div>
-                  <div className="text-sm mt-3">BondAI has been notified. You can close this tab.</div>
+                  <div className="text-sm mt-3">BondAI has been notified. Redirecting you back to BondAI...</div>
+                  <Button
+                    variant="secondary"
+                    className="mt-4 rounded-xl bg-white/10 border border-white/10 text-white"
+                    onClick={() => {
+                      const returnUrl = data?.session?.returnUrl;
+                      if (returnUrl) {
+                        window.top ? window.top.location.href = returnUrl : window.location.href = returnUrl;
+                      } else {
+                        const bondaiOrigin = getParentOrigin();
+                        if (bondaiOrigin && bondaiOrigin !== "*") {
+                          window.top ? window.top.location.href = bondaiOrigin : window.location.href = bondaiOrigin;
+                        }
+                      }
+                    }}
+                    data-testid="button-return-to-bondai"
+                  >
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Return to BondAI Now
+                  </Button>
                 </div>
               ) : (
                 <>
