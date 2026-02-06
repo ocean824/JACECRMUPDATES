@@ -1,4 +1,5 @@
 import { Link, useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import {
   LayoutDashboard,
   Users,
@@ -35,6 +36,7 @@ import {
   PieChart,
   Scale,
   FileSpreadsheet,
+  Inbox,
 } from "lucide-react";
 import {
   Sidebar,
@@ -61,6 +63,7 @@ const accountingItems = [
   { title: "Chart of Accounts", url: "/accounts", icon: Wallet },
   { title: "Journal Entries", url: "/journal", icon: FileText },
   { title: "Bond Settlements", url: "/bonds", icon: Landmark },
+  { title: "Settlement Inbox", url: "/settlements", icon: Inbox },
 ];
 
 const financialItems = [
@@ -116,6 +119,24 @@ const systemItems = [
 export function AppSidebar() {
   const [location] = useLocation();
   const { user, logout } = useAuth();
+
+  const { data: roleData } = useQuery({
+    queryKey: ["/api/user/role"],
+    queryFn: async () => {
+      const res = await fetch("/api/user/role");
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!user,
+    staleTime: 60000,
+    retry: false,
+  });
+  const role = (roleData as any)?.role as string | undefined;
+  const isSettlementInternal =
+    user?.isAdmin === "true" || ["admin", "accounting", "ops", "investor_relations"].includes(role || "");
+  const accountingNavItems = accountingItems.filter(
+    (i) => i.title !== "Settlement Inbox" || isSettlementInternal
+  );
 
   const getInitials = (firstName?: string | null, lastName?: string | null) => {
     const first = firstName?.[0] || "";
@@ -173,7 +194,7 @@ export function AppSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {accountingItems.map((item) => (
+              {accountingNavItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild

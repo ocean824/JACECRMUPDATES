@@ -15,13 +15,14 @@ import { Loader2, CheckCircle2, XCircle, AlertTriangle, CreditCard, Building2, D
 interface SettlementSession {
   sessionId: string;
   tradeId: number;
-  bondId?: number;
-  amount: string;
-  bondName?: string;
-  investorEmail?: string;
+  bondId?: number | null;
+  amount: number;
+  bondName?: string | null;
+  investorEmail?: string | null;
   status: string;
-  expiresAt?: string;
-  createdAt: string;
+  paymentReference?: string | null;
+  createdAt?: string | null;
+  expiresAt?: string | null;
 }
 
 function notifyParent(type: string, data?: Record<string, unknown>) {
@@ -65,15 +66,16 @@ export default function SettlementPage() {
       });
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       setSettlementComplete(true);
-      notifyParent("JACE_SETTLEMENT_COMPLETE", {
+      const ref = variables.paymentRef;
+      notifyParent("JACE_SETTLEMENT_SUBMITTED", {
         sessionId: session?.sessionId,
-        paymentReference,
+        paymentReference: ref,
       });
       toast({
-        title: "Settlement Complete",
-        description: "Your payment has been processed successfully.",
+        title: "Settlement Submitted",
+        description: "Your settlement request has been submitted and is pending internal escrow confirmation.",
       });
     },
     onError: (err: Error) => {
@@ -87,6 +89,7 @@ export default function SettlementPage() {
         variant: "destructive",
       });
     },
+    onSettled: () => { setIsProcessing(false); },
   });
 
   const cancelMutation = useMutation({
@@ -117,20 +120,16 @@ export default function SettlementPage() {
     },
   });
 
-  const handlePayment = async () => {
+  const handleConfirm = async () => {
     if (!session?.sessionId) return;
     
     setIsProcessing(true);
     
-    // Simulate payment processing (in production, this would integrate with a payment gateway)
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // Generate a payment reference if not provided
+    // Submit settlement request (manual escrow confirmation)
     const ref = paymentReference || `JACE-PAY-${Date.now()}`;
     setPaymentReference(ref);
     
     completeMutation.mutate({ sessionId: session.sessionId, paymentRef: ref, token });
-    setIsProcessing(false);
   };
 
   const handleCancel = () => {
@@ -203,9 +202,9 @@ export default function SettlementPage() {
             <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-emerald-500/20 flex items-center justify-center">
               <CheckCircle2 className="h-10 w-10 text-emerald-400" />
             </div>
-            <CardTitle className="text-emerald-400">Settlement Complete</CardTitle>
+            <CardTitle className="text-emerald-400">Settlement Submitted</CardTitle>
             <CardDescription className="text-slate-300">
-              Your payment has been processed successfully
+              Your settlement request has been submitted and is pending internal escrow confirmation
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -224,7 +223,7 @@ export default function SettlementPage() {
               </div>
             </div>
             <p className="text-center text-slate-400 text-sm">
-              You may close this window. Your settlement has been recorded.
+              You may close this window. Your request is in queue for confirmation.
             </p>
           </CardContent>
         </Card>
@@ -353,7 +352,7 @@ export default function SettlementPage() {
             </Button>
             <Button
               className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
-              onClick={handlePayment}
+              onClick={handleConfirm}
               disabled={isProcessing || completeMutation.isPending}
               data-testid="button-confirm-payment"
             >
@@ -365,7 +364,7 @@ export default function SettlementPage() {
               ) : (
                 <>
                   <CreditCard className="h-4 w-4 mr-2" />
-                  Confirm Payment
+                  Submit Settlement
                 </>
               )}
             </Button>

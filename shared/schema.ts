@@ -121,6 +121,7 @@ export const settlementSessions = pgTable("settlement_sessions", {
   expiresAt: timestamp("expires_at", { withTimezone: true }),
   settledAt: timestamp("settled_at", { withTimezone: true }),
   cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 // Investor Onboarding Submissions (encrypted payload)
@@ -323,6 +324,7 @@ export const insertExternalOnboardingSessionSchema = createInsertSchema(external
 export const insertSettlementSessionSchema = createInsertSchema(settlementSessions).omit({
   id: true,
   createdAt: true,
+  updatedAt: true,
 });
 
 export const insertInvestorOnboardingSubmissionSchema = createInsertSchema(investorOnboardingSubmissions).omit({

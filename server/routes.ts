@@ -7,6 +7,7 @@ import { handleHelpChat, handleVoiceAssistant } from "./help-assistant";
 import { registerExternalOnboarding } from "./external-onboarding";
 import { registerPhase4Routes } from "./routes-phase4";
 import { registerSettlementRoutes } from "./settlement-routes";
+import { registerInternalSettlementRoutes } from "./settlement-internal-routes";
 import { registerInvestorDocumentRoutes, registerExternalInvestorDocumentRoutes } from "./investor-documents";
 import multer from "multer";
 import path from "path";
@@ -2132,6 +2133,9 @@ export async function registerRoutes(
 
   // Register Settlement routes (BondAI settlement processing)
   registerSettlementRoutes(app);
+
+  // Internal settlements inbox + confirmation flow
+  registerInternalSettlementRoutes(app, isAuthenticated);
 
   // Register Phase 4 routes (Invoicing, Expenses, HR, BondAI Integration)
   registerPhase4Routes(app, isAuthenticated);

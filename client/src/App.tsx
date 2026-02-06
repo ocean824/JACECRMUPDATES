@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { Switch, Route, useLocation, Link } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -43,6 +44,7 @@ import ComplianceOnboardingPage from "@/pages/compliance-onboarding";
 import PrivacyNoticePage from "@/pages/privacy-notice";
 import ExternalOnboardingPage from "@/pages/external-onboarding";
 import SettlementPage from "@/pages/settlement";
+import SettlementsPage from "@/pages/settlements";
 import RegisterPage from "@/pages/register";
 import LoginPage from "@/pages/login";
 import AdminLoginPage from "@/pages/admin-login";
@@ -94,6 +96,7 @@ const navigationHierarchy: Record<string, { parent: string; label: string }> = {
   "/accounts": { parent: "/", label: "Dashboard" },
   "/journal": { parent: "/accounts", label: "Accounts" },
   "/bonds": { parent: "/", label: "Dashboard" },
+  "/settlements": { parent: "/bonds", label: "Bond Settlements" },
   
   // Reports section
   "/reports/trial-balance": { parent: "/accounts", label: "Accounts" },
@@ -154,7 +157,37 @@ function getBackNavigation(location: string): { path: string; label: string } {
 }
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
+  const { user } = useAuth();
+  const settlementPromptedRef = useRef(false);
+
+  useEffect(() => {
+    if (!user) return;
+    if (settlementPromptedRef.current) return;
+    settlementPromptedRef.current = true;
+    (async () => {
+      try {
+        const roleRes = await fetch("/api/user/role", { credentials: "include" });
+        if (!roleRes.ok) return;
+        const roleData = await roleRes.json();
+        const role = roleData?.role as string | undefined;
+        const isAdmin = Boolean(roleData?.isAdmin);
+        const internalRoles = new Set(["admin", "accounting", "ops", "investor_relations"]);
+        if (!isAdmin && (!role || !internalRoles.has(role))) return;
+        const summaryRes = await fetch("/api/admin/settlements/summary", { credentials: "include" });
+        if (!summaryRes.ok) return;
+        const summary = await summaryRes.json();
+        const submittedCount = Number(summary?.submittedCount || 0);
+        if (submittedCount > 0) {
+          const already = sessionStorage.getItem("jace_settlements_prompted");
+          if (!already && !location.startsWith("/settlements")) {
+            sessionStorage.setItem("jace_settlements_prompted", "1");
+            setLocation("/settlements?auto=1");
+          }
+        }
+      } catch {}
+    })();
+  }, [user, location, setLocation]);
   const isNotDashboard = location !== "/";
   const backNav = getBackNavigation(location);
   
@@ -212,6 +245,7 @@ function AuthenticatedRoutes() {
         <Route path="/accounts" component={AccountsPage} />
         <Route path="/journal" component={JournalPage} />
         <Route path="/bonds" component={BondsPage} />
+        <Route path="/settlements" component={SettlementsPage} />
         
         {/* Financial (Phase 4) */}
         <Route path="/invoices" component={InvoicesPage} />

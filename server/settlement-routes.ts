@@ -2,15 +2,15 @@ import type { Express, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
-import { settlementSessions } from "@shared/schema";
+import { desc, eq, sql } from "drizzle-orm";
+import { investors, settlementSessions } from "@shared/schema";
 import { logAudit } from "./storage";
 
 export interface SettlementJwtPayload {
   sid: string;
   tradeId: number;
   bondId?: number;
-  investorId?: number;
+  investorId?: number; // BondAI investor id
   amount: number;
   bondName?: string;
   investorEmail?: string;
@@ -18,25 +18,21 @@ export interface SettlementJwtPayload {
   iat?: number;
 }
 
-function envOrThrow(name: string): string {
-  const v = process.env[name];
-  if (!v) throw new Error(`${name} is required`);
+function settlementSecretOrThrow(): string {
+  const v = process.env.SETTLEMENT_JWT_SECRET || process.env.BONDAI_SETTLEMENT_SECRET;
+  if (!v) throw new Error("SETTLEMENT_JWT_SECRET (or BONDAI_SETTLEMENT_SECRET) is required");
   return v;
 }
 
 function getClientIp(req: Request): string {
   const forwarded = req.headers["x-forwarded-for"];
-  if (typeof forwarded === "string") {
-    return forwarded.split(",")[0].trim();
-  }
-  if (Array.isArray(forwarded) && forwarded.length > 0) {
-    return forwarded[0].split(",")[0].trim();
-  }
+  if (typeof forwarded === "string") return forwarded.split(",")[0].trim();
+  if (Array.isArray(forwarded) && forwarded.length > 0) return forwarded[0].split(",")[0].trim();
   return req.ip || "unknown";
 }
 
-function hmacSha256Hex(secret: string, message: string): string {
-  return crypto.createHmac("sha256", secret).update(message, "utf8").digest("hex");
+function getUserAgent(req: Request): string {
+  return (req.headers["user-agent"] as string) || "unknown";
 }
 
 function setFrameAncestorsHeaders(res: Response) {
@@ -54,58 +50,38 @@ function verifySettlementJwt(token: string, secret: string): SettlementJwtPayloa
     }
     return decoded;
   } catch (err: any) {
-    if (err.name === "TokenExpiredError") {
-      throw new Error("Token expired");
-    }
-    if (err.name === "JsonWebTokenError") {
-      throw new Error("Invalid token signature");
-    }
-    throw new Error(err.message || "Token verification failed");
+    if (err?.name === "TokenExpiredError") throw new Error("Token expired");
+    if (err?.name === "JsonWebTokenError") throw new Error("Invalid token signature");
+    throw new Error(err?.message || "Token verification failed");
   }
 }
 
-async function sendWebhookToBondAI(
-  webhookUrl: string,
-  webhookSecret: string,
-  event: string,
-  payload: Record<string, unknown>
-): Promise<{ success: boolean; statusCode?: number; error?: string }> {
-  try {
-    const body = JSON.stringify({
-      event,
-      timestamp: new Date().toISOString(),
-      payload,
-    });
+function signSettlementJwt(
+  payload: Omit<SettlementJwtPayload, "exp" | "iat">,
+  secret: string,
+  expiresInSeconds: number
+): string {
+  const nowSec = Math.floor(Date.now() / 1000);
+  const full: SettlementJwtPayload = {
+    ...(payload as any),
+    iat: nowSec,
+    exp: nowSec + expiresInSeconds,
+  };
+  return jwt.sign(full, secret, { algorithm: "HS256" });
+}
 
-    const timestamp = Date.now().toString();
-    const signaturePayload = `${timestamp}.${body}`;
-    const signature = hmacSha256Hex(webhookSecret, signaturePayload);
+function requireBondAISecret(req: Request): { ok: boolean; reason?: string } {
+  const expected = process.env.BONDAI_WEBHOOK_SECRET;
+  const provided = (req.headers["x-bondai-webhook-secret"] as string) || (req.headers["x-api-key"] as string);
 
-    const response = await fetch(webhookUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Webhook-Signature": signature,
-        "X-Webhook-Timestamp": timestamp,
-      },
-      body,
-    });
-
-    return {
-      success: response.ok,
-      statusCode: response.status,
-    };
-  } catch (err: any) {
-    console.error("Failed to send webhook to BondAI:", err);
-    return {
-      success: false,
-      error: err.message,
-    };
-  }
+  // If no secret is configured, don't block (dev mode)
+  if (!expected) return { ok: true, reason: "No BONDAI_WEBHOOK_SECRET configured" };
+  if (!provided) return { ok: false, reason: "Missing BondAI secret header" };
+  return provided === expected ? { ok: true } : { ok: false, reason: "Invalid BondAI secret" };
 }
 
 export function registerSettlementRoutes(app: Express) {
-  // Set frame-ancestors for the settlement page HTML and API routes to allow iframe embedding from BondAI
+  // Allow iframe embedding from BondAI
   app.use((req, res, next) => {
     if (req.path === "/settlement" || req.path.startsWith("/settlement/") || req.path.startsWith("/api/settlement")) {
       setFrameAncestorsHeaders(res);
@@ -114,313 +90,329 @@ export function registerSettlementRoutes(app: Express) {
     next();
   });
 
+  /**
+   * External: BondAI calls this to create a settlement session + signed token.
+   * The token is then used by BondAI to open the settlement popup/iframe:
+   *   /settlement?session=<token>
+   */
+  app.post("/api/external/settlement/session", async (req: Request, res: Response) => {
+    try {
+      const auth = requireBondAISecret(req);
+      if (!auth.ok) return res.status(401).json({ message: auth.reason || "Unauthorized" });
+
+      const secret = settlementSecretOrThrow();
+
+      const tradeId = Number(req.body?.tradeId);
+      const amount = Number(req.body?.amount);
+      const bondId = req.body?.bondId != null ? Number(req.body?.bondId) : undefined;
+      const investorId = req.body?.investorId != null ? Number(req.body?.investorId) : undefined;
+      const bondName = typeof req.body?.bondName === "string" ? req.body.bondName : undefined;
+      const investorEmail = typeof req.body?.investorEmail === "string" ? req.body.investorEmail : undefined;
+
+      if (!Number.isFinite(tradeId) || tradeId <= 0) return res.status(400).json({ message: "Invalid tradeId" });
+      if (!Number.isFinite(amount) || amount <= 0) return res.status(400).json({ message: "Invalid amount" });
+
+      const sessionId = crypto.randomUUID();
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 60 minutes
+
+      // Best-effort: match to an existing investor record by email
+      let matchedInvestorId: string | null = null;
+      let matchedInvestorName: string | null = null;
+
+      if (investorEmail) {
+        const [inv] = await db
+          .select()
+          .from(investors)
+          .where(sql`lower(${investors.email}) = lower(${investorEmail})`)
+          .orderBy(desc(investors.createdAt))
+          .limit(1);
+        if (inv) {
+          matchedInvestorId = inv.id;
+          matchedInvestorName = `${inv.firstName} ${inv.lastName}`.trim();
+        }
+      }
+
+      const ipAddress = getClientIp(req);
+      const userAgent = getUserAgent(req);
+
+      const [inserted] = await db
+        .insert(settlementSessions)
+        .values({
+          sessionId,
+          tradeId,
+          bondId: bondId ?? null,
+          bondaiInvestorId: investorId ?? null,
+          investorId: matchedInvestorId,
+          investorName: matchedInvestorName,
+          investorEmail: investorEmail ?? null,
+          ipAddress,
+          userAgent,
+          amount: amount.toString(),
+          bondName: bondName ?? null,
+          status: "pending",
+          expiresAt,
+        })
+        .returning();
+
+      const token = signSettlementJwt(
+        {
+          sid: sessionId,
+          tradeId,
+          amount,
+          bondId,
+          investorId,
+          bondName,
+          investorEmail,
+        },
+        secret,
+        60 * 60 // 1 hour
+      );
+
+      const origin = `${req.protocol}://${req.get("host")}`;
+      res.json({
+        sessionId,
+        token,
+        settlementUrl: `${origin}/settlement?session=${encodeURIComponent(token)}`,
+        createdAt: inserted?.createdAt?.toISOString?.() ?? new Date().toISOString(),
+        expiresAt: expiresAt.toISOString(),
+      });
+    } catch (err: any) {
+      console.error("Failed to create settlement session:", err);
+      res.status(500).json({ message: err?.message || "Failed to create settlement session" });
+    }
+  });
+
+  /**
+   * Investor-facing: validates a settlement token and returns session info.
+   */
   app.get("/api/settlement/session", async (req: Request, res: Response) => {
     try {
       const token = req.query.token as string;
       if (!token) {
-        return res.status(400).json({ message: "Token is required" });
+        return res.status(400).json({ message: "Missing token" });
       }
 
-      const secret = envOrThrow("BONDAI_SETTLEMENT_SECRET");
-      
-      let payload: SettlementJwtPayload;
-      try {
-        payload = verifySettlementJwt(token, secret);
-      } catch (err: any) {
-        console.error("Settlement JWT verification failed:", err.message);
-        return res.status(401).json({ message: err.message });
-      }
+      const secret = settlementSecretOrThrow();
+      const payload = verifySettlementJwt(token, secret);
 
-      const ipAddress = getClientIp(req);
-      const userAgent = req.headers["user-agent"] || null;
-      const expiresAt = new Date(payload.exp * 1000);
-
-      const existing = await db
+      const [existing] = await db
         .select()
         .from(settlementSessions)
         .where(eq(settlementSessions.sessionId, payload.sid))
         .limit(1);
 
-      let session;
-      if (existing.length > 0) {
-        [session] = await db
+      // Best-effort: match to investor by email (for internal document linkage)
+      let matchedInvestorId: string | null = existing?.investorId ?? null;
+      let matchedInvestorName: string | null = existing?.investorName ?? null;
+      if ((!matchedInvestorId || !matchedInvestorName) && payload.investorEmail) {
+        const [inv] = await db
+          .select()
+          .from(investors)
+          .where(sql`lower(${investors.email}) = lower(${payload.investorEmail})`)
+          .orderBy(desc(investors.createdAt))
+          .limit(1);
+        if (inv) {
+          matchedInvestorId = inv.id;
+          matchedInvestorName = `${inv.firstName} ${inv.lastName}`.trim();
+        }
+      }
+
+      const ipAddress = getClientIp(req);
+      const userAgent = getUserAgent(req);
+      const expDate = new Date(payload.exp * 1000);
+
+      if (existing) {
+        const [updated] = await db
           .update(settlementSessions)
           .set({
+            tradeId: payload.tradeId,
+            bondId: payload.bondId ?? null,
+            bondaiInvestorId: payload.investorId ?? null,
+            investorEmail: payload.investorEmail ?? existing.investorEmail,
+            investorId: matchedInvestorId,
+            investorName: matchedInvestorName,
             ipAddress,
             userAgent,
-            bondName: payload.bondName || existing[0].bondName,
-            investorEmail: payload.investorEmail || existing[0].investorEmail,
+            amount: payload.amount.toString(),
+            bondName: payload.bondName ?? existing.bondName,
+            expiresAt: expDate,
+            updatedAt: new Date(),
           })
           .where(eq(settlementSessions.sessionId, payload.sid))
           .returning();
-      } else {
-        [session] = await db
-          .insert(settlementSessions)
-          .values({
-            sessionId: payload.sid,
-            tradeId: payload.tradeId,
-            bondId: payload.bondId || null,
-            bondaiInvestorId: payload.investorId || null,
-            amount: payload.amount.toString(),
-            bondName: payload.bondName || null,
-            investorEmail: payload.investorEmail || null,
-            ipAddress,
-            userAgent,
-            status: "pending",
-            expiresAt,
-          })
-          .returning();
 
-        await logAudit(
-          "system",
-          "create",
-          "settlement_session",
-          session.id,
-          `Settlement session created for trade ${payload.tradeId}`,
-          { tradeId: payload.tradeId, bondId: payload.bondId, amount: payload.amount },
-          ipAddress
-        );
+        return res.json({
+          sessionId: updated.sessionId,
+          tradeId: updated.tradeId,
+          bondId: updated.bondId,
+          investorEmail: updated.investorEmail,
+          amount: Number(updated.amount),
+          bondName: updated.bondName,
+          status: updated.status,
+          paymentReference: updated.paymentReference,
+          createdAt: updated.createdAt?.toISOString?.() ?? null,
+          expiresAt: updated.expiresAt?.toISOString?.() ?? expDate.toISOString(),
+        });
       }
 
-      return res.json({
-        sessionId: session.sessionId,
-        tradeId: session.tradeId,
-        bondId: session.bondId,
-        amount: session.amount,
-        bondName: session.bondName,
-        investorEmail: session.investorEmail,
-        status: session.status,
-        expiresAt: session.expiresAt?.toISOString(),
-        createdAt: session.createdAt.toISOString(),
-      });
-    } catch (err: any) {
-      console.error("Error in settlement session endpoint:", err);
-      return res.status(500).json({ message: err.message || "Internal server error" });
-    }
-  });
-
-  app.post("/api/settlement/complete", async (req: Request, res: Response) => {
-    try {
-      const { sessionId, paymentReference, token } = req.body;
-      if (!sessionId) {
-        return res.status(400).json({ message: "sessionId is required" });
-      }
-      if (!token) {
-        return res.status(400).json({ message: "token is required for verification" });
-      }
-
-      // Verify the JWT token to ensure the request is authenticated
-      const secret = envOrThrow("BONDAI_SETTLEMENT_SECRET");
-      let payload: SettlementJwtPayload;
-      try {
-        payload = verifySettlementJwt(token, secret);
-      } catch (err: any) {
-        console.error("Settlement complete JWT verification failed:", err.message);
-        return res.status(401).json({ message: err.message });
-      }
-
-      // Verify sessionId matches the token
-      if (payload.sid !== sessionId) {
-        return res.status(403).json({ message: "Session ID does not match token" });
-      }
-
-      const [session] = await db
-        .select()
-        .from(settlementSessions)
-        .where(eq(settlementSessions.sessionId, sessionId))
-        .limit(1);
-
-      if (!session) {
-        return res.status(404).json({ message: "Settlement session not found" });
-      }
-
-      if (session.status === "settled") {
-        return res.status(400).json({ message: "Session already settled" });
-      }
-
-      if (session.status === "cancelled") {
-        return res.status(400).json({ message: "Session was cancelled" });
-      }
-
-      if (session.expiresAt && new Date() > session.expiresAt) {
-        return res.status(400).json({ message: "Session has expired" });
-      }
-
-      const settledAt = new Date();
-      const [updatedSession] = await db
-        .update(settlementSessions)
-        .set({
-          status: "settled",
-          settledAt,
-          paymentReference: paymentReference || null,
+      // If not existing, create it (BondAI may have generated token itself)
+      const [created] = await db
+        .insert(settlementSessions)
+        .values({
+          sessionId: payload.sid,
+          tradeId: payload.tradeId,
+          bondId: payload.bondId ?? null,
+          bondaiInvestorId: payload.investorId ?? null,
+          investorId: matchedInvestorId,
+          investorName: matchedInvestorName,
+          investorEmail: payload.investorEmail ?? null,
+          ipAddress,
+          userAgent,
+          amount: payload.amount.toString(),
+          bondName: payload.bondName ?? null,
+          status: "pending",
+          expiresAt: expDate,
         })
-        .where(eq(settlementSessions.sessionId, sessionId))
         .returning();
 
-      const ipAddress = getClientIp(req);
-      await logAudit(
-        "system",
-        "update",
-        "settlement_session",
-        updatedSession.id,
-        `Settlement completed for trade ${updatedSession.tradeId}`,
-        {
-          tradeId: updatedSession.tradeId,
-          amount: updatedSession.amount,
-          paymentReference,
-        },
-        ipAddress
-      );
-
-      const webhookUrl = process.env.BONDAI_WEBHOOK_URL;
-      const webhookSecret = process.env.BONDAI_WEBHOOK_SECRET;
-      
-      if (webhookUrl && webhookSecret) {
-        const webhookResult = await sendWebhookToBondAI(
-          webhookUrl,
-          webhookSecret,
-          "settlement.completed",
-          {
-            sessionId: updatedSession.sessionId,
-            tradeId: updatedSession.tradeId,
-            bondId: updatedSession.bondId,
-            amount: updatedSession.amount,
-            paymentReference: updatedSession.paymentReference,
-            settledAt: settledAt.toISOString(),
-          }
-        );
-
-        await logAudit(
-          "system",
-          "create",
-          "webhook_sent",
-          updatedSession.id,
-          `Webhook sent to BondAI: settlement.completed (success: ${webhookResult.success})`,
-          webhookResult,
-          ipAddress
-        );
-      }
-
-      return res.json({
-        sessionId: updatedSession.sessionId,
-        tradeId: updatedSession.tradeId,
-        status: updatedSession.status,
-        settledAt: updatedSession.settledAt?.toISOString(),
-        message: "Settlement completed successfully",
+      res.json({
+        sessionId: payload.sid,
+        tradeId: payload.tradeId,
+        bondId: payload.bondId ?? null,
+        investorEmail: payload.investorEmail ?? null,
+        amount: payload.amount,
+        bondName: payload.bondName ?? null,
+        status: "pending",
+        paymentReference: null,
+        createdAt: created?.createdAt?.toISOString?.() ?? new Date().toISOString(),
+        expiresAt: expDate.toISOString(),
       });
-    } catch (err: any) {
-      console.error("Error completing settlement:", err);
-      return res.status(500).json({ message: err.message || "Internal server error" });
+    } catch (error: any) {
+      console.error("Settlement session error:", error);
+      res.status(400).json({ message: error?.message || "Invalid settlement session" });
     }
   });
 
-  app.post("/api/settlement/cancel", async (req: Request, res: Response) => {
+  /**
+   * Investor-facing: records payment reference + marks session as SUBMITTED.
+   * IMPORTANT: This does NOT confirm settlement and does NOT call BondAI.
+   * BondAI callback is triggered ONLY after internal confirmation.
+   */
+  app.post("/api/settlement/complete", async (req: Request, res: Response) => {
     try {
-      const { sessionId, reason, token } = req.body;
-      if (!sessionId) {
-        return res.status(400).json({ message: "sessionId is required" });
-      }
-      if (!token) {
-        return res.status(400).json({ message: "token is required for verification" });
-      }
+      const token = req.body?.token as string;
+      const paymentReference = (req.body?.paymentReference as string) || null;
 
-      // Verify the JWT token to ensure the request is authenticated
-      const secret = envOrThrow("BONDAI_SETTLEMENT_SECRET");
-      let payload: SettlementJwtPayload;
-      try {
-        payload = verifySettlementJwt(token, secret);
-      } catch (err: any) {
-        console.error("Settlement cancel JWT verification failed:", err.message);
-        return res.status(401).json({ message: err.message });
-      }
+      if (!token) return res.status(400).json({ message: "Missing token" });
 
-      // Verify sessionId matches the token
-      if (payload.sid !== sessionId) {
-        return res.status(403).json({ message: "Session ID does not match token" });
-      }
+      const secret = settlementSecretOrThrow();
+      const payload = verifySettlementJwt(token, secret);
 
       const [session] = await db
         .select()
         .from(settlementSessions)
-        .where(eq(settlementSessions.sessionId, sessionId))
+        .where(eq(settlementSessions.sessionId, payload.sid))
         .limit(1);
 
-      if (!session) {
-        return res.status(404).json({ message: "Settlement session not found" });
+      if (!session) return res.status(404).json({ message: "Settlement session not found" });
+      if (session.status === "settled") return res.status(400).json({ message: "This settlement is already confirmed" });
+      if (session.status === "cancelled") return res.status(400).json({ message: "This settlement has been cancelled" });
+
+      const now = new Date();
+      const [updated] = await db
+        .update(settlementSessions)
+        .set({
+          status: "submitted",
+          paymentReference,
+          ipAddress: getClientIp(req),
+          userAgent: getUserAgent(req),
+          updatedAt: now,
+        })
+        .where(eq(settlementSessions.sessionId, payload.sid))
+        .returning();
+
+      // Audit log (system scoped to this sessionId)
+      try {
+        await logAudit(
+          "system",
+          "update",
+          "settlement_session",
+          payload.sid,
+          `Settlement submitted for Trade ${updated.tradeId}`,
+          { tradeId: updated.tradeId, amount: updated.amount, paymentReference },
+          getClientIp(req)
+        );
+      } catch {
+        // no-op
       }
 
-      if (session.status === "settled") {
-        return res.status(400).json({ message: "Cannot cancel a settled session" });
-      }
+      res.json({
+        success: true,
+        status: updated.status,
+        message: "Settlement request submitted. JACE will confirm after escrow verification.",
+      });
+    } catch (error: any) {
+      console.error("Settlement complete error:", error);
+      res.status(400).json({ message: error?.message || "Failed to submit settlement" });
+    }
+  });
 
-      if (session.status === "cancelled") {
-        return res.status(400).json({ message: "Session already cancelled" });
-      }
+  /**
+   * Investor-facing: cancels a settlement request before internal confirmation.
+   */
+  app.post("/api/settlement/cancel", async (req: Request, res: Response) => {
+    try {
+      const token = req.body?.token as string;
+      const reason = (req.body?.reason as string) || "Cancelled by investor";
 
-      const cancelledAt = new Date();
-      const [updatedSession] = await db
+      if (!token) return res.status(400).json({ message: "Missing token" });
+
+      const secret = settlementSecretOrThrow();
+      const payload = verifySettlementJwt(token, secret);
+
+      const [session] = await db
+        .select()
+        .from(settlementSessions)
+        .where(eq(settlementSessions.sessionId, payload.sid))
+        .limit(1);
+
+      if (!session) return res.status(404).json({ message: "Settlement session not found" });
+      if (session.status === "settled") return res.status(400).json({ message: "This settlement is already confirmed" });
+
+      const now = new Date();
+      await db
         .update(settlementSessions)
         .set({
           status: "cancelled",
-          cancelledAt,
-          failureReason: reason || null,
+          cancelledAt: now,
+          failureReason: reason,
+          ipAddress: getClientIp(req),
+          userAgent: getUserAgent(req),
+          updatedAt: now,
         })
-        .where(eq(settlementSessions.sessionId, sessionId))
-        .returning();
+        .where(eq(settlementSessions.sessionId, payload.sid));
 
-      const ipAddress = getClientIp(req);
-      await logAudit(
-        "system",
-        "update",
-        "settlement_session",
-        updatedSession.id,
-        `Settlement cancelled for trade ${updatedSession.tradeId}`,
-        {
-          tradeId: updatedSession.tradeId,
-          reason,
-        },
-        ipAddress
-      );
-
-      const webhookUrl = process.env.BONDAI_WEBHOOK_URL;
-      const webhookSecret = process.env.BONDAI_WEBHOOK_SECRET;
-      
-      if (webhookUrl && webhookSecret) {
-        const webhookResult = await sendWebhookToBondAI(
-          webhookUrl,
-          webhookSecret,
-          "settlement.cancelled",
-          {
-            sessionId: updatedSession.sessionId,
-            tradeId: updatedSession.tradeId,
-            bondId: updatedSession.bondId,
-            amount: updatedSession.amount,
-            reason: updatedSession.failureReason,
-            cancelledAt: cancelledAt.toISOString(),
-          }
-        );
-
+      // Audit log (best-effort)
+      try {
         await logAudit(
           "system",
-          "create",
-          "webhook_sent",
-          updatedSession.id,
-          `Webhook sent to BondAI: settlement.cancelled (success: ${webhookResult.success})`,
-          webhookResult,
-          ipAddress
+          "update",
+          "settlement_session",
+          payload.sid,
+          `Settlement cancelled for Trade ${payload.tradeId}`,
+          { tradeId: payload.tradeId, reason },
+          getClientIp(req)
         );
+      } catch {
+        // no-op
       }
 
-      return res.json({
-        sessionId: updatedSession.sessionId,
-        tradeId: updatedSession.tradeId,
-        status: updatedSession.status,
-        cancelledAt: updatedSession.cancelledAt?.toISOString(),
-        message: "Settlement cancelled",
-      });
-    } catch (err: any) {
-      console.error("Error cancelling settlement:", err);
-      return res.status(500).json({ message: err.message || "Internal server error" });
+      res.json({ success: true, message: "Settlement cancelled" });
+    } catch (error: any) {
+      console.error("Settlement cancel error:", error);
+      res.status(400).json({ message: error?.message || "Failed to cancel settlement" });
     }
   });
+
+  // NOTE: Internal confirmation/cancellation lives in /api/admin/settlements/*
 }
