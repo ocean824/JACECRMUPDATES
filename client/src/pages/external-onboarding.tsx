@@ -551,15 +551,65 @@ export default function ExternalOnboardingPage() {
 
       const parentOrigin = getParentOrigin();
       const returnUrl = data?.session?.returnUrl || null;
-      // Send both message types for compatibility with different BondAI versions
+      const bondaiInvestorId = data?.session?.bondaiInvestorId || null;
+
+      const onboardingCompletionData = {
+        completedAt: json.completedAt,
+        submissionId: json.submissionId,
+        bondaiInvestorId,
+        investorEmail: email,
+        investorName: `${firstName} ${lastName}`.trim(),
+        investorPhone: phone,
+        status: "LIVE",
+        returnUrl,
+        bondaiNotified: json.bondaiNotified || false,
+        bondaiWebhookSent: json.bondaiWebhookSent || false,
+        bondaiKycApiSuccess: json.bondaiKycApiSuccess || false,
+        kyc: {
+          kycVerified: true,
+          kycVerifiedAt: json.completedAt,
+          kycStatus: "submitted",
+          identityDocumentType: kycDocType,
+          identityDocumentSubmitted: true,
+          proofOfLifeSubmitted: true,
+          documentsSubmittedCount: identityBack ? 3 : 2,
+        },
+        signatures: {
+          kycAttestationSigned: true,
+          kycAttestationSignedAt: json.completedAt,
+          investorAgreementSigned: true,
+          investorAgreementSignedAt: json.completedAt,
+          disclosureDisclaimerSigned: true,
+          disclosureDisclaimerSignedAt: json.completedAt,
+          totalSignatures: 3,
+        },
+        agreements: {
+          termsAccepted: true,
+          termsAcceptedAt: json.completedAt,
+          termsOfUseVersion: "1.0",
+          privacyPolicyAccepted: true,
+          privacyPolicyVersion: "1.0",
+          electronicSignatureConsent: true,
+          disclosuresAcknowledged: true,
+          disclosuresVersion: "1.0",
+        },
+        jaceOnboarding: {
+          isJaceLive: true,
+          jaceOnboardedAt: json.completedAt,
+          onboardingCompleted: true,
+        },
+        banking: {
+          bankingInfoSubmitted: true,
+          accountType: bankAccountType,
+          bankName: bankName || null,
+        },
+      };
+
+      // Send comprehensive message to BondAI parent window
       window.parent?.postMessage(
         {
           type: "ONBOARDING_COMPLETED",
-          completedAt: json.completedAt,
-          submissionId: json.submissionId,
-          investorEmail: email,
-          status: "LIVE",
-          returnUrl,
+          ...onboardingCompletionData,
         },
         parentOrigin,
       );
@@ -567,10 +617,7 @@ export default function ExternalOnboardingPage() {
       window.parent?.postMessage(
         {
           type: "JACE_ONBOARDING_COMPLETE",
-          completedAt: json.completedAt,
-          submissionId: json.submissionId,
-          investorEmail: email,
-          returnUrl,
+          ...onboardingCompletionData,
         },
         parentOrigin,
       );

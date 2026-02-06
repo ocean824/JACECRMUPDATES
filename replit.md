@@ -105,6 +105,7 @@ Preferred communication style: Simple, everyday language.
 - `BONDAI_WEBHOOK_URL`: Webhook endpoint for BondAI.
 - `BONDAI_WEBHOOK_SECRET`: Webhook signature secret for BondAI.
 - `BONDAI_ALLOWED_FRAME_ANCESTORS`: CSP frame-ancestors for BondAI.
+- `BONDAI_API_URL`: Base URL for BondAI API calls (e.g., investor KYC updates).
 
 ### Public Legal Pages (Fidelity-Style) - January 2026
 Public legal pages with Fidelity-style footer for JACE Management, LLC (Colorado):

@@ -595,43 +595,172 @@ export function registerExternalOnboarding(app: Express) {
         const webhookSecret = process.env.BONDAI_WEBHOOK_SECRET;
         const integrationApiKey = process.env.BONDAI_INTEGRATION_API_KEY;
 
-        if (webhookUrl) {
-          const event = "investor_onboarding_completed";
-          const webhookBody = {
-            event,
-            bondaiInvestorId: session.bondaiInvestorId || payload.bInv,
-            jaceInvestorId: payload.inv,
-            jaceSessionId: session.id,
-            jaceSubmissionId: submission.id,
-            status: "LIVE",
-            completedAt: now.toISOString(),
-            investorEmail: email,
-            investorName: `${firstName} ${lastName}`.trim(),
-            kycStatus: "submitted",
-            documentsSubmitted: {
-              identityDocument: true,
-              proofOfLife: true,
-              signatures: 3,
-              acknowledgements: 2,
+        const submittedIpAddress = Array.isArray(req.ip) ? req.ip[0] : (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || "";
+
+        const kycUpdatePayload = {
+          bondaiInvestorId: session.bondaiInvestorId || payload.bInv,
+          jaceInvestorId: payload.inv,
+          jaceSessionId: session.id,
+          jaceSubmissionId: submission.id,
+          status: "LIVE",
+          completedAt: now.toISOString(),
+          investor: {
+            firstName,
+            lastName,
+            fullName: `${firstName} ${lastName}`.trim(),
+            email,
+            phone,
+            address: {
+              line1: addressLine1,
+              line2: addressLine2 || null,
+              city,
+              state,
+              postalCode,
+              country,
             },
+          },
+          kyc: {
+            kycVerified: true,
+            kycVerifiedAt: now.toISOString(),
+            kycStatus: "submitted",
+            identityDocumentType: docType,
+            identityDocumentSubmitted: true,
+            identityFrontDocumentId: identityFrontDoc.id,
+            identityBackDocumentId: identityBackDoc?.id || null,
+            proofOfLifeSubmitted: true,
+            proofOfLifeDocumentId: proofOfLifeDoc.id,
+            documentsSubmittedCount: identityBackDoc ? 3 : 2,
+          },
+          signatures: {
+            kycAttestationSigned: true,
+            kycAttestationSignedAt: now.toISOString(),
+            kycAttestationDocumentId: sigKycDoc.id,
+            kycAttestationText: "I attest that I am the person named in this application, all information provided is true and accurate, and all documents submitted are authentic.",
+            investorAgreementSigned: true,
+            investorAgreementSignedAt: now.toISOString(),
+            investorAgreementDocumentId: sigAgreementDoc.id,
+            investorAgreementText: "I have read, understand, and agree to the Terms of Use, Privacy Policy, and Investor User Agreement between myself, JACE Management, LLC, and BondAI.",
+            disclosureDisclaimerSigned: true,
+            disclosureDisclaimerSignedAt: now.toISOString(),
+            disclosureDisclaimerDocumentId: sigDisclosureDoc.id,
+            disclosureDisclaimerText: "I acknowledge that I have reviewed and understand the Disclosures & Disclaimers regarding investment risks, regulatory requirements, and my obligations as an investor.",
+            totalSignatures: 3,
+          },
+          agreements: {
+            termsAccepted: true,
+            termsAcceptedAt: now.toISOString(),
+            termsOfUseVersion: "1.0",
+            privacyPolicyAccepted: true,
+            privacyPolicyAcceptedAt: now.toISOString(),
+            privacyPolicyVersion: "1.0",
+            electronicSignatureConsent: true,
+            electronicSignatureConsentAt: now.toISOString(),
+            electronicSignatureConsentText: "By signing below, you acknowledge that your electronic signatures are legally binding and have the same legal effect as a handwritten signature.",
+            disclosuresAcknowledged: true,
+            disclosuresAcknowledgedAt: now.toISOString(),
+            disclosuresVersion: "1.0",
+            userAgreementAccepted: true,
+            userAgreementText: "I have read and agree to the Terms of Use, Privacy Policy, and Investor User Agreement. I authorize JACE Management, LLC and BondAI to process my onboarding data for investor verification and bond settlement purposes.",
+            dataConsentAcknowledged: true,
+            dataConsentText: "I acknowledge and consent that: (1) my submission is timestamped with my IP address, (2) my electronic signatures are legally binding, (3) my data may be shared between JACE and BondAI for compliance and auditing purposes, and (4) I have reviewed the Disclosures & Disclaimers regarding investment risks.",
+          },
+          banking: {
+            bankingInfoSubmitted: true,
+            accountType,
+            bankName: bankName || null,
+            bankAddress: bankAddress || null,
+            bankPhone: bankPhone || null,
+            routingNumberProvided: !!routingNumber,
+            accountNumberProvided: !!accountNumber,
+          },
+          jaceOnboarding: {
+            isJaceLive: true,
+            jaceOnboardedAt: now.toISOString(),
+            onboardingCompleted: true,
+          },
+          audit: {
+            submittedAt: now.toISOString(),
+            ipAddress: submittedIpAddress,
+            userAgent: (req.headers["user-agent"] as string) || "",
+          },
+        };
+
+        let webhookSent = false;
+        let kycApiSuccess = false;
+
+        // 1. Send comprehensive webhook to BondAI webhook endpoint
+        if (webhookUrl) {
+          const webhookBody = {
+            event: "investor_onboarding_completed",
+            ...kycUpdatePayload,
           };
 
           const raw = JSON.stringify(webhookBody);
           const ts = Math.floor(Date.now() / 1000).toString();
-
           const signature = webhookSecret ? hmacSha256Hex(webhookSecret, `${ts}.${raw}`) : "";
 
-          await fetch(webhookUrl, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              ...(integrationApiKey ? { "x-api-key": integrationApiKey } : {}),
-              ...(webhookSecret ? { "x-webhook-timestamp": ts, "x-webhook-signature": signature } : {}),
-            },
-            body: raw,
-          }).catch((e) => {
+          try {
+            const webhookResponse = await fetch(webhookUrl, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                ...(integrationApiKey ? { "x-api-key": integrationApiKey } : {}),
+                ...(webhookSecret ? { "x-webhook-timestamp": ts, "x-webhook-signature": signature } : {}),
+              },
+              body: raw,
+            });
+            webhookSent = webhookResponse.ok;
+            if (!webhookSent) {
+              console.error(`BondAI webhook failed: ${webhookResponse.status}`);
+            }
+          } catch (e) {
             console.error("BondAI webhook call failed:", e);
-          });
+          }
+        }
+
+        // 2. Direct API call to BondAI to update investor's KYC/onboarding fields
+        const bondaiApiUrl = process.env.BONDAI_API_URL;
+        const kycApiTargetUrl = bondaiApiUrl
+          ? `${bondaiApiUrl}/api/jace/investor-kyc-update`
+          : webhookUrl
+            ? (() => { const derived = webhookUrl.replace(/\/api\/jace\/webhook.*$/, ""); return derived !== webhookUrl ? `${derived}/api/jace/investor-kyc-update` : null; })()
+            : null;
+
+        if (kycApiTargetUrl) {
+          const apiPayload = {
+            source: "JACE_CRM",
+            event: "investor_kyc_update",
+            timestamp: now.toISOString(),
+            ...kycUpdatePayload,
+          };
+
+          const raw = JSON.stringify(apiPayload);
+          const ts = Math.floor(Date.now() / 1000).toString();
+          const signature = webhookSecret ? hmacSha256Hex(webhookSecret, `${ts}.${raw}`) : "";
+
+          try {
+            const apiResponse = await fetch(kycApiTargetUrl, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                ...(integrationApiKey ? { "x-api-key": integrationApiKey } : {}),
+                ...(webhookSecret ? { "x-webhook-timestamp": ts, "x-webhook-signature": signature } : {}),
+              },
+              body: raw,
+            });
+            kycApiSuccess = apiResponse.ok;
+            if (kycApiSuccess) {
+              console.log(`BondAI investor KYC update successful for ${email} via ${kycApiTargetUrl}`);
+              await logAudit(ownerUserId, "update", "bondai_integration", submission.id, `BondAI investor KYC update API call successful for investor ${payload.inv}`);
+            } else {
+              const errText = await apiResponse.text().catch(() => "");
+              console.error(`BondAI investor KYC update failed: ${apiResponse.status} ${errText}`);
+              await logAudit(ownerUserId, "update", "bondai_integration", submission.id, `BondAI investor KYC update API call failed: ${apiResponse.status}`);
+            }
+          } catch (e: any) {
+            console.error("BondAI investor KYC update API call error:", e?.message);
+            await logAudit(ownerUserId, "update", "bondai_integration", submission.id, `BondAI investor KYC update API call error: ${e?.message}`);
+          }
         }
 
         await sendInvestorOnboardingCompletedEmail({
@@ -645,6 +774,14 @@ export function registerExternalOnboarding(app: Express) {
           ok: true,
           submissionId: submission.id,
           completedAt: now.toISOString(),
+          bondaiNotified: webhookSent || kycApiSuccess,
+          bondaiWebhookSent: webhookSent,
+          bondaiKycApiSuccess: kycApiSuccess,
+          kycUpdate: {
+            kycVerified: true,
+            isJaceLive: true,
+            jaceOnboardedAt: now.toISOString(),
+          },
         });
       } catch (err: any) {
         console.error("External onboarding submit error:", err);
