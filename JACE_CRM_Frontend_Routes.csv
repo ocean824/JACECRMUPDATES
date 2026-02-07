@@ -1,0 +1,39 @@
+Route,Component,Access,Purpose,Added Date
+/settlement,SettlementPage,Public (JWT in URL),Investor checkout page embedded as iframe in BondAI,2026-02-05
+/settlements,SettlementsPage,Auth (internal roles),Internal Settlement Inbox - confirm/cancel with audit trail,2026-02-06
+/external/onboarding,ExternalOnboardingPage,Public (JWT in URL),External investor onboarding flow with BondAI,2026-01-27
+/,DashboardPage,Authenticated,Main KPI dashboard,2026-01-26
+/investors,InvestorsPage,Authenticated,Investor management list,2026-01-26
+/investors/:id,InvestorDetailPage,Authenticated,Investor detail with compliance tab,2026-01-26
+/pipeline,PipelinePage,Authenticated,Investor pipeline stages,2026-01-26
+/accounts,AccountsPage,Authenticated,Chart of Accounts,2026-01-26
+/journal,JournalPage,Authenticated,Double-entry journal entries,2026-01-26
+/bonds,BondsPage,Authenticated,Bond management,2026-01-26
+/invoices,InvoicesPage,Authenticated,Invoice management,2026-01-29
+/quotes,QuotesPage,Authenticated,Quote management,2026-01-29
+/expenses,ExpensesPage,Authenticated,Expense tracking,2026-01-29
+/escrow,EscrowPage,Authenticated,Escrow management,2026-01-29
+/vendors,VendorsPage,Authenticated,Vendor management,2026-02-04
+/reports/trial-balance,TrialBalancePage,Authenticated,Trial Balance report,2026-01-29
+/reports/income-statement,IncomeStatementPage,Authenticated,Income Statement report,2026-01-29
+/reports/balance-sheet,BalanceSheetPage,Authenticated,Balance Sheet report,2026-01-29
+/employees,EmployeesPage,Authenticated,Employee management,2026-01-29
+/departments,DepartmentsPage,Authenticated,Department management,2026-01-29
+/time-tracking,TimeTrackingPage,Authenticated,Time tracking,2026-01-29
+/leave-requests,LeaveRequestsPage,Authenticated,Leave request management,2026-01-29
+/payroll,PayrollPage,Authenticated,Payroll processing,2026-01-29
+/tasks,TasksPage,Authenticated,Task management,2026-01-26
+/recurring-tasks,RecurringTasksPage,Authenticated,Recurring task scheduling,2026-02-04
+/calendar,CalendarPage,Authenticated,Calendar view,2026-02-04
+/kyc,KycPage,Authenticated,KYC compliance tracking,2026-01-26
+/documents,DocumentsPage,Authenticated,Document management,2026-01-26
+/communications,CommunicationsPage,Authenticated,Communications module,2026-01-26
+/email,EmailPage,Authenticated,Email module (Resend),2026-02-04
+/terms-of-use,TermsOfUsePage,Public,Terms of Use (12 sections),2026-01-27
+/privacy,PrivacyPage,Public,Privacy Policy (Colorado Privacy Act),2026-01-27
+/security,SecurityPage,Public,Security information,2026-01-27
+/site-map,SiteMapPage,Public,Site map,2026-01-27
+/accessibility,AccessibilityPage,Public,WCAG 2.1 Level AA statement,2026-01-27
+/contact-us,ContactUsPage,Public,Contact page,2026-01-27
+/disclosures,DisclosuresPage,Public,Legal disclosures,2026-01-27
+/cookie-preferences,CookiePreferencesPage,Public,Cookie preference toggles,2026-01-27

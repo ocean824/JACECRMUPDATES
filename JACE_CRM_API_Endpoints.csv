@@ -1,0 +1,16 @@
+Endpoint,Method,Purpose,Auth Method,File,Added Date
+/api/external/settlement/session,POST,BondAI creates settlement session via JWT-signed handoff,API Key (BONDAI_SETTLEMENT_SECRET),server/settlement-routes.ts,2026-02-05
+/api/settlement/session,GET,Load settlement session data for checkout page (?token=JWT),JWT Token,server/settlement-routes.ts,2026-02-05
+/api/settlement/complete,POST,Investor submits settlement (active to submitted),JWT Token,server/settlement-routes.ts,2026-02-05
+/api/settlement/cancel,POST,Investor cancels settlement,JWT Token,server/settlement-routes.ts,2026-02-05
+/api/admin/settlements/summary,GET,Settlement counts by status,Session + Internal Role,server/settlement-internal-routes.ts,2026-02-06
+/api/admin/settlements,GET,List settlements with status filter,Session + Internal Role,server/settlement-internal-routes.ts,2026-02-06
+/api/admin/settlements/:sessionId/confirm,POST,Confirm settlement + PDF receipt + webhook,Session + Internal Role,server/settlement-internal-routes.ts,2026-02-06
+/api/admin/settlements/:sessionId/cancel,POST,Cancel settlement with reason,Session + Internal Role,server/settlement-internal-routes.ts,2026-02-06
+/api/admin/settlements/:sessionId/receipt,GET,Download PDF receipt,Session + Internal Role,server/settlement-internal-routes.ts,2026-02-06
+/api/external/onboarding/sessions,POST,Create onboarding session for BondAI,API Key,server/external-onboarding.ts,2026-01-27
+/api/integrations/bondai/handoff,POST,BondAI handoff endpoint (alias),API Key,server/external-onboarding.ts,2026-01-27
+/api/external/onboarding/session,GET,Load onboarding session,JWT Token,server/external-onboarding.ts,2026-01-27
+/api/external/onboarding/complete,POST,Complete onboarding + send data to BondAI,JWT Token,server/external-onboarding.ts,2026-01-27
+/api/external/onboarding/assistant,POST,AI chat assistant for onboarding,JWT Token,server/external-onboarding.ts,2026-01-26
+/api/external/onboarding/voice-assistant,POST,Voice assistant for onboarding,JWT Token,server/external-onboarding.ts,2026-02-04

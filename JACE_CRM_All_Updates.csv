@@ -1,0 +1,85 @@
+Week,Date,Category,Feature / Update,Description
+Week 1 (Jan 26-27),2026-01-26,Core Platform,Project Initialization,Initial commit - stack extraction (React + Express + PostgreSQL + Drizzle ORM)
+Week 1 (Jan 26-27),2026-01-26,Core Platform,Authentication System,Local username/password auth with bcrypt hashing and PostgreSQL-backed sessions via connect-pg-simple
+Week 1 (Jan 26-27),2026-01-26,Core Platform,User Roles & Admin,Role-based access control (admin / accounting / ops / investor_relations) and admin settings page
+Week 1 (Jan 26-27),2026-01-26,Core Platform,Theming & UI Framework,shadcn/ui with Radix UI and Tailwind CSS with light/dark mode toggle and professional blue theme
+Week 1 (Jan 26-27),2026-01-26,CRM Features,Investor Management,Full CRUD for investors with pipeline stages and investment tracking and investor detail pages
+Week 1 (Jan 26-27),2026-01-26,Accounting,Chart of Accounts,Full chart of accounts management with account types and categories
+Week 1 (Jan 26-27),2026-01-26,Accounting,Double-Entry Journal,Double-entry journal entries with debit/credit validation and posting
+Week 1 (Jan 26-27),2026-01-26,CRM Features,Task Management,Task CRUD with priorities and due dates and investor association and status tracking
+Week 1 (Jan 26-27),2026-01-26,Core Platform,Audit Logs,Audit log tracking for all significant user actions with timestamps
+Week 1 (Jan 26-27),2026-01-26,Core Platform,Document Management,Document upload and management system with file storage
+Week 1 (Jan 26-27),2026-01-26,CRM Features,Analytics Dashboard,KPI dashboards with data visualization using Recharts
+Week 1 (Jan 26-27),2026-01-26,CRM Features,KYC Compliance Tracking,KYC workflow tracking page with status management
+Week 1 (Jan 26-27),2026-01-26,CRM Features,Bond Management,Bond tracking and management functionality
+Week 1 (Jan 26-27),2026-01-26,CRM Features,Communications,Communications module for investor correspondence
+Week 1 (Jan 26-27),2026-01-26,Core Platform,Notifications,In-app notification system
+Week 1 (Jan 26-27),2026-01-26,Accounting,Multi-Currency Support,Multi-currency support across all financial modules
+Week 1 (Jan 26-27),2026-01-26,Core Platform,Error Handling & Testing,data-testid attributes on interactive elements and improved error messages
+Week 1 (Jan 26-27),2026-01-26,AI Features,AI Chat Assistant,GPT-4o-mini powered chat assistant with streaming SSE responses and step-by-step CRM instructions
+Week 1 (Jan 26-27),2026-01-26,Core Platform,Admin Login System,Secure admin login with environment secrets (ADMIN_LOGIN and ADMIN_PASSWORD)
+Week 1 (Jan 26-27),2026-01-26,Core Platform,Invite-Only Registration,Admin-approved registration with 9-char PIN generation and 2-hour expiry and PIN confirmation tracking
+Week 1 (Jan 26-27),2026-01-27,Compliance,AML Certification Document,USA PATRIOT Act / Bank Secrecy Act certification with scroll-to-end gating
+Week 1 (Jan 26-27),2026-01-27,Compliance,CIP/KYC Privacy Consent,Gramm-Leach-Bliley Act compliance document with electronic signature capture
+Week 1 (Jan 26-27),2026-01-27,Compliance,Privacy Short Form (GLBA),GLBA Model Privacy Notice with opt-in/opt-out toggles
+Week 1 (Jan 26-27),2026-01-27,Compliance,Electronic Signature Capture,Typed signature capture with PDF generation and audit metadata and compliance audit trail
+Week 1 (Jan 26-27),2026-01-27,Compliance,Compliance Tab on Investor Detail,Compliance document status tracking on each investor detail page
+Week 1 (Jan 26-27),2026-01-27,Integration,External Onboarding Flow,Secure external investor onboarding integrated with BondAI using JWTs and AES-256-GCM encryption and HMAC-SHA256 webhooks
+Week 1 (Jan 26-27),2026-01-27,Integration,BondAI Handoff Endpoint,POST /api/integrations/bondai/handoff - JWT-signed session creation for iframe embedding
+Week 1 (Jan 26-27),2026-01-27,Integration,BondAI CORS & CSP,Configurable CORS origins and frame-ancestors for BondAI iframe security
+Week 1 (Jan 26-27),2026-01-27,Legal Pages,Terms of Use,Public /terms-of-use page (12 sections) for JACE Management LLC
+Week 1 (Jan 26-27),2026-01-27,Legal Pages,Privacy Policy,Public /privacy page with Colorado Privacy Act compliance
+Week 1 (Jan 26-27),2026-01-27,Legal Pages,Security Page,Public /security page with user security recommendations
+Week 1 (Jan 26-27),2026-01-27,Legal Pages,Site Map,Public /site-map showing all public and authenticated sections
+Week 1 (Jan 26-27),2026-01-27,Legal Pages,Accessibility Statement,Public /accessibility page (WCAG 2.1 Level AA)
+Week 1 (Jan 26-27),2026-01-27,Legal Pages,Contact Us,Public /contact-us page (jacemgmt@gmail.com and 970-710-9193)
+Week 1 (Jan 26-27),2026-01-27,Legal Pages,Disclosures & Cookie Preferences,Public /disclosures and /cookie-preferences pages
+Week 1 (Jan 26-27),2026-01-27,Legal Pages,Footer Legal Component,Fidelity-style footer with two-row layout and internal/external links and dynamic copyright
+Week 1 (Jan 26-27),2026-01-27,Integration,PDF Generation for Legal Docs,Server-side PDF generation for signed compliance documents with audit metadata
+Week 1 (Jan 26-27),2026-01-27,Core Platform,Back to BondAI Navigation,Redirect functionality to navigate users back to BondAI after onboarding completion
+Week 2 (Jan 28 - Feb 3),2026-01-28,UI/UX,Onboarding Page Styling,White text/icon colors on investor onboarding page for better visibility
+Week 2 (Jan 28 - Feb 3),2026-01-28,Core Platform,Admin Dashboard Enhancements,Enhanced admin dashboard functionality and improved login experience
+Week 2 (Jan 28 - Feb 3),2026-01-28,AI Features,AI Assistant Improvements,Enhanced AI onboarding assistant with improved context awareness and SSE streaming
+Week 2 (Jan 28 - Feb 3),2026-01-28,UI/UX,Onboarding Sidebar Scrolling,Enabled scrolling within the onboarding context sidebar for long content
+Week 2 (Jan 28 - Feb 3),2026-01-29,Accounting,Invoicing Module,Full invoice management system with creation and tracking and status management
+Week 2 (Jan 28 - Feb 3),2026-01-29,Accounting,Expense Tracking,Expense management and tracking module
+Week 2 (Jan 28 - Feb 3),2026-01-29,HR,Employee Management,Employee directory and management system
+Week 2 (Jan 28 - Feb 3),2026-01-29,HR,Payroll System,Payroll processing and management
+Week 2 (Jan 28 - Feb 3),2026-01-29,HR,Department Management,Department organizational structure management
+Week 2 (Jan 28 - Feb 3),2026-01-29,HR,Time Tracking,Employee time tracking functionality
+Week 2 (Jan 28 - Feb 3),2026-01-29,HR,Leave Requests,Leave request submission and approval workflow
+Week 2 (Jan 28 - Feb 3),2026-01-29,Accounting,Financial Reports,Trial Balance and Income Statement and Balance Sheet report pages
+Week 2 (Jan 28 - Feb 3),2026-01-29,Accounting,Escrow Management,Escrow account tracking and management
+Week 2 (Jan 28 - Feb 3),2026-01-29,Accounting,Quotes Module,Quote creation and management for investors
+Week 2 (Jan 28 - Feb 3),2026-01-29,Integration,BondAI Integration Enhancement,Enhanced BondAI integration with contextual navigation and Replit secrets documentation
+Week 2 (Jan 28 - Feb 3),2026-01-29,CRM Features,Contextual Navigation,Enhanced contextual navigation across all modules
+Week 3 (Feb 4-7),2026-02-04,AI Features,Voice Assistant Widget,OpenAI speech-to-text (gpt-4o-mini-transcribe) and text-to-speech (gpt-audio with nova voice) with microphone recording and audio playback
+Week 3 (Feb 4-7),2026-02-04,AI Features,Voice Assistant on All Pages,Floating Voice Help button available on all authenticated pages via global widget
+Week 3 (Feb 4-7),2026-02-04,CRM Features,Vendor Management System,Complete accounts payable vendor management with account numbers and organization details and payment terms and tax groups and e-invoicing and recurring billing
+Week 3 (Feb 4-7),2026-02-04,CRM Features,Vendor Addresses,Invoice and remit-to address management for vendors
+Week 3 (Feb 4-7),2026-02-04,CRM Features,Recurring Tasks,Recurring task scheduling and management
+Week 3 (Feb 4-7),2026-02-04,CRM Features,Calendar View,Calendar page for task and event visualization
+Week 3 (Feb 4-7),2026-02-04,CRM Features,Email Module,Email communication module integrated with Resend
+Week 3 (Feb 4-7),2026-02-05,Core Platform,Signature Reliability Fix,Improved signature saving and application reliability
+Week 3 (Feb 4-7),2026-02-05,Settlement,Settlement Routes (External),POST /api/external/settlement/session - BondAI creates settlement session via JWT-signed handoff with BONDAI_SETTLEMENT_SECRET
+Week 3 (Feb 4-7),2026-02-05,Settlement,Settlement Session Loader,GET /api/settlement/session?token= - JACE checkout page loads session data via JWT verification
+Week 3 (Feb 4-7),2026-02-05,Settlement,Settlement Submit Endpoint,POST /api/settlement/complete - Investor submits settlement (status: active to submitted) and fires JACE_SETTLEMENT_SUBMITTED postMessage
+Week 3 (Feb 4-7),2026-02-05,Settlement,Settlement Cancel Endpoint,POST /api/settlement/cancel - Investor cancels settlement and fires JACE_SETTLEMENT_CANCELLED postMessage
+Week 3 (Feb 4-7),2026-02-05,Settlement,Settlement Checkout Page,/settlement - Public page (JWT token in URL) and investor-facing checkout embedded as iframe in BondAI
+Week 3 (Feb 4-7),2026-02-05,Settlement,Settlement Schema,settlement_sessions table with full audit trail columns
+Week 3 (Feb 4-7),2026-02-05,Settlement,Settlement Security,API key verification via x-bondai-webhook-secret or x-api-key headers for session creation
+Week 3 (Feb 4-7),2026-02-06,Integration,Onboarding Auto-Redirect,Automatic redirect back to BondAI after onboarding completion with postMessage events
+Week 3 (Feb 4-7),2026-02-06,Integration,Comprehensive Data Exchange,Onboarding completion sends full investor profile and banking info and documents and compliance data to BondAI via webhook + direct API call
+Week 3 (Feb 4-7),2026-02-06,Integration,BondAI Onboarding Webhook,HMAC-SHA256 signed webhook to BONDAI_WEBHOOK_URL on onboarding.completed event with full investor data payload
+Week 3 (Feb 4-7),2026-02-06,Integration,BondAI KYC Direct API Call,Direct POST to /api/jace/investor-kyc-update with comprehensive investor data on onboarding completion
+Week 3 (Feb 4-7),2026-02-06,Settlement,Settlement Inbox Page,/settlements - Internal admin page for viewing submitted settlements and confirm or cancel with audit trail
+Week 3 (Feb 4-7),2026-02-06,Settlement,Settlement Summary Endpoint,GET /api/admin/settlements/summary - Count of settlements by status
+Week 3 (Feb 4-7),2026-02-06,Settlement,Settlement List Endpoint,GET /api/admin/settlements?status= - List all settlements with filtering and pagination
+Week 3 (Feb 4-7),2026-02-06,Settlement,Settlement Confirm Endpoint,POST /api/admin/settlements/:sessionId/confirm - Internal confirm with PDF receipt generation + HMAC webhook to BondAI
+Week 3 (Feb 4-7),2026-02-06,Settlement,Settlement Cancel (Admin),POST /api/admin/settlements/:sessionId/cancel - Internal cancel with reason and audit trail
+Week 3 (Feb 4-7),2026-02-06,Settlement,Settlement Receipt Download,GET /api/admin/settlements/:sessionId/receipt - Download PDF receipt for confirmed settlement
+Week 3 (Feb 4-7),2026-02-06,Settlement,Settlement Webhook Service,HMAC-SHA256 signed webhook to BondAI for settlement.completed event
+Week 3 (Feb 4-7),2026-02-06,Settlement,Settlement PDF Receipt,Server-side PDF generation using @react-pdf/renderer on settlement confirmation
+Week 3 (Feb 4-7),2026-02-06,Settlement,Settlement Auto-Prompt,Auto-navigation prompts internal users when pending settlements exist in the inbox
+Week 3 (Feb 4-7),2026-02-06,UI/UX,Sidebar - Settlement Inbox,Settlement Inbox nav item visible only to admin and accounting and ops and investor_relations roles
+Week 3 (Feb 4-7),2026-02-06,Settlement,PostMessage Events,JACE_SETTLEMENT_LOADED and JACE_SETTLEMENT_SUBMITTED and JACE_SETTLEMENT_FAILED and JACE_SETTLEMENT_CANCELLED iframe events

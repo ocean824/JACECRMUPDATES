@@ -1,0 +1,11 @@
+Webhook or Event,Direction,Trigger,Payload Summary,Security,File
+settlement.completed,JACE to BondAI,Admin confirms settlement,sessionId / investorName / amount / currency / confirmedBy / confirmedAt,HMAC-SHA256 (x-webhook-signature),server/services/bondaiSettlementWebhook.ts
+onboarding.completed,JACE to BondAI,Investor completes onboarding,Full investor profile / banking / documents / compliance data,HMAC-SHA256 (x-webhook-signature + x-webhook-timestamp),server/external-onboarding.ts
+/api/jace/investor-kyc-update,JACE to BondAI (Direct API),Onboarding completion,Comprehensive investor data (personal / banking / documents / compliance),HMAC-SHA256 (x-webhook-signature),server/external-onboarding.ts
+x-bondai-webhook-secret header,BondAI to JACE (Inbound),Settlement session creation,Authenticates BondAI when creating settlement sessions,Shared secret header,server/settlement-routes.ts
+JACE_SETTLEMENT_LOADED,JACE iframe to BondAI (postMessage),Settlement page loads,{ sessionId },Window postMessage,client/src/pages/settlement.tsx
+JACE_SETTLEMENT_SUBMITTED,JACE iframe to BondAI (postMessage),Investor submits settlement,{ sessionId / status: submitted },Window postMessage,client/src/pages/settlement.tsx
+JACE_SETTLEMENT_FAILED,JACE iframe to BondAI (postMessage),Settlement processing fails,{ sessionId / error },Window postMessage,client/src/pages/settlement.tsx
+JACE_SETTLEMENT_CANCELLED,JACE iframe to BondAI (postMessage),Investor cancels settlement,{ sessionId / status: cancelled },Window postMessage,client/src/pages/settlement.tsx
+JACE_ONBOARDING_COMPLETE,JACE iframe to BondAI (postMessage),Onboarding completed,{ investorId / status },Window postMessage,client/src/pages/external-onboarding.tsx
+JACE_ONBOARDING_CANCEL,JACE iframe to BondAI (postMessage),Onboarding cancelled,{},Window postMessage,client/src/pages/external-onboarding.tsx
