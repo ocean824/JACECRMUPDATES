@@ -1,6 +1,7 @@
 import type { Express, Request, Response } from "express";
 import path from "path";
 import fs from "fs";
+import crypto from "crypto";
 import { db } from "./db";
 import { and, eq } from "drizzle-orm";
 import { externalOnboardingSessions, investors, investorOnboardingSubmissions, documents, kycChecklist } from "@shared/schema";
@@ -763,6 +764,50 @@ export function registerExternalOnboarding(app: Express) {
           }
         }
 
+        // 3. Call POST /api/jace/webhook on BondAI to set isJaceLive and jaceOnboardedAt
+        let jaceWebhookSuccess = false;
+        const jaceWebhookTargetUrl = bondaiApiUrl
+          ? `${bondaiApiUrl}/api/jace/webhook`
+          : webhookUrl
+            ? (() => { const derived = webhookUrl.replace(/\/api\/jace\/webhook.*$/, ""); return derived !== webhookUrl ? `${derived}/api/jace/webhook` : null; })()
+            : null;
+
+        if (jaceWebhookTargetUrl) {
+          const jaceWebhookBody = {
+            type: "investor.onboarding.completed",
+            investorEmail: email,
+            completedAt: now.toISOString(),
+          };
+
+          const jaceRaw = JSON.stringify(jaceWebhookBody);
+          const jaceSignature = process.env.JACE_WEBHOOK_SECRET
+            ? crypto.createHmac("sha256", process.env.JACE_WEBHOOK_SECRET).update(jaceRaw).digest("hex")
+            : "";
+
+          try {
+            const jaceResp = await fetch(jaceWebhookTargetUrl, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                ...(jaceSignature ? { "X-Jace-Signature": jaceSignature } : {}),
+              },
+              body: jaceRaw,
+            });
+            jaceWebhookSuccess = jaceResp.ok;
+            if (jaceWebhookSuccess) {
+              console.log(`JACE webhook (isJaceLive) sent successfully for ${email} via ${jaceWebhookTargetUrl}`);
+              await logAudit(ownerUserId, "update", "bondai_integration", submission.id, `JACE webhook (investor.onboarding.completed) sent for investor ${payload.inv}`);
+            } else {
+              const errText = await jaceResp.text().catch(() => "");
+              console.error(`JACE webhook failed: ${jaceResp.status} ${errText}`);
+              await logAudit(ownerUserId, "update", "bondai_integration", submission.id, `JACE webhook failed: ${jaceResp.status}`);
+            }
+          } catch (e: any) {
+            console.error("JACE webhook call error:", e?.message);
+            await logAudit(ownerUserId, "update", "bondai_integration", submission.id, `JACE webhook call error: ${e?.message}`);
+          }
+        }
+
         await sendInvestorOnboardingCompletedEmail({
           toEmail: email,
           investorName: `${firstName} ${lastName}`.trim(),
@@ -774,9 +819,10 @@ export function registerExternalOnboarding(app: Express) {
           ok: true,
           submissionId: submission.id,
           completedAt: now.toISOString(),
-          bondaiNotified: webhookSent || kycApiSuccess,
+          bondaiNotified: webhookSent || kycApiSuccess || jaceWebhookSuccess,
           bondaiWebhookSent: webhookSent,
           bondaiKycApiSuccess: kycApiSuccess,
+          jaceWebhookSent: jaceWebhookSuccess,
           kycUpdate: {
             kycVerified: true,
             isJaceLive: true,

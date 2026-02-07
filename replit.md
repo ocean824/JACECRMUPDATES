@@ -50,7 +50,7 @@ Preferred communication style: Simple, everyday language.
   - AML Certification (USA PATRIOT Act / Bank Secrecy Act)
   - CIP/KYC Privacy Consent (Gramm-Leach-Bliley Act)
   - Privacy Short Form (GLBA Model Privacy Notice)
-- **External Onboarding**: Secure, external investor onboarding flow integrated with BondAI, including document uploads, banking info, legal document signing, and e-signatures.
+- **External Onboarding**: Secure, external investor onboarding flow integrated with BondAI, including document uploads, banking info, legal document signing, and e-signatures. On completion, calls POST /api/jace/webhook on BondAI with `X-Jace-Signature` header to set `isJaceLive: true` and `jaceOnboardedAt` before redirecting back to BondAI.
 - **AI Onboarding Assistant**: GPT-4o-mini powered chat assistant with streaming SSE responses, contextual guidance based on user progress, and conversation memory.
 - **Voice Assistant Widget**: Integrated voice assistant using OpenAI speech-to-text and text-to-speech (gpt-audio model), with microphone recording and audio playback. Available on all authenticated pages via floating "Voice Help" button.
 - **Settlement Management**: Internal settlement inbox with manual escrow confirmation flow, PDF receipt generation, BondAI webhook notifications on settlement events. Admin/internal roles can confirm or cancel submitted settlements via `/settlements` inbox page.
