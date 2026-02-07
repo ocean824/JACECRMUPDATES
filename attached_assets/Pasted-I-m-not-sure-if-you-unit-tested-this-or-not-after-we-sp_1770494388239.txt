@@ -1,0 +1,37 @@
+I'm not sure if you unit tested this or not after we spoke but I just ran a quick check.  Unfortunately, it's not working.  JACE is not calling the api.  See log below.  JACE is doing a get (see underlined code below) but it's not making the post.  You'll need to manually check the JACE code and see if the code is there.  I don't think it is or it's possibly not published?
+
+6:57:41 PM [express] POST /api/jace/handoff 200 in 896ms :: {"onboardingUrl":"https://jace-enterprise-crm.replit.app/external/onboarding?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzaWQiOiIzYmNmMDNkNS03YmU2LTQ5ZWItOTBiYy00NDg3MzQ3NTIyYmUiLCJpbnYiOiJjZmZkMDFlZi0yMjFlLTQyMjEtYThlMy00Zjg0NGZkYzcxZTgiLCJiSW52Ijo2LCJlbWFpbCI6InRlc3QyQGJvbmRhaS5hcHAiLCJpYXQiOjE3NzA0OTA2NjEsImV4cCI6MTc3MDQ5Nzg2MX0.UFaBbTaBqkRdi5iDAHq8MlMTc1x2ypH1aHjiSja4laM","sessionId":"3bcf03d5-7be6-49eb-90bc-4487347522be","expiresAt":"2026-02-07T20:57:41.141Z"}
+
+7:00:42 PM [express] GET /api/auth/me 200 in 79ms :: {"user":{"id":6,"email":"test2@bondai.app","name":"Test2 Investor","role":"investor","stripeCustomerId":null,"stripeSubscriptionId":null,"subscriptionStatus":"none","subscriptionTier":null,"highestTierEverHad":null,"isJaceLive":false,"jaceOnboardedAt":null,"kycVerified":false,"kycVerifiedAt":null,"kycExpiresAt":null,"kycVerificationId":null,"accreditedInvestorVerified":false,"accreditedInvestorVerifiedAt":null,"accreditedInvestorExpiresAt":null,"accreditedStatus":null,"accreditedVerifiedAt":null,"inviteCodeUsed":"BOND-INV-1DB51FB32409","invitedAt":"2026-02-05T05:24:27.012Z","inviteCodeAcceptedAt":null,"hasPin":false,"pinRole":null,"termsAcceptedAt":null,"createdAt":"2026-02-05T05:24:26.997Z"}}
+
+7:00:42 PM [express] GET /api/investor/jace-status 304 in 9ms :: {"isJaceLive":false,"jaceOnboardedAt":null}
+
+7:00:42 PM [express] GET /api/demo/status 304 in 1ms :: {"demoMode":false}
+
+7:00:42 PM [express] GET /api/investor/overview 304 in 5ms :: {"totals":{"next7Days":0,"next30Days":0,"later":36000000}}
+
+7:00:42 PM [express] GET /api/investor/ytd-savings 304 in 6ms :: {"savings":0}
+
+This the api the JACE needs to post too.  Same info I provided in the email this morning.
+
+1. POST /api/jace/webhook — Server-to-server webhook (routes.ts:3468)
+
+This is the one designed for external systems. JACE calls this endpoint after onboarding completes. It:
+
+Verifies signature via X-Jace-Signature header (if JACE_WEBHOOK_SECRET is configured)
+
+Looks for event type investor.onboarding.completed
+
+Finds the user by investorEmail from the event payload
+
+Sets isJaceLive: true and jaceOnboardedAt on that user
+
+No auth session required — it uses signature verification instead
+
+Example payload:
+
+{
+  "type": "investor.onboarding.completed",
+  "investorEmail": "investor@example.com",
+  "completedAt": "2026-02-07T12:00:00Z"
+}
