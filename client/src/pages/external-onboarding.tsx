@@ -547,11 +547,19 @@ export default function ExternalOnboardingPage() {
       if (!res.ok) throw new Error(json?.message || "Submission failed");
 
       setCompleted({ at: json.completedAt, submissionId: json.submissionId });
-      toast({ title: "Onboarding submitted", description: "JACE received your onboarding. Returning you to BondAI..." });
 
       const parentOrigin = getParentOrigin();
       const returnUrl = data?.session?.returnUrl || null;
       const bondaiInvestorId = data?.session?.bondaiInvestorId || null;
+
+      const webhookConfirmed = json.jaceWebhookSent === true;
+
+      if (!webhookConfirmed) {
+        console.warn("[JACE] Server reported jaceWebhookSent=false. BondAI may not have been notified.");
+        toast({ title: "Onboarding submitted", description: "Your data was saved. BondAI webhook may still be processing...", variant: "default" });
+      } else {
+        toast({ title: "Onboarding submitted", description: "BondAI has been notified. Redirecting you back..." });
+      }
 
       const onboardingCompletionData = {
         completedAt: json.completedAt,
@@ -565,6 +573,7 @@ export default function ExternalOnboardingPage() {
         bondaiNotified: json.bondaiNotified || false,
         bondaiWebhookSent: json.bondaiWebhookSent || false,
         bondaiKycApiSuccess: json.bondaiKycApiSuccess || false,
+        jaceWebhookSent: webhookConfirmed,
         kyc: {
           kycVerified: true,
           kycVerifiedAt: json.completedAt,
@@ -605,6 +614,9 @@ export default function ExternalOnboardingPage() {
         },
       };
 
+      // Wait a moment to ensure BondAI has processed the webhook before sending postMessage
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
       // Send comprehensive message to BondAI parent window
       window.parent?.postMessage(
         {
@@ -613,7 +625,6 @@ export default function ExternalOnboardingPage() {
         },
         parentOrigin,
       );
-      // Also send legacy message type for backward compatibility
       window.parent?.postMessage(
         {
           type: "JACE_ONBOARDING_COMPLETE",
@@ -622,7 +633,7 @@ export default function ExternalOnboardingPage() {
         parentOrigin,
       );
 
-      // Auto-redirect back to BondAI after a short delay
+      // Redirect back to BondAI after giving BondAI time to process the postMessage
       setTimeout(() => {
         if (returnUrl) {
           window.top ? window.top.location.href = returnUrl : window.location.href = returnUrl;
@@ -632,7 +643,7 @@ export default function ExternalOnboardingPage() {
             window.top ? window.top.location.href = bondaiOrigin : window.location.href = bondaiOrigin;
           }
         }
-      }, 2500);
+      }, 2000);
     } catch (e: any) {
       toast({ title: "Submission failed", description: e?.message || "Please try again.", variant: "destructive" });
     } finally {

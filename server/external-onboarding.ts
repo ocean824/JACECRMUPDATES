@@ -764,7 +764,8 @@ export function registerExternalOnboarding(app: Express) {
           }
         }
 
-        // 3. Call POST /api/jace/webhook on BondAI to set isJaceLive and jaceOnboardedAt
+        // 3. CRITICAL: Call POST /api/jace/webhook on BondAI to set isJaceLive and jaceOnboardedAt
+        // This MUST complete before we send any response back to the client
         let jaceWebhookSuccess = false;
         const bondaiBase = bondaiApiUrl
           ? bondaiApiUrl.replace(/\/+$/, "")
@@ -773,7 +774,12 @@ export function registerExternalOnboarding(app: Express) {
             : null;
         const jaceWebhookTargetUrl = bondaiBase ? `${bondaiBase}/api/jace/webhook` : null;
 
-        console.log(`[JACE WEBHOOK] Attempting POST /api/jace/webhook — bondaiApiUrl=${bondaiApiUrl || "NOT SET"}, webhookUrl=${webhookUrl || "NOT SET"}, resolved target=${jaceWebhookTargetUrl || "NULL"}, email=${email}`);
+        console.log(`[JACE WEBHOOK] ===== WEBHOOK CALL START =====`);
+        console.log(`[JACE WEBHOOK] bondaiApiUrl env = "${bondaiApiUrl || "NOT SET"}"`);
+        console.log(`[JACE WEBHOOK] webhookUrl env = "${webhookUrl || "NOT SET"}"`);
+        console.log(`[JACE WEBHOOK] resolved bondaiBase = "${bondaiBase || "NULL"}"`);
+        console.log(`[JACE WEBHOOK] resolved target = "${jaceWebhookTargetUrl || "NULL"}"`);
+        console.log(`[JACE WEBHOOK] investor email = "${email}"`);
 
         if (jaceWebhookTargetUrl) {
           const jaceWebhookBody = {
@@ -783,37 +789,62 @@ export function registerExternalOnboarding(app: Express) {
           };
 
           const jaceRaw = JSON.stringify(jaceWebhookBody);
-          const jaceSignature = process.env.JACE_WEBHOOK_SECRET
-            ? crypto.createHmac("sha256", process.env.JACE_WEBHOOK_SECRET).update(jaceRaw).digest("hex")
+          const jaceWebhookSecret = process.env.JACE_WEBHOOK_SECRET;
+          const jaceSignature = jaceWebhookSecret
+            ? crypto.createHmac("sha256", jaceWebhookSecret).update(jaceRaw).digest("hex")
             : "";
 
-          console.log(`[JACE WEBHOOK] Sending POST to ${jaceWebhookTargetUrl} with payload: ${jaceRaw}`);
+          console.log(`[JACE WEBHOOK] Payload: ${jaceRaw}`);
+          console.log(`[JACE WEBHOOK] Signature present: ${!!jaceSignature}`);
 
-          try {
-            const jaceResp = await fetch(jaceWebhookTargetUrl, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                ...(jaceSignature ? { "X-Jace-Signature": jaceSignature } : {}),
-              },
-              body: jaceRaw,
-            });
-            jaceWebhookSuccess = jaceResp.ok;
-            const respText = await jaceResp.text().catch(() => "");
-            if (jaceWebhookSuccess) {
-              console.log(`[JACE WEBHOOK] SUCCESS ${jaceResp.status} for ${email} — response: ${respText}`);
-              await logAudit(ownerUserId, "update", "bondai_integration", submission.id, `JACE webhook (investor.onboarding.completed) sent for investor ${payload.inv}`);
-            } else {
-              console.error(`[JACE WEBHOOK] FAILED ${jaceResp.status} for ${email} — response: ${respText}`);
-              await logAudit(ownerUserId, "update", "bondai_integration", submission.id, `JACE webhook failed: ${jaceResp.status} ${respText}`);
+          const maxRetries = 2;
+          for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+              console.log(`[JACE WEBHOOK] Attempt ${attempt}/${maxRetries} — POST ${jaceWebhookTargetUrl}`);
+              const controller = new AbortController();
+              const timeout = setTimeout(() => controller.abort(), 15000);
+
+              const jaceResp = await fetch(jaceWebhookTargetUrl, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  ...(jaceSignature ? { "X-Jace-Signature": jaceSignature } : {}),
+                },
+                body: jaceRaw,
+                signal: controller.signal,
+              });
+              clearTimeout(timeout);
+
+              const respText = await jaceResp.text().catch(() => "");
+              jaceWebhookSuccess = jaceResp.ok;
+
+              if (jaceWebhookSuccess) {
+                console.log(`[JACE WEBHOOK] SUCCESS ${jaceResp.status} for ${email} — response: ${respText}`);
+                await logAudit(ownerUserId, "update", "bondai_integration", submission.id, `JACE webhook (investor.onboarding.completed) sent for investor ${payload.inv}`);
+                break;
+              } else {
+                console.error(`[JACE WEBHOOK] FAILED ${jaceResp.status} for ${email} — response: ${respText}`);
+                if (attempt === maxRetries) {
+                  await logAudit(ownerUserId, "update", "bondai_integration", submission.id, `JACE webhook failed after ${maxRetries} attempts: ${jaceResp.status} ${respText}`);
+                }
+              }
+            } catch (e: any) {
+              console.error(`[JACE WEBHOOK] ERROR attempt ${attempt} for ${email}: ${e?.message}`);
+              if (attempt === maxRetries) {
+                await logAudit(ownerUserId, "update", "bondai_integration", submission.id, `JACE webhook call error after ${maxRetries} attempts: ${e?.message}`);
+              }
             }
-          } catch (e: any) {
-            console.error(`[JACE WEBHOOK] ERROR for ${email}: ${e?.message}`);
-            await logAudit(ownerUserId, "update", "bondai_integration", submission.id, `JACE webhook call error: ${e?.message}`);
+            if (!jaceWebhookSuccess && attempt < maxRetries) {
+              console.log(`[JACE WEBHOOK] Waiting 1s before retry...`);
+              await new Promise(r => setTimeout(r, 1000));
+            }
           }
         } else {
-          console.error(`[JACE WEBHOOK] SKIPPED — no target URL could be resolved. Set BONDAI_API_URL or BONDAI_WEBHOOK_URL env var.`);
+          console.error(`[JACE WEBHOOK] SKIPPED — no target URL could be resolved.`);
+          console.error(`[JACE WEBHOOK] Set BONDAI_API_URL or BONDAI_WEBHOOK_URL as a secret.`);
         }
+
+        console.log(`[JACE WEBHOOK] ===== WEBHOOK CALL END — success=${jaceWebhookSuccess} =====`);
 
         await sendInvestorOnboardingCompletedEmail({
           toEmail: email,
