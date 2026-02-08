@@ -783,6 +783,8 @@ export function registerExternalOnboarding(app: Express) {
 
         if (jaceWebhookTargetUrl) {
           const jaceWebhookBody = {
+            eventId: `jace-onboard-${submission.id}-${Date.now()}`,
+            eventType: "investor.onboarding.completed",
             type: "investor.onboarding.completed",
             investorEmail: email,
             completedAt: now.toISOString(),
