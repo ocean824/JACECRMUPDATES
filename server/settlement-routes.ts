@@ -36,10 +36,8 @@ function getUserAgent(req: Request): string {
 }
 
 function setFrameAncestorsHeaders(res: Response) {
-  const fa = process.env.BONDAI_ALLOWED_FRAME_ANCESTORS;
-  if (fa) {
-    res.setHeader("Content-Security-Policy", `frame-ancestors ${fa};`);
-  }
+  const fa = process.env.BONDAI_ALLOWED_FRAME_ANCESTORS || "'self' https://*.replit.app https://*.judgmentbonds.com https://judgmentbonds.com";
+  res.setHeader("Content-Security-Policy", `frame-ancestors ${fa};`);
 }
 
 function verifySettlementJwt(token: string, secret: string): SettlementJwtPayload {

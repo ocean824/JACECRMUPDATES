@@ -87,10 +87,8 @@ function setCorsHeaders(req: Request, res: Response) {
 }
 
 function setFrameAncestorsHeaders(req: Request, res: Response) {
-  const fa = process.env.BONDAI_ALLOWED_FRAME_ANCESTORS;
-  if (fa) {
-    res.setHeader("Content-Security-Policy", `frame-ancestors ${fa};`);
-  }
+  const fa = process.env.BONDAI_ALLOWED_FRAME_ANCESTORS || "'self' https://*.replit.app https://*.judgmentbonds.com https://judgmentbonds.com";
+  res.setHeader("Content-Security-Policy", `frame-ancestors ${fa};`);
 }
 
 async function writeBase64PngToUploads(dataUrl: string, prefix: string): Promise<{ filepath: string; filename: string; size: number }> {
