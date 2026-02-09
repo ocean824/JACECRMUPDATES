@@ -186,8 +186,9 @@ export function registerInternalSettlementRoutes(app: Express, isAuthenticated: 
       );
 
       // Notify BondAI (ONLY after internal confirmation)
-      const webhookUrl = process.env.BONDAI_WEBHOOK_URL;
-      const webhookSecret = process.env.BONDAI_WEBHOOK_SECRET;
+      const settlementBondaiBase = (process.env.BONDAI_API_URL || process.env.BONDAI_WEBHOOK_URL || "").replace(/\/+$/, "").replace(/\/api\/.*$/, "");
+      const webhookUrl = settlementBondaiBase ? `${settlementBondaiBase}/api/jace/webhook` : null;
+      const webhookSecret = process.env.JACE_WEBHOOK_SECRET || process.env.BONDAI_WEBHOOK_SECRET;
       let webhookResult: any = null;
 
       if (webhookUrl && webhookSecret) {
@@ -200,6 +201,8 @@ export function registerInternalSettlementRoutes(app: Express, isAuthenticated: 
           receiptId,
           receiptUrl: `/api/admin/settlements/${sessionId}/receipt`,
         });
+      } else {
+        console.error(`[JACE WEBHOOK] Settlement webhook SKIPPED — webhookUrl=${webhookUrl || "NULL"}, secret present=${!!webhookSecret}. Set BONDAI_API_URL and JACE_WEBHOOK_SECRET.`);
       }
 
       res.json({

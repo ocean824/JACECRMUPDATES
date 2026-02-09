@@ -767,24 +767,18 @@ export function registerExternalOnboarding(app: Express) {
         // 3. CRITICAL: Call POST /api/jace/webhook on BondAI to set isJaceLive and jaceOnboardedAt
         // This MUST complete before we send any response back to the client
         let jaceWebhookSuccess = false;
-        const bondaiBase = bondaiApiUrl
-          ? bondaiApiUrl.replace(/\/+$/, "")
-          : webhookUrl
-            ? webhookUrl.replace(/\/api\/.*$/, "")
-            : null;
-        const jaceWebhookTargetUrl = bondaiBase ? `${bondaiBase}/api/jace/webhook` : null;
+        const resolvedBondaiBase = (process.env.BONDAI_API_URL || process.env.BONDAI_WEBHOOK_URL || "").replace(/\/+$/, "").replace(/\/api\/.*$/, "");
+        const jaceWebhookTargetUrl = resolvedBondaiBase ? `${resolvedBondaiBase}/api/jace/webhook` : null;
 
         console.log(`[JACE WEBHOOK] ===== WEBHOOK CALL START =====`);
-        console.log(`[JACE WEBHOOK] bondaiApiUrl env = "${bondaiApiUrl || "NOT SET"}"`);
-        console.log(`[JACE WEBHOOK] webhookUrl env = "${webhookUrl || "NOT SET"}"`);
-        console.log(`[JACE WEBHOOK] resolved bondaiBase = "${bondaiBase || "NULL"}"`);
-        console.log(`[JACE WEBHOOK] resolved target = "${jaceWebhookTargetUrl || "NULL"}"`);
+        console.log(`[JACE WEBHOOK] BONDAI_API_URL = "${process.env.BONDAI_API_URL || "NOT SET"}"`);
+        console.log(`[JACE WEBHOOK] resolved target = "${jaceWebhookTargetUrl || "NULL — MISSING BONDAI_API_URL"}"`);
         console.log(`[JACE WEBHOOK] investor email = "${email}"`);
+        console.log(`[JACE WEBHOOK] JACE_WEBHOOK_SECRET present = ${!!process.env.JACE_WEBHOOK_SECRET}`);
 
         if (jaceWebhookTargetUrl) {
           const jaceWebhookBody = {
             eventId: `jace-onboard-${submission.id}-${Date.now()}`,
-            eventType: "investor.onboarding.completed",
             type: "investor.onboarding.completed",
             investorEmail: email,
             completedAt: now.toISOString(),
