@@ -156,6 +156,17 @@ export const settlementSessions = pgTable("settlement_sessions", {
   complianceStatus: varchar("compliance_status", { length: 30 }).default("not_started"),
   complianceCompletedAt: timestamp("compliance_completed_at", { withTimezone: true }),
   escrowAccountId: varchar("escrow_account_id").references(() => escrowAccounts.id),
+  unitCount: decimal("unit_count", { precision: 15, scale: 4 }),
+  unitPrice: decimal("unit_price", { precision: 15, scale: 4 }),
+  issuerName: varchar("issuer_name", { length: 300 }),
+  assignmentType: varchar("assignment_type", { length: 100 }),
+  cusip: varchar("cusip", { length: 20 }),
+  maturityDate: timestamp("maturity_date", { withTimezone: true }),
+  couponRate: decimal("coupon_rate", { precision: 5, scale: 3 }),
+  acknowledgedAt: timestamp("acknowledged_at", { withTimezone: true }),
+  acknowledgedIp: varchar("acknowledged_ip", { length: 45 }),
+  receiptDocumentId: varchar("receipt_document_id"),
+  journalEntryId: varchar("journal_entry_id"),
 });
 
 // Settlement Compliance Gate (completed by investor in BondAI iframe before submitting settlement)
