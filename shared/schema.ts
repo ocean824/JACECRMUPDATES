@@ -50,6 +50,37 @@ export const accountTypeEnum = pgEnum("account_type", [
   "expense"
 ]);
 
+// Settlement compliance enums (BondAI -> JACE external settlement iframe)
+export const settlementComplianceStatusEnum = pgEnum("settlement_compliance_status", [
+  "not_started",
+  "in_progress",
+  "complete",
+]);
+
+export const settlementEntityTypeEnum = pgEnum("settlement_entity_type", [
+  "individual",
+  "trust",
+  "llc",
+]);
+
+export const taxIdTypeEnum = pgEnum("tax_id_type", [
+  "SSN",
+  "EIN",
+]);
+
+export const creditCheckStatusEnum = pgEnum("credit_check_status", [
+  "not_requested",
+  "requested",
+  "received",
+  "failed",
+]);
+
+// Signature method enum (used by investor documents and settlement compliance)
+export const signatureMethodEnum = pgEnum("signature_method", [
+  "TYPED",
+  "DRAWN",
+]);
+
 // User Roles table (for role-based permissions)
 export const userRoles = pgTable("user_roles", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -126,39 +157,44 @@ export const settlementSessions = pgTable("settlement_sessions", {
   complianceCompletedAt: timestamp("compliance_completed_at", { withTimezone: true }),
 });
 
-// Settlement Compliance (per-session compliance gate data)
+// Settlement Compliance Gate (completed by investor in BondAI iframe before submitting settlement)
 export const settlementCompliance = pgTable("settlement_compliance", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  sessionId: varchar("session_id", { length: 64 }).notNull().unique(),
-  entityType: varchar("entity_type", { length: 30 }),
-  legalName: varchar("legal_name", { length: 300 }),
-  taxIdType: varchar("tax_id_type", { length: 10 }),
+  sessionId: varchar("session_id", { length: 64 })
+    .notNull()
+    .unique()
+    .references(() => settlementSessions.sessionId),
+  ownerUserId: varchar("owner_user_id").notNull(),
+  investorId: varchar("investor_id").references(() => investors.id),
+
+  entityType: settlementEntityTypeEnum("entity_type").default("individual").notNull(),
+  entityLegalName: varchar("entity_legal_name", { length: 255 }),
+  taxIdType: taxIdTypeEnum("tax_id_type"),
   taxIdLast4: varchar("tax_id_last4", { length: 4 }),
   taxIdCiphertext: text("tax_id_ciphertext"),
   taxIdIv: varchar("tax_id_iv", { length: 64 }),
   taxIdTag: varchar("tax_id_tag", { length: 64 }),
-  idPrimaryFileKey: varchar("id_primary_file_key", { length: 500 }),
-  idPrimaryOriginalName: varchar("id_primary_original_name", { length: 255 }),
-  idSecondaryFileKey: varchar("id_secondary_file_key", { length: 500 }),
-  idSecondaryOriginalName: varchar("id_secondary_original_name", { length: 255 }),
-  creditReportFileKey: varchar("credit_report_file_key", { length: 500 }),
-  creditReportOriginalName: varchar("credit_report_original_name", { length: 255 }),
-  creditReportStatus: varchar("credit_report_status", { length: 30 }).default("not_requested"),
-  creditReportRequestedAt: timestamp("credit_report_requested_at", { withTimezone: true }),
-  creditReportCompletedAt: timestamp("credit_report_completed_at", { withTimezone: true }),
-  creditAuthorizationSigned: boolean("credit_authorization_signed").default(false),
-  creditAuthorizationSignedAt: timestamp("credit_authorization_signed_at", { withTimezone: true }),
-  accreditedInvestorAttested: boolean("accredited_investor_attested").default(false),
-  accreditedInvestorSignedAt: timestamp("accredited_investor_signed_at", { withTimezone: true }),
-  holdHarmlessSigned: boolean("hold_harmless_signed").default(false),
-  holdHarmlessSignedAt: timestamp("hold_harmless_signed_at", { withTimezone: true }),
-  privatePartySelfDirected: boolean("private_party_self_directed").default(false),
-  privatePartySelfDirectedSignedAt: timestamp("private_party_self_directed_signed_at", { withTimezone: true }),
+
+  accreditedInvestor: boolean("accredited_investor").default(false).notNull(),
+  privatePartyAck: boolean("private_party_ack").default(false).notNull(),
+  holdHarmlessAck: boolean("hold_harmless_ack").default(false).notNull(),
+  setExchangeAck: boolean("set_exchange_ack").default(false).notNull(),
+
+  authorizationSigned: boolean("authorization_signed").default(false).notNull(),
+  authorizationSignedAt: timestamp("authorization_signed_at", { withTimezone: true }),
   signatureName: varchar("signature_name", { length: 255 }),
-  signatureIp: varchar("signature_ip", { length: 45 }),
-  signatureUserAgent: text("signature_user_agent"),
-  complianceStatus: varchar("compliance_status", { length: 30 }).default("not_started"),
-  compliancePacketFileKey: varchar("compliance_packet_file_key", { length: 500 }),
+  signatureMethod: signatureMethodEnum("signature_method"),
+  signatureValue: text("signature_value"),
+
+  idPrimaryDocumentId: varchar("id_primary_document_id").references(() => documents.id),
+  idSecondaryDocumentId: varchar("id_secondary_document_id").references(() => documents.id),
+  creditReportDocumentId: varchar("credit_report_document_id").references(() => documents.id),
+
+  creditProvider: varchar("credit_provider", { length: 120 }),
+  creditReference: varchar("credit_reference", { length: 200 }),
+  creditStatus: creditCheckStatusEnum("credit_status").default("not_requested").notNull(),
+
+  status: settlementComplianceStatusEnum("status").default("in_progress").notNull(),
   completedAt: timestamp("completed_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
@@ -193,12 +229,6 @@ export const investorDocStatusEnum = pgEnum("investor_doc_status", [
   "DRAFT",
   "SIGNED",
   "VOID",
-]);
-
-// Signature method enum
-export const signatureMethodEnum = pgEnum("signature_method", [
-  "TYPED",
-  "DRAWN",
 ]);
 
 // Investor Documents table (signed legal documents vault)

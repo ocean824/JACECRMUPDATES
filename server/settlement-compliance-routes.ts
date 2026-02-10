@@ -1,545 +1,472 @@
 import type { Express, Request, Response } from "express";
-import jwt from "jsonwebtoken";
-import crypto from "crypto";
 import fs from "fs";
 import path from "path";
+import crypto from "crypto";
+import jwt from "jsonwebtoken";
 import multer from "multer";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
-import { settlementCompliance, settlementSessions } from "@shared/schema";
-import { renderSettlementCompliancePacketPdf } from "./lib/pdf/renderSettlementCompliancePacketPdf";
-
-interface SettlementJwtPayload {
-  sid: string;
-  tradeId: number;
-  bondId?: number;
-  investorId?: number;
-  amount: number;
-  bondName?: string;
-  investorEmail?: string;
-  exp: number;
-  iat?: number;
-}
-
-function settlementSecretOrThrow(): string {
-  const v = process.env.SETTLEMENT_JWT_SECRET || process.env.BONDAI_SETTLEMENT_SECRET;
-  if (!v) throw new Error("SETTLEMENT_JWT_SECRET (or BONDAI_SETTLEMENT_SECRET) is required");
-  return v;
-}
-
-function verifySettlementJwt(token: string, secret: string): SettlementJwtPayload {
-  try {
-    const decoded = jwt.verify(token, secret, { algorithms: ["HS256"] }) as SettlementJwtPayload;
-    if (!decoded.sid || typeof decoded.tradeId !== "number" || typeof decoded.amount !== "number") {
-      throw new Error("Invalid token claims");
-    }
-    return decoded;
-  } catch (err: any) {
-    if (err?.name === "TokenExpiredError") throw new Error("Token expired");
-    if (err?.name === "JsonWebTokenError") throw new Error("Invalid token signature");
-    throw new Error(err?.message || "Token verification failed");
-  }
-}
-
-function encryptTaxId(plaintext: string): { ciphertext: string; iv: string; tag: string } {
-  const keyBase64 = process.env.JACE_ENCRYPTION_KEY_BASE64 || process.env.JACE_TAXID_ENCRYPTION_KEY_BASE64;
-  if (!keyBase64) throw new Error("Encryption key not configured — set JACE_ENCRYPTION_KEY_BASE64");
-  const key = Buffer.from(keyBase64, "base64");
-  if (key.length !== 32) throw new Error(`AES-256 key must be 32 bytes, got ${key.length}`);
-  const iv = crypto.randomBytes(12);
-  const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
-  const encrypted = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
-  return {
-    ciphertext: encrypted.toString("base64"),
-    iv: iv.toString("base64"),
-    tag: (cipher as any).getAuthTag().toString("base64"),
-  };
-}
-
-function getClientIp(req: Request): string {
-  const forwarded = req.headers["x-forwarded-for"];
-  if (typeof forwarded === "string") return forwarded.split(",")[0].trim();
-  if (Array.isArray(forwarded) && forwarded.length > 0) return forwarded[0].split(",")[0].trim();
-  return req.ip || "unknown";
-}
-
-function getUserAgent(req: Request): string {
-  return (req.headers["user-agent"] as string) || "unknown";
-}
-
-function setFrameAncestorsHeaders(res: Response) {
-  const fa = process.env.BONDAI_ALLOWED_FRAME_ANCESTORS || "'self' https://*.replit.app https://*.judgmentbonds.com https://judgmentbonds.com";
-  res.setHeader("Content-Security-Policy", `frame-ancestors ${fa};`);
-}
+import { documents, investors, settlementCompliance, settlementSessions } from "@shared/schema";
+import { storage, logAudit } from "./storage";
+import { renderSettlementCompliancePdf } from "./lib/pdf/renderSettlementCompliancePdf";
 
 const UPLOAD_DIR = "./uploads";
 
 function ensureUploadDir() {
-  if (!fs.existsSync(UPLOAD_DIR)) {
-    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+  if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+}
+
+function getSettlementJwtSecret(): string {
+  return process.env.SETTLEMENT_JWT_SECRET || process.env.BONDAI_SETTLEMENT_SECRET || "dev_settlement_secret";
+}
+
+function maskLast4(v?: string | null): string | null {
+  if (!v) return null;
+  const s = v.trim();
+  return s.length >= 4 ? s.slice(-4) : s;
+}
+
+function normalizeTaxId(raw: string): string {
+  return (raw || "").replace(/[^0-9]/g, "").trim();
+}
+
+function encryptSensitive(value: string, key: Buffer): { ciphertextB64: string; ivHex: string; tagHex: string } {
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
+  const ciphertext = Buffer.concat([cipher.update(Buffer.from(value, "utf8")), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return {
+    ciphertextB64: ciphertext.toString("base64"),
+    ivHex: iv.toString("hex"),
+    tagHex: tag.toString("hex"),
+  };
+}
+
+function getEncryptionKey(): Buffer {
+  const base64Key = process.env.JACE_ENCRYPTION_KEY_BASE64 || "";
+  if (!base64Key) {
+    return crypto.createHash("sha256").update("dev-jace-encryption-key").digest();
+  }
+  const key = Buffer.from(base64Key, "base64");
+  if (key.length !== 32) {
+    throw new Error("JACE_ENCRYPTION_KEY_BASE64 must decode to 32 bytes (AES-256 key).");
+  }
+  return key;
+}
+
+async function resolveOwnerUserIdForSession(session: typeof settlementSessions.$inferSelect): Promise<string | null> {
+  try {
+    if (session.investorId) {
+      const [inv] = await db.select().from(investors).where(eq(investors.id, session.investorId)).limit(1);
+      if (inv?.userId) return inv.userId;
+    }
+
+    if (session.investorEmail) {
+      const [inv] = await db
+        .select()
+        .from(investors)
+        .where(sql`lower(${investors.email}) = lower(${session.investorEmail})`)
+        .orderBy(desc(investors.createdAt))
+        .limit(1);
+      if (inv?.userId) return inv.userId;
+    }
+
+    const { users } = await import("@shared/models/auth");
+    const [admin] = await db.select().from(users).where(eq(users.isAdmin, "true")).limit(1);
+    if (admin?.id) return admin.id;
+    const [anyUser] = await db.select().from(users).limit(1);
+    return anyUser?.id ?? null;
+  } catch (e) {
+    console.error("resolveOwnerUserIdForSession failed", e);
+    return null;
   }
 }
 
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    ensureUploadDir();
-    cb(null, UPLOAD_DIR);
-  },
-  filename: (_req, file, cb) => {
-    const uniqueSuffix = `${Date.now()}-${crypto.randomBytes(6).toString("hex")}`;
-    const ext = path.extname(file.originalname);
-    cb(null, `compliance-${uniqueSuffix}${ext}`);
-  },
+function verifySessionToken(token: string): { sessionId: string } {
+  const secret = getSettlementJwtSecret();
+  const decoded = jwt.verify(token, secret) as any;
+  if (!decoded?.sessionId) throw new Error("Invalid settlement token");
+  return { sessionId: decoded.sessionId };
+}
+
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => {
+      ensureUploadDir();
+      cb(null, UPLOAD_DIR);
+    },
+    filename: (_req, file, cb) => {
+      const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+      cb(null, `settlement-compliance-${unique}${path.extname(file.originalname)}`);
+    },
+  }),
+  limits: { fileSize: 15 * 1024 * 1024 },
 });
 
-const upload = multer({ storage, limits: { fileSize: 20 * 1024 * 1024 } });
+type ComplianceSnapshot = {
+  sessionId: string;
+  status: string;
+  entityType: string;
+  entityLegalName: string | null;
+  taxIdType: string | null;
+  taxIdLast4: string | null;
+  accreditedInvestor: boolean;
+  privatePartyAck: boolean;
+  holdHarmlessAck: boolean;
+  setExchangeAck: boolean;
+  authorizationSigned: boolean;
+  authorizationSignedAt: string | null;
+  signatureName: string | null;
+  idPrimaryDocumentId: string | null;
+  idSecondaryDocumentId: string | null;
+  creditReportDocumentId: string | null;
+  creditProvider: string | null;
+  creditReference: string | null;
+  creditStatus: string;
+  completedAt: string | null;
+};
+
+function toSnapshot(row: typeof settlementCompliance.$inferSelect): ComplianceSnapshot {
+  return {
+    sessionId: row.sessionId,
+    status: row.status,
+    entityType: row.entityType,
+    entityLegalName: row.entityLegalName ?? null,
+    taxIdType: row.taxIdType ?? null,
+    taxIdLast4: row.taxIdLast4 ?? null,
+    accreditedInvestor: !!row.accreditedInvestor,
+    privatePartyAck: !!row.privatePartyAck,
+    holdHarmlessAck: !!row.holdHarmlessAck,
+    setExchangeAck: !!row.setExchangeAck,
+    authorizationSigned: !!row.authorizationSigned,
+    authorizationSignedAt: row.authorizationSignedAt ? new Date(row.authorizationSignedAt).toISOString() : null,
+    signatureName: row.signatureName ?? null,
+    idPrimaryDocumentId: row.idPrimaryDocumentId ?? null,
+    idSecondaryDocumentId: row.idSecondaryDocumentId ?? null,
+    creditReportDocumentId: row.creditReportDocumentId ?? null,
+    creditProvider: row.creditProvider ?? null,
+    creditReference: row.creditReference ?? null,
+    creditStatus: row.creditStatus,
+    completedAt: row.completedAt ? new Date(row.completedAt).toISOString() : null,
+  };
+}
+
+async function getOrCreateCompliance(session: typeof settlementSessions.$inferSelect) {
+  const [existing] = await db.select().from(settlementCompliance).where(eq(settlementCompliance.sessionId, session.sessionId)).limit(1);
+  if (existing) return existing;
+
+  const ownerUserId = (await resolveOwnerUserIdForSession(session)) || "";
+  if (!ownerUserId) throw new Error("Unable to resolve owner user for session");
+
+  const [created] = await db
+    .insert(settlementCompliance)
+    .values({
+      sessionId: session.sessionId,
+      ownerUserId,
+      investorId: session.investorId ?? null,
+      entityType: "individual",
+      status: "in_progress",
+    })
+    .returning();
+  return created;
+}
+
+function validateCompleteness(row: typeof settlementCompliance.$inferSelect): { ok: boolean; missing: string[] } {
+  const missing: string[] = [];
+  if (!row.entityLegalName || row.entityLegalName.trim().length < 2) missing.push("entityLegalName");
+  if (!row.taxIdType) missing.push("taxIdType");
+  if (!row.taxIdLast4) missing.push("taxIdLast4");
+  if (!row.taxIdCiphertext || !row.taxIdIv || !row.taxIdTag) missing.push("taxIdEncrypted");
+  if (!row.idPrimaryDocumentId) missing.push("idPrimaryDocument");
+  if (!row.idSecondaryDocumentId) missing.push("idSecondaryDocument");
+  if (!row.authorizationSigned) missing.push("authorizationSignature");
+  if (!row.creditReportDocumentId && row.creditStatus !== "received") missing.push("triMergeCreditReport");
+  if (!row.accreditedInvestor) missing.push("accreditedInvestorAck");
+  if (!row.privatePartyAck) missing.push("privatePartyAck");
+  if (!row.holdHarmlessAck) missing.push("holdHarmlessAck");
+  if (!row.setExchangeAck) missing.push("setExchangeAck");
+  return { ok: missing.length === 0, missing };
+}
 
 export function registerSettlementComplianceRoutes(app: Express) {
-  app.use((req, res, next) => {
-    if (req.path.startsWith("/api/settlement/compliance")) {
-      setFrameAncestorsHeaders(res);
-      res.setHeader("Cache-Control", "no-store");
-    }
-    next();
-  });
-
   app.get("/api/settlement/compliance", async (req: Request, res: Response) => {
     try {
-      const token = req.query.token as string;
+      const token = typeof req.query.token === "string" ? req.query.token : "";
       if (!token) return res.status(400).json({ message: "Missing token" });
+      const { sessionId } = verifySessionToken(token);
 
-      const secret = settlementSecretOrThrow();
-      const payload = verifySettlementJwt(token, secret);
+      const [session] = await db.select().from(settlementSessions).where(eq(settlementSessions.sessionId, sessionId)).limit(1);
+      if (!session) return res.status(404).json({ message: "Settlement session not found" });
 
-      const [complianceRecord] = await db
-        .select()
-        .from(settlementCompliance)
-        .where(eq(settlementCompliance.sessionId, payload.sid))
-        .limit(1);
-
-      const [session] = await db
-        .select()
-        .from(settlementSessions)
-        .where(eq(settlementSessions.sessionId, payload.sid))
-        .limit(1);
-
-      if (!complianceRecord) {
-        return res.json({
-          sessionId: payload.sid,
-          complianceStatus: session?.complianceStatus || "not_started",
-          entityType: null,
-          legalName: null,
-          taxIdType: null,
-          taxIdLast4: null,
-          idPrimaryFileKey: null,
-          idPrimaryOriginalName: null,
-          idSecondaryFileKey: null,
-          idSecondaryOriginalName: null,
-          creditReportFileKey: null,
-          creditReportOriginalName: null,
-          creditReportStatus: "not_requested",
-          creditReportRequestedAt: null,
-          creditReportCompletedAt: null,
-          creditAuthorizationSigned: false,
-          creditAuthorizationSignedAt: null,
-          accreditedInvestorAttested: false,
-          accreditedInvestorSignedAt: null,
-          holdHarmlessSigned: false,
-          holdHarmlessSignedAt: null,
-          privatePartySelfDirected: false,
-          privatePartySelfDirectedSignedAt: null,
-          signatureName: null,
-          signatureIp: null,
-          signatureUserAgent: null,
-          compliancePacketFileKey: null,
-          completedAt: null,
-        });
-      }
-
-      return res.json({
-        ...complianceRecord,
-        complianceStatus: complianceRecord.complianceStatus || session?.complianceStatus || "not_started",
-      });
-    } catch (err: any) {
-      console.error("GET /api/settlement/compliance error:", err);
-      return res.status(401).json({ message: err?.message || "Unauthorized" });
+      const row = await getOrCreateCompliance(session);
+      return res.json(toSnapshot(row));
+    } catch (e: any) {
+      console.error("GET /api/settlement/compliance error", e);
+      return res.status(401).json({ message: e?.message || "Invalid token" });
     }
   });
 
   app.post("/api/settlement/compliance/save", async (req: Request, res: Response) => {
     try {
-      const { token, entityType, legalName, taxIdType, taxIdLast4, taxIdFull } = req.body || {};
+      const token = typeof (req.body as any)?.token === "string" ? (req.body as any).token : "";
       if (!token) return res.status(400).json({ message: "Missing token" });
+      const { sessionId } = verifySessionToken(token);
 
-      const secret = settlementSecretOrThrow();
-      const payload = verifySettlementJwt(token, secret);
+      const [session] = await db.select().from(settlementSessions).where(eq(settlementSessions.sessionId, sessionId)).limit(1);
+      if (!session) return res.status(404).json({ message: "Settlement session not found" });
 
-      let taxIdCiphertext: string | null = null;
-      let taxIdIv: string | null = null;
-      let taxIdTag: string | null = null;
+      const existing = await getOrCreateCompliance(session);
 
-      if (taxIdFull && typeof taxIdFull === "string") {
-        const encrypted = encryptTaxId(taxIdFull);
-        taxIdCiphertext = encrypted.ciphertext;
-        taxIdIv = encrypted.iv;
-        taxIdTag = encrypted.tag;
+      const entityType = typeof (req.body as any).entityType === "string" ? (req.body as any).entityType : undefined;
+      const entityLegalName = typeof (req.body as any).entityLegalName === "string" ? (req.body as any).entityLegalName : undefined;
+      const taxIdType = typeof (req.body as any).taxIdType === "string" ? (req.body as any).taxIdType : undefined;
+      const taxIdRaw = typeof (req.body as any).taxId === "string" ? (req.body as any).taxId : undefined;
+
+      const accreditedInvestor = typeof (req.body as any).accreditedInvestor === "boolean" ? (req.body as any).accreditedInvestor : undefined;
+      const privatePartyAck = typeof (req.body as any).privatePartyAck === "boolean" ? (req.body as any).privatePartyAck : undefined;
+      const holdHarmlessAck = typeof (req.body as any).holdHarmlessAck === "boolean" ? (req.body as any).holdHarmlessAck : undefined;
+      const setExchangeAck = typeof (req.body as any).setExchangeAck === "boolean" ? (req.body as any).setExchangeAck : undefined;
+
+      const patch: Partial<typeof settlementCompliance.$inferInsert> = { updatedAt: new Date() };
+      if (entityType && ["individual", "trust", "llc"].includes(entityType)) patch.entityType = entityType as any;
+      if (typeof entityLegalName === "string") patch.entityLegalName = entityLegalName.trim();
+
+      if (taxIdType && ["SSN", "EIN"].includes(taxIdType)) patch.taxIdType = taxIdType as any;
+      if (taxIdRaw && taxIdType) {
+        const normalized = normalizeTaxId(taxIdRaw);
+        if (!normalized || normalized.length < 4) {
+          return res.status(400).json({ message: "Invalid tax id" });
+        }
+        const encKey = getEncryptionKey();
+        const enc = encryptSensitive(normalized, encKey);
+        patch.taxIdLast4 = maskLast4(normalized);
+        patch.taxIdCiphertext = enc.ciphertextB64;
+        patch.taxIdIv = enc.ivHex;
+        patch.taxIdTag = enc.tagHex;
       }
 
-      const now = new Date();
-      const values: Record<string, any> = {
-        sessionId: payload.sid,
-        complianceStatus: "in_progress",
-        updatedAt: now,
-      };
+      if (typeof accreditedInvestor === "boolean") patch.accreditedInvestor = accreditedInvestor;
+      if (typeof privatePartyAck === "boolean") patch.privatePartyAck = privatePartyAck;
+      if (typeof holdHarmlessAck === "boolean") patch.holdHarmlessAck = holdHarmlessAck;
+      if (typeof setExchangeAck === "boolean") patch.setExchangeAck = setExchangeAck;
 
-      if (entityType !== undefined) values.entityType = String(entityType).toLowerCase();
-      if (legalName !== undefined) values.legalName = legalName;
-      if (taxIdType !== undefined) values.taxIdType = String(taxIdType).toUpperCase();
-      if (taxIdLast4 !== undefined) values.taxIdLast4 = String(taxIdLast4).slice(-4);
-      if (taxIdCiphertext) {
-        values.taxIdCiphertext = taxIdCiphertext;
-        values.taxIdIv = taxIdIv;
-        values.taxIdTag = taxIdTag;
-      }
+      const [updated] = await db
+        .update(settlementCompliance)
+        .set(patch)
+        .where(eq(settlementCompliance.id, existing.id))
+        .returning();
 
-      const [existing] = await db
-        .select()
-        .from(settlementCompliance)
-        .where(eq(settlementCompliance.sessionId, payload.sid))
-        .limit(1);
-
-      let record;
-      if (existing) {
-        const { sessionId: _sid, ...updateValues } = values;
-        [record] = await db
-          .update(settlementCompliance)
-          .set(updateValues)
-          .where(eq(settlementCompliance.sessionId, payload.sid))
-          .returning();
-      } else {
-        values.createdAt = now;
-        [record] = await db
-          .insert(settlementCompliance)
-          .values(values as any)
-          .returning();
-      }
-
-      await db
-        .update(settlementSessions)
-        .set({ complianceStatus: "in_progress", updatedAt: now })
-        .where(eq(settlementSessions.sessionId, payload.sid));
-
-      return res.json(record);
-    } catch (err: any) {
-      console.error("POST /api/settlement/compliance/save error:", err);
-      return res.status(err?.message?.includes("Token") ? 401 : 500).json({ message: err?.message || "Failed to save compliance data" });
+      return res.json(toSnapshot(updated));
+    } catch (e: any) {
+      console.error("POST /api/settlement/compliance/save error", e);
+      return res.status(401).json({ message: e?.message || "Invalid token" });
     }
   });
 
-  app.post("/api/settlement/compliance/upload", upload.single("file"), async (req: Request, res: Response) => {
+  app.post("/api/settlement/compliance/upload", upload.single("file"), async (req: any, res: Response) => {
     try {
-      const token = (req.query.token as string) || req.body?.token;
-      if (!token) return res.status(400).json({ message: "Missing token" });
-
-      const secret = settlementSecretOrThrow();
-      const payload = verifySettlementJwt(token, secret);
-
+      const token = typeof req.body?.token === "string" ? req.body.token : "";
+      const kind = typeof req.body?.kind === "string" ? req.body.kind : "";
       const file = req.file;
+      if (!token) return res.status(400).json({ message: "Missing token" });
       if (!file) return res.status(400).json({ message: "No file uploaded" });
+      if (!kind) return res.status(400).json({ message: "Missing kind" });
 
-      const docType = req.body?.docType as string;
-      if (!docType || !["id_primary", "id_secondary", "credit_report"].includes(docType)) {
-        return res.status(400).json({ message: "Invalid docType. Must be id_primary, id_secondary, or credit_report" });
-      }
+      const { sessionId } = verifySessionToken(token);
+      const [session] = await db.select().from(settlementSessions).where(eq(settlementSessions.sessionId, sessionId)).limit(1);
+      if (!session) return res.status(404).json({ message: "Settlement session not found" });
 
-      const fileKey = file.filename;
-      const originalName = file.originalname;
-      const now = new Date();
+      const row = await getOrCreateCompliance(session);
+      const ownerUserId = row.ownerUserId;
 
-      const updateFields: Record<string, any> = { updatedAt: now };
-
-      if (docType === "id_primary") {
-        updateFields.idPrimaryFileKey = fileKey;
-        updateFields.idPrimaryOriginalName = originalName;
-      } else if (docType === "id_secondary") {
-        updateFields.idSecondaryFileKey = fileKey;
-        updateFields.idSecondaryOriginalName = originalName;
-      } else if (docType === "credit_report") {
-        updateFields.creditReportFileKey = fileKey;
-        updateFields.creditReportOriginalName = originalName;
-      }
-
-      const [existing] = await db
-        .select()
-        .from(settlementCompliance)
-        .where(eq(settlementCompliance.sessionId, payload.sid))
-        .limit(1);
-
-      if (existing) {
-        await db
-          .update(settlementCompliance)
-          .set(updateFields)
-          .where(eq(settlementCompliance.sessionId, payload.sid));
-      } else {
-        await db
-          .insert(settlementCompliance)
-          .values({
-            sessionId: payload.sid,
-            complianceStatus: "in_progress",
-            createdAt: now,
-            ...updateFields,
-          } as any);
-      }
-
-      return res.json({
-        success: true,
-        docType,
-        fileKey,
-        originalName,
+      const doc = await storage.createDocument(ownerUserId, {
+        filename: file.filename,
+        originalName: file.originalname,
+        mimeType: file.mimetype,
+        size: file.size,
+        investorId: session.investorId ?? null,
+        category: kind,
+        description: `Settlement compliance upload (${kind}) for Session ${sessionId}`,
       });
-    } catch (err: any) {
-      console.error("POST /api/settlement/compliance/upload error:", err);
-      return res.status(err?.message?.includes("Token") ? 401 : 500).json({ message: err?.message || "Failed to upload file" });
+
+      const patch: Partial<typeof settlementCompliance.$inferInsert> = { updatedAt: new Date() };
+      if (kind === "id_primary") patch.idPrimaryDocumentId = doc.id;
+      if (kind === "id_secondary") patch.idSecondaryDocumentId = doc.id;
+      if (kind === "credit_report") {
+        patch.creditReportDocumentId = doc.id;
+        patch.creditStatus = "received";
+      }
+
+      const [updated] = await db
+        .update(settlementCompliance)
+        .set(patch)
+        .where(eq(settlementCompliance.id, row.id))
+        .returning();
+
+      await logAudit(ownerUserId, "create", "settlement_compliance_upload", doc.id, `Uploaded ${kind} for settlement ${sessionId}`);
+
+      return res.status(201).json({ documentId: doc.id, compliance: toSnapshot(updated) });
+    } catch (e: any) {
+      console.error("POST /api/settlement/compliance/upload error", e);
+      return res.status(401).json({ message: e?.message || "Invalid token" });
     }
   });
 
   app.post("/api/settlement/compliance/sign", async (req: Request, res: Response) => {
     try {
-      const {
-        token,
-        accreditedInvestorAttested,
-        holdHarmlessSigned,
-        privatePartySelfDirected,
-        creditAuthorizationSigned,
-        signatureName,
-      } = req.body || {};
-
+      const token = typeof (req.body as any)?.token === "string" ? (req.body as any).token : "";
       if (!token) return res.status(400).json({ message: "Missing token" });
+      const { sessionId } = verifySessionToken(token);
 
-      const secret = settlementSecretOrThrow();
-      const payload = verifySettlementJwt(token, secret);
+      const signatureName = typeof (req.body as any).signatureName === "string" ? (req.body as any).signatureName : "";
+      const signatureMethod = typeof (req.body as any).signatureMethod === "string" ? (req.body as any).signatureMethod : "TYPED";
+      const signatureValue = typeof (req.body as any).signatureValue === "string" ? (req.body as any).signatureValue : "";
 
+      if (!signatureName.trim() || !signatureValue.trim()) {
+        return res.status(400).json({ message: "Signature name and value required" });
+      }
+
+      const [session] = await db.select().from(settlementSessions).where(eq(settlementSessions.sessionId, sessionId)).limit(1);
+      if (!session) return res.status(404).json({ message: "Settlement session not found" });
+
+      const row = await getOrCreateCompliance(session);
       const now = new Date();
-      const ip = getClientIp(req);
-      const ua = getUserAgent(req);
 
-      const updateFields: Record<string, any> = {
-        updatedAt: now,
-        signatureIp: ip,
-        signatureUserAgent: ua,
-      };
+      const [updated] = await db
+        .update(settlementCompliance)
+        .set({
+          authorizationSigned: true,
+          authorizationSignedAt: now,
+          signatureName: signatureName.trim(),
+          signatureMethod: signatureMethod === "DRAWN" ? "DRAWN" : "TYPED",
+          signatureValue: signatureValue,
+          updatedAt: now,
+          creditStatus: row.creditStatus === "not_requested" ? "requested" : row.creditStatus,
+        })
+        .where(eq(settlementCompliance.id, row.id))
+        .returning();
 
-      if (signatureName !== undefined) updateFields.signatureName = signatureName;
-
-      if (accreditedInvestorAttested === true) {
-        updateFields.accreditedInvestorAttested = true;
-        updateFields.accreditedInvestorSignedAt = now;
-      }
-      if (holdHarmlessSigned === true) {
-        updateFields.holdHarmlessSigned = true;
-        updateFields.holdHarmlessSignedAt = now;
-      }
-      if (privatePartySelfDirected === true) {
-        updateFields.privatePartySelfDirected = true;
-        updateFields.privatePartySelfDirectedSignedAt = now;
-      }
-      if (creditAuthorizationSigned === true) {
-        updateFields.creditAuthorizationSigned = true;
-        updateFields.creditAuthorizationSignedAt = now;
-      }
-
-      const [existing] = await db
-        .select()
-        .from(settlementCompliance)
-        .where(eq(settlementCompliance.sessionId, payload.sid))
-        .limit(1);
-
-      let record;
-      if (existing) {
-        [record] = await db
-          .update(settlementCompliance)
-          .set(updateFields)
-          .where(eq(settlementCompliance.sessionId, payload.sid))
-          .returning();
-      } else {
-        [record] = await db
-          .insert(settlementCompliance)
-          .values({
-            sessionId: payload.sid,
-            complianceStatus: "in_progress",
-            createdAt: now,
-            ...updateFields,
-          } as any)
-          .returning();
-      }
-
-      return res.json(record);
-    } catch (err: any) {
-      console.error("POST /api/settlement/compliance/sign error:", err);
-      return res.status(err?.message?.includes("Token") ? 401 : 500).json({ message: err?.message || "Failed to save signatures" });
+      return res.json(toSnapshot(updated));
+    } catch (e: any) {
+      console.error("POST /api/settlement/compliance/sign error", e);
+      return res.status(401).json({ message: e?.message || "Invalid token" });
     }
   });
 
   app.post("/api/settlement/compliance/pull-credit", async (req: Request, res: Response) => {
     try {
-      const { token } = req.body || {};
+      const token = typeof (req.body as any)?.token === "string" ? (req.body as any).token : "";
       if (!token) return res.status(400).json({ message: "Missing token" });
+      const { sessionId } = verifySessionToken(token);
 
-      const secret = settlementSecretOrThrow();
-      const payload = verifySettlementJwt(token, secret);
+      const provider = typeof (req.body as any).provider === "string" ? (req.body as any).provider : "demo";
+      const [session] = await db.select().from(settlementSessions).where(eq(settlementSessions.sessionId, sessionId)).limit(1);
+      if (!session) return res.status(404).json({ message: "Settlement session not found" });
 
+      const row = await getOrCreateCompliance(session);
       const now = new Date();
 
-      const [existing] = await db
-        .select()
-        .from(settlementCompliance)
-        .where(eq(settlementCompliance.sessionId, payload.sid))
-        .limit(1);
+      const reference = `TRI-${now.getTime()}-${sessionId.slice(0, 6)}`;
+      const [updated] = await db
+        .update(settlementCompliance)
+        .set({
+          creditProvider: provider,
+          creditReference: reference,
+          creditStatus: "received",
+          updatedAt: now,
+        })
+        .where(eq(settlementCompliance.id, row.id))
+        .returning();
 
-      const updateFields = {
-        creditReportStatus: "completed",
-        creditReportRequestedAt: now,
-        creditReportCompletedAt: now,
-        updatedAt: now,
-      };
-
-      if (existing) {
-        await db
-          .update(settlementCompliance)
-          .set(updateFields)
-          .where(eq(settlementCompliance.sessionId, payload.sid));
-      } else {
-        await db
-          .insert(settlementCompliance)
-          .values({
-            sessionId: payload.sid,
-            complianceStatus: "in_progress",
-            createdAt: now,
-            ...updateFields,
-          } as any);
-      }
-
-      return res.json({
-        success: true,
-        creditReportStatus: "completed",
-        creditReportRequestedAt: now.toISOString(),
-        creditReportCompletedAt: now.toISOString(),
-      });
-    } catch (err: any) {
-      console.error("POST /api/settlement/compliance/pull-credit error:", err);
-      return res.status(err?.message?.includes("Token") ? 401 : 500).json({ message: err?.message || "Failed to pull credit report" });
+      return res.json({ ok: true, reference, compliance: toSnapshot(updated) });
+    } catch (e: any) {
+      console.error("POST /api/settlement/compliance/pull-credit error", e);
+      return res.status(401).json({ message: e?.message || "Invalid token" });
     }
   });
 
   app.post("/api/settlement/compliance/complete", async (req: Request, res: Response) => {
     try {
-      const { token } = req.body || {};
+      const token = typeof (req.body as any)?.token === "string" ? (req.body as any).token : "";
       if (!token) return res.status(400).json({ message: "Missing token" });
+      const { sessionId } = verifySessionToken(token);
 
-      const secret = settlementSecretOrThrow();
-      const payload = verifySettlementJwt(token, secret);
+      const [session] = await db.select().from(settlementSessions).where(eq(settlementSessions.sessionId, sessionId)).limit(1);
+      if (!session) return res.status(404).json({ message: "Settlement session not found" });
 
-      const [record] = await db
-        .select()
-        .from(settlementCompliance)
-        .where(eq(settlementCompliance.sessionId, payload.sid))
-        .limit(1);
-
-      if (!record) {
-        return res.status(400).json({ message: "No compliance record found. Please complete all steps first." });
+      const row = await getOrCreateCompliance(session);
+      const check = validateCompleteness(row);
+      if (!check.ok) {
+        return res.status(422).json({ message: "Compliance incomplete", missing: check.missing });
       }
-
-      const missing: string[] = [];
-      if (!record.entityType) missing.push("entityType");
-      if (!record.legalName) missing.push("legalName");
-      if (!record.taxIdType) missing.push("taxIdType");
-      if (!record.taxIdLast4) missing.push("taxIdLast4");
-      if (!record.idPrimaryFileKey) missing.push("idPrimaryFileKey (primary identification document)");
-      if (!record.accreditedInvestorAttested) missing.push("accreditedInvestorAttested");
-      if (!record.holdHarmlessSigned) missing.push("holdHarmlessSigned");
-      if (!record.privatePartySelfDirected) missing.push("privatePartySelfDirected");
-      if (!record.creditAuthorizationSigned) missing.push("creditAuthorizationSigned");
-      if (!record.signatureName) missing.push("signatureName");
-
-      if (missing.length > 0) {
-        return res.status(400).json({
-          message: "Missing required compliance fields",
-          missing,
-        });
-      }
-
-      const [session] = await db
-        .select()
-        .from(settlementSessions)
-        .where(eq(settlementSessions.sessionId, payload.sid))
-        .limit(1);
 
       const now = new Date();
-      ensureUploadDir();
+      const complianceId = `COMP-${now.getTime()}-${sessionId.slice(0, 8)}`;
 
-      const pdfBuffer = await renderSettlementCompliancePacketPdf({
-        sessionId: payload.sid,
-        tradeId: payload.tradeId,
-        bondName: payload.bondName || session?.bondName,
-        amount: payload.amount,
-        investorEmail: payload.investorEmail || session?.investorEmail,
-        entityType: record.entityType,
-        legalName: record.legalName,
-        taxIdType: record.taxIdType,
-        taxIdLast4: record.taxIdLast4,
-        idPrimaryOriginalName: record.idPrimaryOriginalName,
-        idSecondaryOriginalName: record.idSecondaryOriginalName,
-        creditReportStatus: record.creditReportStatus,
-        creditReportOriginalName: record.creditReportOriginalName,
-        creditReportRequestedAt: record.creditReportRequestedAt?.toISOString() || null,
-        creditReportCompletedAt: record.creditReportCompletedAt?.toISOString() || null,
-        creditAuthorizationSigned: record.creditAuthorizationSigned ?? false,
-        creditAuthorizationSignedAt: record.creditAuthorizationSignedAt?.toISOString() || null,
-        accreditedInvestorAttested: record.accreditedInvestorAttested ?? false,
-        accreditedInvestorSignedAt: record.accreditedInvestorSignedAt?.toISOString() || null,
-        holdHarmlessSigned: record.holdHarmlessSigned ?? false,
-        holdHarmlessSignedAt: record.holdHarmlessSignedAt?.toISOString() || null,
-        privatePartySelfDirected: record.privatePartySelfDirected ?? false,
-        privatePartySelfDirectedSignedAt: record.privatePartySelfDirectedSignedAt?.toISOString() || null,
-        signatureName: record.signatureName,
-        signatureIp: record.signatureIp,
-        completedAt: now.toISOString(),
+      const pdf = await renderSettlementCompliancePdf({
+        complianceId,
+        sessionId,
+        tradeId: session.tradeId,
+        bondName: session.bondName,
+        amount: Number(session.amount),
+        investorEmail: session.investorEmail,
+        entityType: row.entityType,
+        entityLegalName: row.entityLegalName || "",
+        taxIdType: row.taxIdType || "",
+        taxIdLast4: row.taxIdLast4 || "",
+        accreditedInvestor: row.accreditedInvestor,
+        privatePartyAck: row.privatePartyAck,
+        holdHarmlessAck: row.holdHarmlessAck,
+        setExchangeAck: row.setExchangeAck,
+        authorizationSignedAtISO: row.authorizationSignedAt ? new Date(row.authorizationSignedAt).toISOString() : now.toISOString(),
+        signatureName: row.signatureName || "",
+        signatureMethod: row.signatureMethod || "TYPED",
+        creditProvider: row.creditProvider || "",
+        creditReference: row.creditReference || "",
+        createdAtISO: now.toISOString(),
+        ipAddress: (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || (req.ip as any) || "",
+        userAgent: (req.headers["user-agent"] as string) || "",
       });
 
-      const pdfFilename = `compliance-packet-${payload.sid}-${Date.now()}.pdf`;
-      const pdfPath = path.join(UPLOAD_DIR, pdfFilename);
-      fs.writeFileSync(pdfPath, pdfBuffer);
+      ensureUploadDir();
+      const filename = `settlement-compliance-${sessionId}.pdf`;
+      fs.writeFileSync(path.join(UPLOAD_DIR, filename), pdf);
 
-      const [updated] = await db
+      const doc = await storage.createDocument(row.ownerUserId, {
+        filename,
+        originalName: `Settlement Compliance Gate - Trade ${session.tradeId}.pdf`,
+        mimeType: "application/pdf",
+        size: pdf.length,
+        investorId: session.investorId ?? null,
+        category: "settlement_compliance",
+        description: `Settlement compliance gate for Trade ${session.tradeId} (Session ${sessionId})`,
+      });
+
+      const [updatedCompliance] = await db
         .update(settlementCompliance)
-        .set({
-          complianceStatus: "complete",
-          compliancePacketFileKey: pdfFilename,
-          completedAt: now,
-          updatedAt: now,
-        })
-        .where(eq(settlementCompliance.sessionId, payload.sid))
+        .set({ status: "complete", completedAt: now, updatedAt: now })
+        .where(eq(settlementCompliance.id, row.id))
         .returning();
 
       await db
         .update(settlementSessions)
-        .set({
-          complianceStatus: "complete",
-          complianceCompletedAt: now,
-          updatedAt: now,
-        })
-        .where(eq(settlementSessions.sessionId, payload.sid));
+        .set({ complianceStatus: "complete", complianceCompletedAt: now, updatedAt: now })
+        .where(eq(settlementSessions.sessionId, sessionId));
 
-      return res.json({
-        success: true,
-        complianceStatus: "complete",
-        compliancePacketFileKey: pdfFilename,
-        completedAt: now.toISOString(),
-        record: updated,
-      });
-    } catch (err: any) {
-      console.error("POST /api/settlement/compliance/complete error:", err);
-      return res.status(err?.message?.includes("Token") ? 401 : 500).json({ message: err?.message || "Failed to complete compliance" });
+      await logAudit(
+        row.ownerUserId,
+        "update",
+        "settlement_compliance",
+        row.id,
+        `Completed settlement compliance gate for Trade ${session.tradeId}`,
+        { sessionId, tradeId: session.tradeId, complianceId, documentId: doc.id },
+        req.ip
+      );
+
+      return res.json({ ok: true, complianceId, documentId: doc.id, compliance: toSnapshot(updatedCompliance) });
+    } catch (e: any) {
+      console.error("POST /api/settlement/compliance/complete error", e);
+      return res.status(401).json({ message: e?.message || "Invalid token" });
     }
   });
 }

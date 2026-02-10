@@ -3,7 +3,7 @@ import fs from "fs";
 import path from "path";
 import { desc, eq, sql } from "drizzle-orm";
 import { db } from "./db";
-import { investors, settlementSessions, settlementCompliance } from "@shared/schema";
+import { documents, investors, settlementCompliance, settlementSessions } from "@shared/schema";
 import { storage, logAudit } from "./storage";
 import { renderSettlementReceiptPdf } from "./lib/pdf/renderSettlementReceiptPdf";
 import { sendWebhookToBondAI } from "./services/bondaiSettlementWebhook";
@@ -44,7 +44,6 @@ function ensureUploadDir() {
 }
 
 export function registerInternalSettlementRoutes(app: Express, isAuthenticated: any) {
-  // Internal settlement inbox and actions (requires login + internal role)
   app.get("/api/admin/settlements/summary", isAuthenticated, requireInternalRole, async (_req, res) => {
     try {
       const [submittedRow] = await db
@@ -72,15 +71,75 @@ export function registerInternalSettlementRoutes(app: Express, isAuthenticated: 
       const status = typeof req.query.status === "string" ? req.query.status : undefined;
       const limit = typeof req.query.limit === "string" ? Math.min(parseInt(req.query.limit, 10) || 50, 200) : 50;
 
-      const base = db.select().from(settlementSessions);
-      const rows = status
-        ? await base.where(eq(settlementSessions.status, status)).orderBy(desc(settlementSessions.createdAt)).limit(limit)
-        : await base.orderBy(desc(settlementSessions.createdAt)).limit(limit);
+      const baseQuery = db
+        .select({
+          id: settlementSessions.id,
+          sessionId: settlementSessions.sessionId,
+          tradeId: settlementSessions.tradeId,
+          bondId: settlementSessions.bondId,
+          bondaiInvestorId: settlementSessions.bondaiInvestorId,
+          investorId: settlementSessions.investorId,
+          investorName: settlementSessions.investorName,
+          investorEmail: settlementSessions.investorEmail,
+          amount: settlementSessions.amount,
+          bondName: settlementSessions.bondName,
+          paymentReference: settlementSessions.paymentReference,
+          status: settlementSessions.status,
+          complianceStatus: settlementSessions.complianceStatus,
+          complianceCompletedAt: settlementSessions.complianceCompletedAt,
+          createdAt: settlementSessions.createdAt,
+          updatedAt: settlementSessions.updatedAt,
+          expiresAt: settlementSessions.expiresAt,
+          settledAt: settlementSessions.settledAt,
+          cancelledAt: settlementSessions.cancelledAt,
+          failureReason: settlementSessions.failureReason,
 
+          entityType: settlementCompliance.entityType,
+          entityLegalName: settlementCompliance.entityLegalName,
+          taxIdType: settlementCompliance.taxIdType,
+          taxIdLast4: settlementCompliance.taxIdLast4,
+          idPrimaryDocumentId: settlementCompliance.idPrimaryDocumentId,
+          idSecondaryDocumentId: settlementCompliance.idSecondaryDocumentId,
+          creditReportDocumentId: settlementCompliance.creditReportDocumentId,
+          creditProvider: settlementCompliance.creditProvider,
+          creditReference: settlementCompliance.creditReference,
+          creditStatus: settlementCompliance.creditStatus,
+          authorizationSignedAt: settlementCompliance.authorizationSignedAt,
+
+          compliancePacketDocumentId: sql<string | null>`(
+            select id
+            from documents
+            where category = 'settlement_compliance'
+              and filename = ('settlement-compliance-' || ${settlementSessions.sessionId} || '.pdf')
+            limit 1
+          )`,
+        })
+        .from(settlementSessions)
+        .leftJoin(settlementCompliance, eq(settlementCompliance.sessionId, settlementSessions.sessionId));
+
+      const rows = status
+        ? await baseQuery.where(eq(settlementSessions.status, status)).orderBy(desc(settlementSessions.createdAt)).limit(limit)
+        : await baseQuery.orderBy(desc(settlementSessions.createdAt)).limit(limit);
       res.json(rows);
     } catch (error) {
       console.error("Error fetching settlements:", error);
       res.status(500).json({ message: "Failed to fetch settlements" });
+    }
+  });
+
+  app.get("/api/admin/documents/:id/download", isAuthenticated, requireInternalRole, async (req, res) => {
+    try {
+      const id = req.params.id;
+      const [doc] = await db.select().from(documents).where(eq(documents.id, id)).limit(1);
+      if (!doc) return res.status(404).json({ message: "Document not found" });
+
+      const filePath = path.join(UPLOAD_DIR, doc.filename);
+      if (!fs.existsSync(filePath)) return res.status(404).json({ message: "File not found" });
+
+      return res.download(filePath, doc.originalName);
+    } catch (error) {
+      console.error("Error downloading admin document:", error);
+      return res.status(500).json({ message: "Failed to download document" });
     }
   });
 
@@ -108,24 +167,13 @@ export function registerInternalSettlementRoutes(app: Express, isAuthenticated: 
         return res.status(400).json({ message: "Settlement has not been submitted yet" });
       }
 
-      // Compliance gate: block confirmation unless compliance is complete
       if (existing.complianceStatus !== "complete") {
-        const [complianceRecord] = await db
-          .select()
-          .from(settlementCompliance)
-          .where(eq(settlementCompliance.sessionId, sessionId))
-          .limit(1);
-
-        if (!complianceRecord || complianceRecord.complianceStatus !== "complete") {
-          return res.status(409).json({
-            message: "Compliance must be completed before confirming settlement",
-            code: "COMPLIANCE_REQUIRED",
-            complianceStatus: complianceRecord?.complianceStatus || "not_started",
-          });
-        }
+        return res.status(409).json({
+          message:
+            "Cannot confirm settlement: investor compliance gate is incomplete (entity + 2 IDs + tri-merge credit authorization + attestations).",
+        });
       }
 
-      // Mark settled
       const now = new Date();
       const [updated] = await db
         .update(settlementSessions)
@@ -137,7 +185,6 @@ export function registerInternalSettlementRoutes(app: Express, isAuthenticated: 
         .where(eq(settlementSessions.sessionId, sessionId))
         .returning();
 
-      // Generate receipt PDF
       ensureUploadDir();
       const receiptId = `REC-${now.getTime()}-${sessionId.slice(0, 8)}`;
       const receiptBuffer = await renderSettlementReceiptPdf({
@@ -158,7 +205,6 @@ export function registerInternalSettlementRoutes(app: Express, isAuthenticated: 
       const receiptPath = path.join(UPLOAD_DIR, receiptFilename);
       fs.writeFileSync(receiptPath, receiptBuffer);
 
-      // Attempt to attach receipt to investor record (best-effort)
       let investorId: string | null = updated.investorId ?? null;
       if (!investorId && updated.investorEmail) {
         const [inv] = await db
@@ -170,7 +216,6 @@ export function registerInternalSettlementRoutes(app: Express, isAuthenticated: 
         investorId = inv?.id ?? null;
       }
 
-      // Create a document record for download links in the CRM
       try {
         await storage.createDocument(userId, {
           filename: receiptFilename,
@@ -185,7 +230,6 @@ export function registerInternalSettlementRoutes(app: Express, isAuthenticated: 
         console.error("Failed to create settlement receipt document record:", err);
       }
 
-      // Audit log
       await logAudit(
         userId,
         "update",
@@ -202,10 +246,8 @@ export function registerInternalSettlementRoutes(app: Express, isAuthenticated: 
         req.ip
       );
 
-      // Notify BondAI (ONLY after internal confirmation)
-      const settlementBondaiBase = (process.env.BONDAI_API_URL || process.env.BONDAI_WEBHOOK_URL || "").replace(/\/+$/, "").replace(/\/api\/.*$/, "");
-      const webhookUrl = settlementBondaiBase ? `${settlementBondaiBase}/api/jace/webhook` : null;
-      const webhookSecret = process.env.JACE_WEBHOOK_SECRET || process.env.BONDAI_WEBHOOK_SECRET;
+      const webhookUrl = process.env.BONDAI_WEBHOOK_URL;
+      const webhookSecret = process.env.BONDAI_WEBHOOK_SECRET;
       let webhookResult: any = null;
 
       if (webhookUrl && webhookSecret) {
@@ -218,8 +260,6 @@ export function registerInternalSettlementRoutes(app: Express, isAuthenticated: 
           receiptId,
           receiptUrl: `/api/admin/settlements/${sessionId}/receipt`,
         });
-      } else {
-        console.error(`[JACE WEBHOOK] Settlement webhook SKIPPED — webhookUrl=${webhookUrl || "NULL"}, secret present=${!!webhookSecret}. Set BONDAI_API_URL and JACE_WEBHOOK_SECRET.`);
       }
 
       res.json({
