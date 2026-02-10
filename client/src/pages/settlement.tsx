@@ -8,10 +8,30 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Checkbox } from "@/components/ui/checkbox";
 import { SettlementComplianceWizard } from "@/components/SettlementComplianceWizard";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Loader2, CheckCircle2, XCircle, AlertTriangle, CreditCard, Building2, DollarSign, Calendar, User, Shield } from "lucide-react";
+import {
+  Loader2,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
+  CreditCard,
+  Building2,
+  DollarSign,
+  Calendar,
+  User,
+  Shield,
+  FileText,
+  Download,
+  Hash,
+  Percent,
+  Mail,
+  Clock,
+  Tag,
+  Layers,
+} from "lucide-react";
 
 interface SettlementSession {
   sessionId: string;
@@ -19,6 +39,13 @@ interface SettlementSession {
   bondId?: number | null;
   amount: number;
   bondName?: string | null;
+  issuerName?: string | null;
+  assignmentType?: string | null;
+  cusip?: string | null;
+  unitCount?: number | null;
+  unitPrice?: number | null;
+  couponRate?: number | null;
+  maturityDate?: string | null;
   investorEmail?: string | null;
   status: string;
   paymentReference?: string | null;
@@ -26,12 +53,24 @@ interface SettlementSession {
   expiresAt?: string | null;
   complianceStatus?: string | null;
   complianceCompletedAt?: string | null;
+  acknowledgedAt?: string | null;
+  receiptDocumentId?: string | null;
 }
 
 function notifyParent(type: string, data?: Record<string, unknown>) {
   if (window.parent !== window) {
     window.parent.postMessage({ type, ...data }, "*");
   }
+}
+
+function formatCurrency(value: number | null | undefined): string {
+  if (value == null) return "N/A";
+  return `$${Number(value).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function formatPercentage(value: number | null | undefined): string {
+  if (value == null) return "N/A";
+  return `${Number(value).toFixed(3)}%`;
 }
 
 export default function SettlementPage() {
@@ -41,6 +80,7 @@ export default function SettlementPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [settlementComplete, setSettlementComplete] = useState(false);
   const [settlementCancelled, setSettlementCancelled] = useState(false);
+  const [acknowledged, setAcknowledged] = useState(false);
 
   const urlParams = new URLSearchParams(window.location.search);
   const token = urlParams.get("session") || "";
@@ -66,6 +106,7 @@ export default function SettlementPage() {
         sessionId,
         paymentReference: paymentRef,
         token: sessionToken,
+        acknowledged: true,
       });
       return res.json();
     },
@@ -77,8 +118,8 @@ export default function SettlementPage() {
         paymentReference: ref,
       });
       toast({
-        title: "Settlement Submitted",
-        description: "Your settlement request has been submitted and is pending internal escrow confirmation.",
+        title: "Purchase Confirmed",
+        description: "Your assignment unit purchase has been confirmed successfully.",
       });
     },
     onError: (err: Error) => {
@@ -87,7 +128,7 @@ export default function SettlementPage() {
         reason: err.message,
       });
       toast({
-        title: "Settlement Failed",
+        title: "Purchase Failed",
         description: err.message,
         variant: "destructive",
       });
@@ -110,8 +151,8 @@ export default function SettlementPage() {
         sessionId: session?.sessionId,
       });
       toast({
-        title: "Settlement Cancelled",
-        description: "The settlement has been cancelled.",
+        title: "Purchase Cancelled",
+        description: "The assignment unit purchase has been cancelled.",
       });
     },
     onError: (err: Error) => {
@@ -125,12 +166,9 @@ export default function SettlementPage() {
 
   const handleConfirm = async () => {
     if (!session?.sessionId) return;
-    
     setIsProcessing(true);
-    
     const ref = paymentReference || `JACE-PAY-${Date.now()}`;
     setPaymentReference(ref);
-    
     completeMutation.mutate({ sessionId: session.sessionId, paymentRef: ref, token });
   };
 
@@ -145,12 +183,15 @@ export default function SettlementPage() {
     }
   }, [session]);
 
+  const complianceComplete = session?.complianceStatus === "complete";
+  const canConfirm = acknowledged && complianceComplete && !isProcessing && !completeMutation.isPending;
+
   if (!token) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 p-6" data-testid="settlement-no-token">
         <Card className="w-full max-w-md border-red-500/50 bg-slate-800/80 text-white">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-red-400">
+            <CardTitle className="flex items-center gap-2 flex-wrap text-red-400">
               <AlertTriangle className="h-5 w-5" />
               Invalid Session
             </CardTitle>
@@ -181,7 +222,7 @@ export default function SettlementPage() {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 p-6" data-testid="settlement-error">
         <Card className="w-full max-w-md border-red-500/50 bg-slate-800/80 text-white">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-red-400">
+            <CardTitle className="flex items-center gap-2 flex-wrap text-red-400">
               <XCircle className="h-5 w-5" />
               Session Error
             </CardTitle>
@@ -198,34 +239,64 @@ export default function SettlementPage() {
   if (settlementComplete) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-900 p-6" data-testid="settlement-complete">
-        <Card className="w-full max-w-md border-emerald-500/50 bg-slate-800/80 text-white">
+        <Card className="w-full max-w-3xl border-emerald-500/50 bg-slate-800/80 text-white">
           <CardHeader className="text-center">
-            <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-emerald-500/20 flex items-center justify-center">
-              <CheckCircle2 className="h-10 w-10 text-emerald-400" />
+            <div className="mx-auto mb-4 h-20 w-20 rounded-full bg-emerald-500/20 flex items-center justify-center">
+              <CheckCircle2 className="h-12 w-12 text-emerald-400" />
             </div>
-            <CardTitle className="text-emerald-400">Settlement Submitted</CardTitle>
+            <CardTitle className="text-2xl text-emerald-400" data-testid="text-purchase-confirmed">Purchase Confirmed</CardTitle>
             <CardDescription className="text-slate-300">
-              Your settlement request has been submitted and is pending internal escrow confirmation
+              Your assignment unit purchase has been confirmed and is being processed.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="rounded-lg bg-slate-700/50 p-4 space-y-2">
-              <div className="flex justify-between text-sm">
+          <CardContent className="space-y-6">
+            <div className="rounded-lg bg-slate-700/50 p-5 space-y-3">
+              <div className="flex justify-between flex-wrap gap-1 text-sm">
+                <span className="text-slate-400">Bond/Assignment</span>
+                <span className="text-white font-medium" data-testid="text-confirmed-bond-name">{session?.bondName || "N/A"}</span>
+              </div>
+              <Separator className="bg-slate-600" />
+              <div className="flex justify-between flex-wrap gap-1 text-sm">
                 <span className="text-slate-400">Trade ID</span>
-                <span className="text-white font-medium">{session?.tradeId}</span>
+                <span className="text-white font-medium" data-testid="text-confirmed-trade-id">{session?.tradeId}</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-400">Amount</span>
-                <span className="text-emerald-400 font-medium">${Number(session?.amount || 0).toLocaleString()}</span>
+              <Separator className="bg-slate-600" />
+              <div className="flex justify-between flex-wrap gap-1 text-sm">
+                <span className="text-slate-400">Units</span>
+                <span className="text-white font-medium">{session?.unitCount ?? "N/A"}</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-400">Reference</span>
-                <span className="text-white font-mono text-xs">{paymentReference}</span>
+              <Separator className="bg-slate-600" />
+              <div className="flex justify-between flex-wrap gap-1 text-sm">
+                <span className="text-slate-400">Price Per Unit</span>
+                <span className="text-white font-medium">{formatCurrency(session?.unitPrice)}</span>
+              </div>
+              <Separator className="bg-slate-600" />
+              <div className="flex justify-between flex-wrap gap-1 text-sm">
+                <span className="text-slate-400">Total Purchase Amount</span>
+                <span className="text-emerald-400 font-bold text-lg" data-testid="text-confirmed-amount">{formatCurrency(session?.amount)}</span>
+              </div>
+              <Separator className="bg-slate-600" />
+              <div className="flex justify-between flex-wrap gap-1 text-sm">
+                <span className="text-slate-400">Payment Reference</span>
+                <span className="text-white font-mono text-xs" data-testid="text-confirmed-reference">{paymentReference}</span>
               </div>
             </div>
-            <p className="text-center text-slate-400 text-sm">
-              You may close this window. Your request is in queue for confirmation.
+
+            <p className="text-center text-slate-300 text-sm">
+              Your purchase confirmation receipt is now available in your Investor Portal.
             </p>
+
+            <div className="flex justify-center">
+              <Button
+                variant="outline"
+                className="border-emerald-500/50 text-emerald-400"
+                onClick={() => window.open(`/api/settlement/receipt?token=${encodeURIComponent(token)}`, "_blank")}
+                data-testid="button-download-receipt"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Download Receipt
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -240,9 +311,9 @@ export default function SettlementPage() {
             <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-amber-500/20 flex items-center justify-center">
               <XCircle className="h-10 w-10 text-amber-400" />
             </div>
-            <CardTitle className="text-amber-400">Settlement Cancelled</CardTitle>
+            <CardTitle className="text-amber-400" data-testid="text-purchase-cancelled">Purchase Cancelled</CardTitle>
             <CardDescription className="text-slate-300">
-              Your settlement has been cancelled
+              Your assignment unit purchase has been cancelled. No charges have been applied.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -257,106 +328,171 @@ export default function SettlementPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 p-6" data-testid="settlement-page">
-      <div className="max-w-2xl mx-auto space-y-6">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-white">JACE CRM Settlement</h1>
-          <p className="text-slate-400 mt-1">Complete your bond purchase settlement</p>
+      <div className="max-w-3xl mx-auto space-y-6">
+
+        {/* SECTION 1: HEADER */}
+        <div className="text-center space-y-2">
+          <h1 className="text-2xl font-bold text-white" data-testid="text-page-title">Assignment Unit Purchase Confirmation</h1>
+          <p className="text-slate-400">JACE Management, LLC - Settlement Services</p>
+          <div className="flex justify-center mt-3">
+            <Badge variant="outline" className="border-indigo-500 text-indigo-400" data-testid="badge-trade-reference">
+              <Hash className="h-3 w-3 mr-1" />
+              Trade Ref: {session?.tradeId}
+            </Badge>
+          </div>
         </div>
 
-        {session?.complianceStatus !== "complete" ? (
-          <SettlementComplianceWizard token={token} onComplete={() => refetchSession()} />
-        ) : null}
-
+        {/* SECTION 2: ASSIGNMENT PURCHASE DETAILS */}
         <Card className="border-slate-700 bg-slate-800/80 text-white">
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <CreditCard className="h-5 w-5 text-indigo-400" />
-                Settlement Details
-              </CardTitle>
-              <Badge variant="outline" className="border-indigo-500 text-indigo-400">
-                Trade #{session?.tradeId}
-              </Badge>
-            </div>
+            <CardTitle className="flex items-center gap-2 flex-wrap">
+              <FileText className="h-5 w-5 text-indigo-400" />
+              Assignment Purchase Details
+            </CardTitle>
             <CardDescription className="text-slate-400">
-              Review and confirm your settlement
+              Review the details of your assignment unit purchase below.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="grid gap-4">
-              <div className="rounded-lg bg-slate-700/50 p-4 space-y-3">
-                <div className="flex items-center gap-3">
-                  <Building2 className="h-5 w-5 text-indigo-400" />
-                  <div>
-                    <p className="text-xs text-slate-400">Bond Name</p>
-                    <p className="text-white font-medium">{session?.bondName || "Bond Purchase"}</p>
-                  </div>
-                </div>
-                <Separator className="bg-slate-600" />
-                <div className="flex items-center gap-3">
-                  <DollarSign className="h-5 w-5 text-emerald-400" />
-                  <div>
-                    <p className="text-xs text-slate-400">Settlement Amount</p>
-                    <p className="text-2xl font-bold text-emerald-400">
-                      ${Number(session?.amount || 0).toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-                <Separator className="bg-slate-600" />
-                <div className="flex items-center gap-3">
-                  <User className="h-5 w-5 text-slate-400" />
-                  <div>
-                    <p className="text-xs text-slate-400">Investor Email</p>
-                    <p className="text-white">{session?.investorEmail || "N/A"}</p>
-                  </div>
-                </div>
-                <Separator className="bg-slate-600" />
-                <div className="flex items-center gap-3">
-                  <Calendar className="h-5 w-5 text-slate-400" />
-                  <div>
-                    <p className="text-xs text-slate-400">Session Expires</p>
-                    <p className="text-white">
-                      {session?.expiresAt ? new Date(session.expiresAt).toLocaleString() : "N/A"}
-                    </p>
-                  </div>
+          <CardContent className="space-y-0">
+            <div className="rounded-lg bg-slate-700/50 p-5 space-y-3">
+              <DetailRow icon={<Building2 className="h-4 w-4 text-indigo-400" />} label="Bond/Assignment Name" value={session?.bondName || "N/A"} testId="text-bond-name" />
+              <Separator className="bg-slate-600" />
+              <DetailRow icon={<Building2 className="h-4 w-4 text-slate-400" />} label="Issuer Name" value={session?.issuerName || "N/A"} testId="text-issuer-name" />
+              <Separator className="bg-slate-600" />
+              <DetailRow icon={<Tag className="h-4 w-4 text-slate-400" />} label="Assignment Type" value={session?.assignmentType || "N/A"} testId="text-assignment-type" />
+              <Separator className="bg-slate-600" />
+              <DetailRow icon={<Hash className="h-4 w-4 text-slate-400" />} label="CUSIP" value={session?.cusip || "N/A"} testId="text-cusip" mono />
+              <Separator className="bg-slate-600" />
+              <DetailRow icon={<Hash className="h-4 w-4 text-slate-400" />} label="Trade ID" value={String(session?.tradeId ?? "N/A")} testId="text-trade-id" />
+              <Separator className="bg-slate-600" />
+              <DetailRow icon={<Layers className="h-4 w-4 text-slate-400" />} label="Number of Units" value={session?.unitCount != null ? String(session.unitCount) : "N/A"} testId="text-unit-count" />
+              <Separator className="bg-slate-600" />
+              <DetailRow icon={<DollarSign className="h-4 w-4 text-slate-400" />} label="Price Per Unit" value={formatCurrency(session?.unitPrice)} testId="text-unit-price" />
+              <Separator className="bg-slate-600" />
+
+              <div className="flex items-start gap-3 py-1">
+                <DollarSign className="h-4 w-4 text-emerald-400 mt-0.5 shrink-0" />
+                <div className="flex-1">
+                  <p className="text-xs text-slate-400">Total Purchase Amount</p>
+                  <p className="text-2xl font-bold text-emerald-400" data-testid="text-total-amount">{formatCurrency(session?.amount)}</p>
                 </div>
               </div>
-            </div>
 
-            {session?.complianceStatus !== "complete" ? (
+              <Separator className="bg-slate-600" />
+              <DetailRow icon={<Percent className="h-4 w-4 text-slate-400" />} label="Coupon Rate" value={formatPercentage(session?.couponRate)} testId="text-coupon-rate" />
+              <Separator className="bg-slate-600" />
+              <DetailRow icon={<Calendar className="h-4 w-4 text-slate-400" />} label="Maturity Date" value={session?.maturityDate ? new Date(session.maturityDate).toLocaleDateString() : "N/A"} testId="text-maturity-date" />
+              <Separator className="bg-slate-600" />
+              <DetailRow icon={<Mail className="h-4 w-4 text-slate-400" />} label="Investor Email" value={session?.investorEmail || "N/A"} testId="text-investor-email" />
+              <Separator className="bg-slate-600" />
+              <DetailRow icon={<Clock className="h-4 w-4 text-slate-400" />} label="Session Expires" value={session?.expiresAt ? new Date(session.expiresAt).toLocaleString() : "N/A"} testId="text-session-expires" />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* SECTION 3: COMPLIANCE STATUS */}
+        {!complianceComplete ? (
+          <SettlementComplianceWizard token={token} onComplete={() => refetchSession()} />
+        ) : (
+          <Card className="border-slate-700 bg-slate-800/80 text-white">
+            <CardContent className="pt-6 pb-6 flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0">
+                <CheckCircle2 className="h-6 w-6 text-emerald-400" />
+              </div>
+              <div>
+                <p className="text-emerald-400 font-semibold" data-testid="text-compliance-complete">Compliance Verification Complete</p>
+                <p className="text-slate-400 text-sm">All required compliance checks have been satisfied.</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* SECTION 4: LEGAL DISCLAIMERS & DISCLOSURES */}
+        <Card className="border-slate-700 bg-slate-800/80 text-white">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 flex-wrap text-amber-400">
+              <Shield className="h-5 w-5" />
+              IMPORTANT DISCLOSURES
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 text-slate-300 text-sm leading-relaxed">
+            <p data-testid="text-disclosure-market-risk">
+              Assignment units are subject to market risk, including the possible loss of principal. The value of assignment units may fluctuate based on market conditions, creditworthiness of the issuer, interest rate changes, and other factors. There is no guarantee that any assignment unit will maintain its value or generate expected returns.
+            </p>
+            <Separator className="bg-slate-600" />
+            <p data-testid="text-disclosure-past-performance">
+              Past performance does not guarantee future results. Any historical returns, expected yields, or projected performance figures are provided for informational purposes only and should not be construed as a guarantee of future performance.
+            </p>
+            <Separator className="bg-slate-600" />
+            <p data-testid="text-disclosure-hold-harmless">
+              By confirming this purchase, you agree to hold harmless and indemnify JACE Management, LLC, its officers, directors, employees, and agents from and against any and all claims, damages, losses, costs, and expenses (including reasonable attorneys' fees) arising out of or relating to this assignment unit purchase transaction.
+            </p>
+            <Separator className="bg-slate-600" />
+            <p data-testid="text-disclosure-tax">
+              The investor is solely responsible for all tax implications arising from this assignment unit purchase, including but not limited to income taxes, capital gains taxes, and any applicable state or local taxes. JACE Management, LLC does not provide tax advice. Investors are encouraged to consult with a qualified tax professional.
+            </p>
+            <Separator className="bg-slate-600" />
+            <p data-testid="text-disclosure-finality">
+              All confirmed transactions are final. Once a purchase is confirmed, it cannot be reversed, cancelled, or refunded except as required by applicable law or at the sole discretion of JACE Management, LLC.
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* SECTION 5: ACKNOWLEDGEMENT CHECKBOX */}
+        <Card className="border-slate-700 bg-slate-800/80 text-white">
+          <CardContent className="pt-6 pb-6">
+            <div className="flex items-start gap-3">
+              <Checkbox
+                id="acknowledgement"
+                checked={acknowledged}
+                onCheckedChange={(checked) => setAcknowledged(!!checked)}
+                className="mt-1 border-slate-500 data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600"
+                data-testid="checkbox-acknowledgement"
+              />
+              <Label htmlFor="acknowledgement" className="text-slate-300 text-sm leading-relaxed cursor-pointer">
+                I have read and understand the above disclosures and disclaimers. I acknowledge that this assignment unit purchase is final upon confirmation and I accept all terms, conditions, and risks associated with this transaction. I further agree to the hold harmless and indemnification provisions stated above.
+              </Label>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* SECTION 6: CONFIRMATION ACTIONS */}
+        <Card className="border-slate-700 bg-slate-800/80 text-white">
+          <CardContent className="pt-6 space-y-4">
+            {!complianceComplete && (
               <Alert className="bg-amber-900/30 border-amber-500/50">
                 <AlertTriangle className="h-4 w-4 text-amber-400" />
                 <AlertDescription className="text-slate-300">
-                  Settlement submission is locked until you complete the compliance gate above (entity, tax ID, two IDs, tri-merge authorization, and attestations).
+                  Purchase confirmation is locked until compliance verification is complete.
                 </AlertDescription>
               </Alert>
-            ) : (
-              <>
-                <div className="space-y-3">
-                  <Label htmlFor="paymentRef" className="text-slate-300">Payment Reference (Optional)</Label>
-                  <Input
-                    id="paymentRef"
-                    value={paymentReference}
-                    onChange={(e) => setPaymentReference(e.target.value)}
-                    placeholder="Enter a reference for your records"
-                    className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-500"
-                    data-testid="input-payment-reference"
-                  />
-                </div>
-
-                <Alert className="bg-indigo-900/30 border-indigo-500/50">
-                  <Shield className="h-4 w-4 text-indigo-400" />
-                  <AlertDescription className="text-slate-300">
-                    Your payment is secured by JACE CRM. All transactions are encrypted and logged for compliance.
-                  </AlertDescription>
-                </Alert>
-              </>
             )}
+
+            {complianceComplete && !acknowledged && (
+              <Alert className="bg-indigo-900/30 border-indigo-500/50">
+                <Shield className="h-4 w-4 text-indigo-400" />
+                <AlertDescription className="text-slate-300">
+                  Please review and accept the disclosures above to enable purchase confirmation.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            <div className="space-y-2">
+              <Label htmlFor="paymentRef" className="text-slate-300">Payment Reference (Optional)</Label>
+              <Input
+                id="paymentRef"
+                value={paymentReference}
+                onChange={(e) => setPaymentReference(e.target.value)}
+                placeholder="Enter a reference for your records"
+                className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-500"
+                data-testid="input-payment-reference"
+              />
+            </div>
           </CardContent>
           <CardFooter className="flex gap-3">
             <Button
               variant="outline"
-              className="flex-1 border-slate-600 text-slate-300 hover:bg-slate-700"
+              className="flex-1 border-slate-600 text-slate-300"
               onClick={handleCancel}
               disabled={isProcessing || cancelMutation.isPending}
               data-testid="button-cancel-settlement"
@@ -367,10 +503,10 @@ export default function SettlementPage() {
               Cancel
             </Button>
             <Button
-              className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+              className="flex-1 bg-emerald-600 text-white"
               onClick={handleConfirm}
-              disabled={isProcessing || completeMutation.isPending || session?.complianceStatus !== "complete"}
-              data-testid="button-confirm-payment"
+              disabled={!canConfirm}
+              data-testid="button-confirm-purchase"
             >
               {isProcessing || completeMutation.isPending ? (
                 <>
@@ -380,7 +516,7 @@ export default function SettlementPage() {
               ) : (
                 <>
                   <CreditCard className="h-4 w-4 mr-2" />
-                  Submit Settlement
+                  Confirm Purchase
                 </>
               )}
             </Button>
@@ -388,8 +524,32 @@ export default function SettlementPage() {
         </Card>
 
         <p className="text-center text-slate-500 text-xs">
-          Session ID: {session?.sessionId} | Created: {session?.createdAt ? new Date(session.createdAt).toLocaleString() : "N/A"}
+          Session ID: {session?.sessionId}
         </p>
+      </div>
+    </div>
+  );
+}
+
+function DetailRow({
+  icon,
+  label,
+  value,
+  testId,
+  mono,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  testId: string;
+  mono?: boolean;
+}) {
+  return (
+    <div className="flex items-start gap-3 py-1">
+      <div className="mt-0.5 shrink-0">{icon}</div>
+      <div className="flex-1">
+        <p className="text-xs text-slate-400">{label}</p>
+        <p className={`text-white ${mono ? "font-mono text-sm" : ""}`} data-testid={testId}>{value}</p>
       </div>
     </div>
   );

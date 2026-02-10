@@ -344,4 +344,35 @@ export function registerInternalSettlementRoutes(app: Express, isAuthenticated: 
       res.status(500).json({ message: "Failed to download receipt" });
     }
   });
+
+  app.get("/api/investor-settlements", isAuthenticated, async (req, res) => {
+    try {
+      const investorId = typeof req.query.investorId === "string" ? req.query.investorId : null;
+      if (!investorId) return res.status(400).json({ message: "investorId is required" });
+
+      const rows = await db
+        .select({
+          sessionId: settlementSessions.sessionId,
+          tradeId: settlementSessions.tradeId,
+          bondName: settlementSessions.bondName,
+          amount: settlementSessions.amount,
+          status: settlementSessions.status,
+          settledAt: settlementSessions.settledAt,
+          createdAt: settlementSessions.createdAt,
+          receiptDocumentId: settlementSessions.receiptDocumentId,
+          journalEntryId: settlementSessions.journalEntryId,
+          unitCount: settlementSessions.unitCount,
+          assignmentType: settlementSessions.assignmentType,
+        })
+        .from(settlementSessions)
+        .where(eq(settlementSessions.investorId, investorId))
+        .orderBy(desc(settlementSessions.createdAt))
+        .limit(50);
+
+      res.json(rows);
+    } catch (error) {
+      console.error("Error fetching investor settlements:", error);
+      res.status(500).json({ message: "Failed to fetch investor settlements" });
+    }
+  });
 }

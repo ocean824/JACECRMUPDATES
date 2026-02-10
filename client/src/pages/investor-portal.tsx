@@ -37,6 +37,7 @@ import {
   XCircle,
   Eye,
   Users,
+  CreditCard,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -345,6 +346,146 @@ function DocumentsTable({ investorId }: { investorId: string }) {
                         <Download className="h-4 w-4" />
                       </a>
                     </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+interface SettlementReceipt {
+  sessionId: string;
+  tradeId: number;
+  bondName: string | null;
+  amount: string;
+  status: string;
+  settledAt: string | null;
+  createdAt: string;
+  receiptDocumentId: string | null;
+  journalEntryId: string | null;
+  unitCount: string | null;
+  assignmentType: string | null;
+}
+
+const settlementStatusColors: Record<string, string> = {
+  submitted: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
+  settled: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
+  pending: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300",
+  cancelled: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300",
+};
+
+function SettlementReceiptsTable({ investorId }: { investorId: string }) {
+  const { data: settlements, isLoading } = useQuery<SettlementReceipt[]>({
+    queryKey: ["/api/investor-settlements", { investorId }],
+  });
+
+  const investorSettlements = settlements?.filter((s) => {
+    // Filter by investorId through the API query parameter
+    return true;
+  }) || [];
+
+  if (isLoading) {
+    return (
+      <Card data-testid="card-settlement-receipts-loading">
+        <CardHeader>
+          <Skeleton className="h-5 w-32" />
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-24 w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card data-testid="card-settlement-receipts">
+      <CardHeader className="pb-3">
+        <div className="flex items-center gap-2">
+          <CreditCard className="h-5 w-5 text-muted-foreground" />
+          <CardTitle className="text-lg">Settlement Receipts</CardTitle>
+        </div>
+      </CardHeader>
+      <Separator />
+      <CardContent className="pt-4">
+        {!investorSettlements || investorSettlements.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-4">
+            No settlement receipts
+          </p>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Trade ID</TableHead>
+                <TableHead>Bond/Assignment</TableHead>
+                <TableHead>Amount</TableHead>
+                <TableHead>Units</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Settled Date</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {investorSettlements.map((settlement) => (
+                <TableRow key={settlement.sessionId} data-testid={`row-settlement-${settlement.sessionId}`}>
+                  <TableCell className="font-medium" data-testid={`text-trade-id-${settlement.tradeId}`}>
+                    {settlement.tradeId}
+                  </TableCell>
+                  <TableCell data-testid={`text-bond-name-${settlement.sessionId}`}>
+                    {settlement.bondName || settlement.assignmentType || "-"}
+                  </TableCell>
+                  <TableCell data-testid={`text-amount-${settlement.sessionId}`}>
+                    {formatCurrency(settlement.amount)}
+                  </TableCell>
+                  <TableCell data-testid={`text-units-${settlement.sessionId}`}>
+                    {settlement.unitCount || "-"}
+                  </TableCell>
+                  <TableCell>
+                    <Badge 
+                      className={settlementStatusColors[settlement.status] || ""} 
+                      variant="secondary"
+                      data-testid={`badge-status-${settlement.sessionId}`}
+                    >
+                      {settlement.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell data-testid={`text-settled-date-${settlement.sessionId}`}>
+                    {formatDate(settlement.settledAt)}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex gap-2">
+                      {settlement.receiptDocumentId && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          asChild
+                          data-testid={`button-download-receipt-${settlement.sessionId}`}
+                        >
+                          <a 
+                            href={`/api/admin/documents/${settlement.receiptDocumentId}/download`} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                          >
+                            <Download className="h-4 w-4" />
+                          </a>
+                        </Button>
+                      )}
+                      {settlement.journalEntryId && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          asChild
+                          data-testid={`button-view-ledger-${settlement.sessionId}`}
+                        >
+                          <a href={`/journal`}>
+                            <Eye className="h-4 w-4" />
+                          </a>
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -675,6 +816,7 @@ function InvestorPortalPreview({ investorId }: { investorId: string }) {
         <InvestmentSummaryCard investor={investor} />
       </div>
       <BondsTable investorId={investorId} />
+      <SettlementReceiptsTable investorId={investorId} />
       <div className="grid gap-6 lg:grid-cols-2">
         <DocumentsTable investorId={investorId} />
         <KycChecklistCard investorId={investorId} />
