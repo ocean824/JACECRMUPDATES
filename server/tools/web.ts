@@ -1,4 +1,58 @@
 import type { ToolContext } from "./types";
+import dns from "dns/promises";
+import net from "net";
+
+function isPrivateIP(ip: string): boolean {
+  if (net.isIPv4(ip)) {
+    const parts = ip.split(".").map(Number);
+    if (parts[0] === 127) return true;
+    if (parts[0] === 10) return true;
+    if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) return true;
+    if (parts[0] === 192 && parts[1] === 168) return true;
+    if (parts[0] === 169 && parts[1] === 254) return true;
+    if (parts[0] === 0) return true;
+    if (parts[0] === 100 && parts[1] >= 64 && parts[1] <= 127) return true;
+    if (parts[0] >= 224) return true;
+  }
+  if (net.isIPv6(ip)) {
+    const normalized = ip.toLowerCase();
+    if (normalized === "::1") return true;
+    if (normalized.startsWith("fe80:")) return true;
+    if (normalized.startsWith("fd")) return true;
+    if (normalized.startsWith("fc")) return true;
+    if (normalized === "::") return true;
+    if (normalized.startsWith("::ffff:")) {
+      const v4 = normalized.slice(7);
+      if (net.isIPv4(v4)) return isPrivateIP(v4);
+    }
+  }
+  return false;
+}
+
+async function validateHost(hostname: string): Promise<void> {
+  if (net.isIP(hostname)) {
+    if (isPrivateIP(hostname)) throw new Error("webFetch: blocked host (private IP)");
+    return;
+  }
+  const blockedNames = [/localhost/i, /\.internal$/i, /\.local$/i];
+  for (const pat of blockedNames) {
+    if (pat.test(hostname)) throw new Error("webFetch: blocked host");
+  }
+  try {
+    const addresses = await dns.resolve4(hostname).catch(() => [] as string[]);
+    const addresses6 = await dns.resolve6(hostname).catch(() => [] as string[]);
+    const allAddrs = [...addresses, ...addresses6];
+    if (allAddrs.length === 0) throw new Error("webFetch: could not resolve hostname");
+    for (const addr of allAddrs) {
+      if (isPrivateIP(addr)) {
+        throw new Error("webFetch: blocked host (resolves to private IP)");
+      }
+    }
+  } catch (e: any) {
+    if (e.message.includes("webFetch:")) throw e;
+    throw new Error("webFetch: DNS resolution failed");
+  }
+}
 
 type WebFetchArgs = { url: string; max_chars?: number };
 export async function webFetch(args: WebFetchArgs, _ctx: ToolContext) {
@@ -7,23 +61,8 @@ export async function webFetch(args: WebFetchArgs, _ctx: ToolContext) {
 
   if (!/^https?:\/\//i.test(url)) throw new Error("webFetch: only http/https URLs are allowed");
 
-  const blockedPatterns = [
-    /localhost/i,
-    /127\.\d+\.\d+\.\d+/,
-    /0\.0\.0\.0/,
-    /\[::1\]/,
-    /10\.\d+\.\d+\.\d+/,
-    /172\.(1[6-9]|2\d|3[01])\.\d+\.\d+/,
-    /192\.168\.\d+\.\d+/,
-    /169\.254\.\d+\.\d+/,
-    /\[fd[0-9a-f]{2}:/i,
-    /\[fe80:/i,
-    /\.internal\b/i,
-    /\.local\b/i,
-  ];
-  for (const pat of blockedPatterns) {
-    if (pat.test(url)) throw new Error("webFetch: blocked host");
-  }
+  const parsed = new URL(url);
+  await validateHost(parsed.hostname);
 
   const controller = new AbortController();
   const t = setTimeout(() => controller.abort(), 10_000);
@@ -37,10 +76,11 @@ export async function webFetch(args: WebFetchArgs, _ctx: ToolContext) {
 
   if (res.status >= 300 && res.status < 400) {
     const location = res.headers.get("location") || "";
-    for (const pat of blockedPatterns) {
-      if (pat.test(location)) throw new Error("webFetch: redirect to blocked host");
-    }
-    const redirectRes = await fetch(location, {
+    if (!location) throw new Error("webFetch: redirect with no location header");
+    const redirectParsed = new URL(location, url);
+    if (!/^https?:$/i.test(redirectParsed.protocol)) throw new Error("webFetch: only http/https URLs are allowed");
+    await validateHost(redirectParsed.hostname);
+    const redirectRes = await fetch(redirectParsed.href, {
       method: "GET",
       redirect: "manual",
       signal: controller.signal,
@@ -64,7 +104,6 @@ export async function webSearch(args: WebSearchArgs, _ctx: ToolContext) {
   const q = args?.q;
   if (!q || typeof q !== "string") throw new Error("webSearch: q is required");
 
-  // DuckDuckGo lite HTML is reasonably stable for basic parsing (best-effort).
   const max = Math.min(Math.max(args.max_results ?? 5, 1), 10);
   const searchUrl = `https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(q)}`;
 
@@ -82,7 +121,6 @@ export async function webSearch(args: WebSearchArgs, _ctx: ToolContext) {
   const html = await res.text();
   const results: { title: string; url: string }[] = [];
 
-  // Very light parsing: look for result links
   const linkRe = /<a[^>]+class="result-link"[^>]+href="([^"]+)"[^>]*>(.*?)<\/a>/g;
   let m: RegExpExecArray | null;
   while ((m = linkRe.exec(html)) && results.length < max) {
