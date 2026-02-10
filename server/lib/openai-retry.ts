@@ -1,4 +1,4 @@
-import pRetry from "p-retry";
+import pRetry, { AbortError } from "p-retry";
 import { recordOpenAI429 } from "./rate-limit-monitor";
 
 /**
@@ -158,7 +158,7 @@ export async function withOpenAIRetry<T>(
       } catch (err: any) {
         if (isRetryable429(err)) throw err; // retry
         // Any non-429 error should fail fast (don’t mask programming / prompt bugs).
-        throw new (pRetry as any).AbortError(
+        throw new AbortError(
           err instanceof Error ? err : new Error(String(err)),
         );
       }

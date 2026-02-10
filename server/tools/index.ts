@@ -34,7 +34,7 @@ export function buildOpenAITools(allowed: ToolName[]) {
           type: "object",
           properties: {
             method: { type: "string", description: "Allowlisted storage read method name." },
-            params: { type: "array", description: "JSON args array for the method." },
+            params: { type: "array", items: {}, description: "JSON args array for the method." },
           },
           required: ["method"],
         },
@@ -52,7 +52,7 @@ export function buildOpenAITools(allowed: ToolName[]) {
           type: "object",
           properties: {
             method: { type: "string", description: "Allowlisted storage write method name." },
-            params: { type: "array", description: "JSON args array for the method." },
+            params: { type: "array", items: {}, description: "JSON args array for the method." },
           },
           required: ["method"],
         },
