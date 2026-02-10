@@ -30,8 +30,8 @@ export interface SettlementJwtPayload {
 }
 
 function settlementSecretOrThrow(): string {
-  const v = process.env.SETTLEMENT_JWT_SECRET || process.env.BONDAI_SETTLEMENT_SECRET;
-  if (!v) throw new Error("SETTLEMENT_JWT_SECRET (or BONDAI_SETTLEMENT_SECRET) is required");
+  const v = process.env.JACE_SETTLEMENT_SECRET || process.env.SETTLEMENT_JWT_SECRET || process.env.BONDAI_SETTLEMENT_SECRET;
+  if (!v) throw new Error("JACE_SETTLEMENT_SECRET (or BONDAI_SETTLEMENT_SECRET) is required");
   return v;
 }
 

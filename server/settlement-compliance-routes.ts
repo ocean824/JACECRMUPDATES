@@ -17,9 +17,9 @@ function ensureUploadDir() {
 }
 
 function getSettlementJwtSecret(): string {
-  const secret = process.env.SETTLEMENT_JWT_SECRET || process.env.BONDAI_SETTLEMENT_SECRET;
+  const secret = process.env.JACE_SETTLEMENT_SECRET || process.env.SETTLEMENT_JWT_SECRET || process.env.BONDAI_SETTLEMENT_SECRET;
   if (!secret) {
-    throw new Error("SETTLEMENT_JWT_SECRET or BONDAI_SETTLEMENT_SECRET must be configured");
+    throw new Error("JACE_SETTLEMENT_SECRET or BONDAI_SETTLEMENT_SECRET must be configured");
   }
   return secret;
 }
