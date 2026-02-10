@@ -380,6 +380,55 @@ export const documentRelations = relations(documents, ({ one }) => ({
   }),
 }));
 
+// ========== ASSIGNMENTS & PAYOUTS ==========
+
+export const assignments = pgTable("assignments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  investorId: varchar("investor_id").references(() => investors.id),
+  settlementSessionId: varchar("settlement_session_id").references(() => settlementSessions.id),
+  tradeId: integer("trade_id"),
+  bondId: integer("bond_id"),
+  bondName: varchar("bond_name", { length: 300 }),
+  issuerName: varchar("issuer_name", { length: 300 }),
+  assignmentType: varchar("assignment_type", { length: 100 }),
+  cusip: varchar("cusip", { length: 20 }),
+  maturityDate: timestamp("maturity_date", { withTimezone: true }),
+  couponRate: decimal("coupon_rate", { precision: 5, scale: 3 }),
+  unitCount: decimal("unit_count", { precision: 15, scale: 4 }),
+  unitPrice: decimal("unit_price", { precision: 15, scale: 4 }),
+  totalAmount: decimal("total_amount", { precision: 15, scale: 2 }),
+  investorName: varchar("investor_name", { length: 200 }),
+  investorEmail: varchar("investor_email", { length: 255 }),
+  status: varchar("status", { length: 30 }).default("active").notNull(),
+  notes: text("notes"),
+  journalEntryId: varchar("journal_entry_id"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const assignmentPayouts = pgTable("assignment_payouts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  assignmentId: varchar("assignment_id").notNull().references(() => assignments.id),
+  payoutDate: timestamp("payout_date", { withTimezone: true }).notNull(),
+  amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
+  payoutType: varchar("payout_type", { length: 30 }).notNull(),
+  status: varchar("status", { length: 30 }).default("scheduled").notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const assignmentRelations = relations(assignments, ({ one, many }) => ({
+  investor: one(investors, { fields: [assignments.investorId], references: [investors.id] }),
+  settlementSession: one(settlementSessions, { fields: [assignments.settlementSessionId], references: [settlementSessions.id] }),
+  payouts: many(assignmentPayouts),
+}));
+
+export const assignmentPayoutRelations = relations(assignmentPayouts, ({ one }) => ({
+  assignment: one(assignments, { fields: [assignmentPayouts.assignmentId], references: [assignments.id] }),
+}));
+
 // Insert schemas - omit auto-generated fields
 export const insertUserRoleSchema = createInsertSchema(userRoles).omit({
   id: true,
@@ -474,6 +523,22 @@ export type InsertSettlementSession = z.infer<typeof insertSettlementSessionSche
 
 export type SettlementComplianceRecord = typeof settlementCompliance.$inferSelect;
 export type InsertSettlementCompliance = z.infer<typeof insertSettlementComplianceSchema>;
+
+export const insertAssignmentSchema = createInsertSchema(assignments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type Assignment = typeof assignments.$inferSelect;
+export type InsertAssignment = z.infer<typeof insertAssignmentSchema>;
+
+export const insertAssignmentPayoutSchema = createInsertSchema(assignmentPayouts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type AssignmentPayout = typeof assignmentPayouts.$inferSelect;
+export type InsertAssignmentPayout = z.infer<typeof insertAssignmentPayoutSchema>;
 
 export type InvestorOnboardingSubmission = typeof investorOnboardingSubmissions.$inferSelect;
 export type InsertInvestorOnboardingSubmission = z.infer<typeof insertInvestorOnboardingSubmissionSchema>;
@@ -2153,3 +2218,30 @@ export const quoteStatuses = [
 ] as const;
 
 export type QuoteStatus = typeof quoteStatuses[number]["value"];
+
+export const assignmentStatuses = [
+  { value: "active", label: "Active", color: "bg-green-500" },
+  { value: "matured", label: "Matured", color: "bg-blue-500" },
+  { value: "closed", label: "Closed", color: "bg-gray-500" },
+  { value: "defaulted", label: "Defaulted", color: "bg-red-500" },
+] as const;
+
+export type AssignmentStatus = typeof assignmentStatuses[number]["value"];
+
+export const payoutTypes = [
+  { value: "coupon", label: "Coupon Payment" },
+  { value: "principal", label: "Principal Return" },
+  { value: "dividend", label: "Dividend" },
+  { value: "other", label: "Other" },
+] as const;
+
+export type PayoutType = typeof payoutTypes[number]["value"];
+
+export const payoutStatuses = [
+  { value: "scheduled", label: "Scheduled", color: "bg-yellow-500" },
+  { value: "paid", label: "Paid", color: "bg-green-500" },
+  { value: "cancelled", label: "Cancelled", color: "bg-gray-500" },
+  { value: "failed", label: "Failed", color: "bg-red-500" },
+] as const;
+
+export type PayoutStatus = typeof payoutStatuses[number]["value"];
