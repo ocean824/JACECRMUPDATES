@@ -114,6 +114,33 @@ let stripeInitStatus = { migrated: false, tables: 0, migrations: 0, error: null 
     if (databaseUrl) {
       console.log("Initializing Stripe schema...");
       console.log(`DATABASE_URL present: ${!!databaseUrl}, length: ${databaseUrl.length}`);
+
+      // Pre-create Stripe enum types that migrations expect
+      // This fixes production issues where the enum type check in migrations
+      // fails due to schema search path differences
+      try {
+        const { Pool } = await import("pg");
+        const prePool = new Pool({ connectionString: databaseUrl, max: 1 });
+        await prePool.query(`CREATE SCHEMA IF NOT EXISTS stripe`);
+        const enumTypes = [
+          { name: 'invoice_status', values: "'draft', 'open', 'paid', 'uncollectible', 'void'" },
+          { name: 'subscription_status', values: "'incomplete', 'incomplete_expired', 'trialing', 'active', 'past_due', 'canceled', 'unpaid', 'paused'" },
+          { name: 'dispute_status', values: "'warning_needs_response', 'warning_under_review', 'warning_closed', 'needs_response', 'under_review', 'won', 'lost'" },
+          { name: 'payout_status', values: "'paid', 'pending', 'in_transit', 'canceled', 'failed'" },
+        ];
+        for (const et of enumTypes) {
+          try {
+            await prePool.query(`DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type t JOIN pg_namespace n ON t.typnamespace = n.oid WHERE t.typname = '${et.name}' AND n.nspname = 'stripe') THEN CREATE TYPE "stripe"."${et.name}" AS ENUM (${et.values}); END IF; END $$;`);
+          } catch (enumErr: any) {
+            console.log(`Enum ${et.name} pre-creation note:`, enumErr.message);
+          }
+        }
+        await prePool.end();
+        console.log("Pre-created Stripe enum types");
+      } catch (preErr: any) {
+        console.log("Enum pre-creation skipped:", preErr.message);
+      }
+
       await runMigrations({ databaseUrl });
       console.log("Stripe schema ready");
 
