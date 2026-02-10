@@ -62,6 +62,8 @@ import {
   Flag,
   Bell,
   Circle,
+  Landmark,
+  DollarSign,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -70,6 +72,8 @@ import {
   calendarEventTypes,
   type CalendarEvent,
   type Investor,
+  type Assignment,
+  type AssignmentPayout,
 } from "@shared/schema";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, isToday } from "date-fns";
 
@@ -79,6 +83,8 @@ const eventTypeColors: Record<string, string> = {
   deadline: "bg-red-500",
   reminder: "bg-yellow-500",
   other: "bg-purple-500",
+  maturity: "bg-orange-500",
+  payout: "bg-teal-500",
 };
 
 const eventTypeIcons: Record<string, typeof CalendarDays> = {
@@ -87,6 +93,8 @@ const eventTypeIcons: Record<string, typeof CalendarDays> = {
   deadline: Flag,
   reminder: Bell,
   other: Circle,
+  maturity: Landmark,
+  payout: DollarSign,
 };
 
 const formSchema = insertCalendarEventSchema.extend({
@@ -372,28 +380,30 @@ function EventCard({
               )}
             </div>
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                data-testid={`button-event-menu-${event.id}`}
-              >
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={onEdit} data-testid={`button-edit-event-${event.id}`}>
-                <Pencil className="h-4 w-4 mr-2" />
-                Edit
-              </DropdownMenuItem>
-              <DropdownMenuItem className="text-destructive" onClick={onDelete} data-testid={`button-delete-event-${event.id}`}>
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {!event.id.startsWith("maturity-") && !event.id.startsWith("payout-") && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                  data-testid={`button-event-menu-${event.id}`}
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={onEdit} data-testid={`button-edit-event-${event.id}`}>
+                  <Pencil className="h-4 w-4 mr-2" />
+                  Edit
+                </DropdownMenuItem>
+                <DropdownMenuItem className="text-destructive" onClick={onDelete} data-testid={`button-delete-event-${event.id}`}>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
         {event.description && (
           <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{event.description}</p>
@@ -498,6 +508,64 @@ export default function CalendarPage() {
     queryKey: ["/api/calendar-events"],
   });
 
+  const { data: assignments } = useQuery<Assignment[]>({
+    queryKey: ["/api/assignments"],
+  });
+
+  const { data: allPayouts } = useQuery<(AssignmentPayout & { bondName?: string; investorName?: string })[]>({
+    queryKey: ["/api/assignment-payouts/all"],
+  });
+
+  const allEvents = useMemo(() => {
+    const base = events || [];
+    const synthetic: CalendarEvent[] = [];
+    if (assignments) {
+      for (const a of assignments) {
+        if (a.maturityDate && a.status === "active") {
+          synthetic.push({
+            id: `maturity-${a.id}`,
+            userId: a.userId,
+            title: `Maturity: ${a.bondName || "Bond"}`,
+            eventType: "maturity" as any,
+            startTime: new Date(a.maturityDate),
+            endTime: new Date(a.maturityDate),
+            description: `${a.investorName || ""} - ${a.unitCount || ""} units @ $${a.unitPrice || ""}`.trim(),
+            location: null,
+            investorId: a.investorId,
+            createdAt: a.createdAt,
+            updatedAt: a.createdAt,
+            isAllDay: true,
+            reminderMinutes: null,
+            attendees: null,
+          } as any);
+        }
+      }
+    }
+    if (allPayouts) {
+      for (const p of allPayouts) {
+        if (p.payoutDate && p.status === "scheduled") {
+          synthetic.push({
+            id: `payout-${p.id}`,
+            userId: "",
+            title: `Payout: ${p.bondName || "Bond"} - $${Number(p.amount).toLocaleString()}`,
+            eventType: "payout" as any,
+            startTime: new Date(p.payoutDate),
+            endTime: new Date(p.payoutDate),
+            description: `${p.investorName || ""} - ${p.payoutType} payment`,
+            location: null,
+            investorId: null,
+            createdAt: p.createdAt,
+            updatedAt: p.createdAt,
+            isAllDay: true,
+            reminderMinutes: null,
+            attendees: null,
+          } as any);
+        }
+      }
+    }
+    return [...base, ...synthetic];
+  }, [events, assignments, allPayouts]);
+
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       return apiRequest("DELETE", `/api/calendar-events/${id}`);
@@ -543,18 +611,18 @@ export default function CalendarPage() {
   };
 
   const upcomingEvents = useMemo(() => {
-    if (!events) return [];
+    if (!allEvents.length) return [];
     const now = new Date();
-    return events
+    return allEvents
       .filter((e) => new Date(e.startTime) >= now)
       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
       .slice(0, 10);
-  }, [events]);
+  }, [allEvents]);
 
   const selectedDayEvents = useMemo(() => {
-    if (!events || !selectedDate) return [];
-    return events.filter((e) => isSameDay(new Date(e.startTime), selectedDate));
-  }, [events, selectedDate]);
+    if (!allEvents.length || !selectedDate) return [];
+    return allEvents.filter((e) => isSameDay(new Date(e.startTime), selectedDate));
+  }, [allEvents, selectedDate]);
 
   if (isLoading) {
     return (
@@ -630,7 +698,7 @@ export default function CalendarPage() {
             <CardContent>
               <CalendarGrid
                 currentDate={currentDate}
-                events={events || []}
+                events={allEvents}
                 onDayClick={handleDayClick}
               />
             </CardContent>

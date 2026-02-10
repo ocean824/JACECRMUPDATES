@@ -11,6 +11,7 @@ import { registerInternalSettlementRoutes } from "./settlement-internal-routes";
 import { registerSettlementComplianceRoutes } from "./settlement-compliance-routes";
 import { registerInvestorDocumentRoutes, registerExternalInvestorDocumentRoutes } from "./investor-documents";
 import { registerStripeRoutes } from "./stripe-routes";
+import { registerAssignmentRoutes } from "./assignment-routes";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -2171,6 +2172,9 @@ export async function registerRoutes(
 
   // Register Stripe payment routes
   registerStripeRoutes(app, isAuthenticated);
+
+  // Register Assignment routes (Assignments & Payouts)
+  registerAssignmentRoutes(app, isAuthenticated);
 
   return httpServer;
 }

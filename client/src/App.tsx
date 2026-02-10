@@ -80,6 +80,10 @@ import { TrialBalancePage, IncomeStatementPage, BalanceSheetPage } from "@/pages
 // Phase 4: New Pages - Integrations
 import BondAIIntegrationPage from "@/pages/integrations/bondai";
 
+// Assignments & Payouts
+import AssignmentsPage from "@/pages/assignments";
+import AssignmentDetailPage from "@/pages/assignment-detail";
+
 // Navigation hierarchy for contextual back buttons
 const navigationHierarchy: Record<string, { parent: string; label: string }> = {
   // Investors section
@@ -99,6 +103,7 @@ const navigationHierarchy: Record<string, { parent: string; label: string }> = {
   "/journal": { parent: "/accounts", label: "Accounts" },
   "/bonds": { parent: "/", label: "Dashboard" },
   "/settlements": { parent: "/bonds", label: "Bond Settlements" },
+  "/assignments": { parent: "/bonds", label: "Bond Settlements" },
   
   // Reports section
   "/reports/trial-balance": { parent: "/accounts", label: "Accounts" },
@@ -149,6 +154,9 @@ function getBackNavigation(location: string): { path: string; label: string } {
   // Check for dynamic routes (e.g., /investors/:id)
   if (location.startsWith("/investors/") && location !== "/investors") {
     return { path: "/investors", label: "Investors" };
+  }
+  if (location.startsWith("/assignments/") && location !== "/assignments") {
+    return { path: "/assignments", label: "Assignments" };
   }
   if (location.startsWith("/compliance/")) {
     return { path: "/investors", label: "Investors" };
@@ -248,6 +256,8 @@ function AuthenticatedRoutes() {
         <Route path="/journal" component={JournalPage} />
         <Route path="/bonds" component={BondsPage} />
         <Route path="/settlements" component={SettlementsPage} />
+        <Route path="/assignments" component={AssignmentsPage} />
+        <Route path="/assignments/:id" component={AssignmentDetailPage} />
         
         {/* Financial (Phase 4) */}
         <Route path="/invoices" component={InvoicesPage} />

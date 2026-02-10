@@ -129,6 +129,12 @@ import {
   type InsertEscrowTransaction,
   type Vendor,
   type InsertVendor,
+  assignments,
+  assignmentPayouts,
+  type Assignment,
+  type InsertAssignment,
+  type AssignmentPayout,
+  type InsertAssignmentPayout,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql, count, sum, gte, lte } from "drizzle-orm";
@@ -1397,6 +1403,19 @@ export interface IStorageExtended extends IStorage {
   getTrialBalance(userId: string): Promise<{ accountId: string; accountName: string; accountType: string; debitTotal: string; creditTotal: string; balance: string }[]>;
   getIncomeStatement(userId: string, startDate: Date, endDate: Date): Promise<{ revenues: any[]; expenses: any[]; totalRevenue: string; totalExpenses: string; netIncome: string }>;
   getBalanceSheet(userId: string): Promise<{ assets: any[]; liabilities: any[]; equity: any[]; totalAssets: string; totalLiabilities: string; totalEquity: string }>;
+
+  // Assignments
+  getAssignments(userId: string): Promise<Assignment[]>;
+  getAssignment(id: string, userId: string): Promise<Assignment | undefined>;
+  createAssignment(userId: string, assignment: InsertAssignment): Promise<Assignment>;
+  updateAssignment(id: string, userId: string, assignment: Partial<InsertAssignment>): Promise<Assignment | undefined>;
+  deleteAssignment(id: string, userId: string): Promise<boolean>;
+
+  // Assignment Payouts
+  getAssignmentPayouts(assignmentId: string, userId: string): Promise<AssignmentPayout[]>;
+  createAssignmentPayout(userId: string, payout: InsertAssignmentPayout): Promise<AssignmentPayout>;
+  updateAssignmentPayout(id: string, userId: string, payout: Partial<InsertAssignmentPayout>): Promise<AssignmentPayout | undefined>;
+  deleteAssignmentPayout(id: string, userId: string): Promise<boolean>;
 }
 
 // Extended DatabaseStorage class methods
@@ -1877,4 +1896,62 @@ DatabaseStorage.prototype.getBalanceSheet = async function(userId: string): Prom
     totalLiabilities: totalLiabilities.toFixed(2),
     totalEquity: totalEquity.toFixed(2),
   };
+};
+
+// ============ ASSIGNMENTS & PAYOUTS ============
+
+DatabaseStorage.prototype.getAssignments = async function(userId: string): Promise<Assignment[]> {
+  return db.select().from(assignments).where(eq(assignments.userId, userId)).orderBy(desc(assignments.createdAt));
+};
+
+DatabaseStorage.prototype.getAssignment = async function(id: string, userId: string): Promise<Assignment | undefined> {
+  const [assignment] = await db.select().from(assignments).where(and(eq(assignments.id, id), eq(assignments.userId, userId)));
+  return assignment;
+};
+
+DatabaseStorage.prototype.createAssignment = async function(userId: string, assignment: InsertAssignment): Promise<Assignment> {
+  const [created] = await db.insert(assignments).values({ ...assignment, userId }).returning();
+  return created;
+};
+
+DatabaseStorage.prototype.updateAssignment = async function(id: string, userId: string, assignment: Partial<InsertAssignment>): Promise<Assignment | undefined> {
+  const [updated] = await db.update(assignments).set({ ...assignment, updatedAt: new Date() }).where(and(eq(assignments.id, id), eq(assignments.userId, userId))).returning();
+  return updated;
+};
+
+DatabaseStorage.prototype.deleteAssignment = async function(id: string, userId: string): Promise<boolean> {
+  await db.delete(assignmentPayouts).where(eq(assignmentPayouts.assignmentId, id));
+  await db.delete(assignments).where(and(eq(assignments.id, id), eq(assignments.userId, userId)));
+  return true;
+};
+
+DatabaseStorage.prototype.getAssignmentPayouts = async function(assignmentId: string, userId: string): Promise<AssignmentPayout[]> {
+  const [assignment] = await db.select().from(assignments).where(and(eq(assignments.id, assignmentId), eq(assignments.userId, userId))).limit(1);
+  if (!assignment) throw new Error("Assignment not found or access denied");
+  return db.select().from(assignmentPayouts).where(eq(assignmentPayouts.assignmentId, assignmentId)).orderBy(desc(assignmentPayouts.payoutDate));
+};
+
+DatabaseStorage.prototype.createAssignmentPayout = async function(userId: string, payout: InsertAssignmentPayout): Promise<AssignmentPayout> {
+  const [assignment] = await db.select().from(assignments).where(and(eq(assignments.id, payout.assignmentId), eq(assignments.userId, userId))).limit(1);
+  if (!assignment) throw new Error("Assignment not found or access denied");
+  const [created] = await db.insert(assignmentPayouts).values(payout).returning();
+  return created;
+};
+
+DatabaseStorage.prototype.updateAssignmentPayout = async function(id: string, userId: string, payout: Partial<InsertAssignmentPayout>): Promise<AssignmentPayout | undefined> {
+  const [existing] = await db.select().from(assignmentPayouts).where(eq(assignmentPayouts.id, id)).limit(1);
+  if (!existing) return undefined;
+  const [assignment] = await db.select().from(assignments).where(and(eq(assignments.id, existing.assignmentId), eq(assignments.userId, userId))).limit(1);
+  if (!assignment) throw new Error("Assignment not found or access denied");
+  const [updated] = await db.update(assignmentPayouts).set({ ...payout, updatedAt: new Date() }).where(eq(assignmentPayouts.id, id)).returning();
+  return updated;
+};
+
+DatabaseStorage.prototype.deleteAssignmentPayout = async function(id: string, userId: string): Promise<boolean> {
+  const [existing] = await db.select().from(assignmentPayouts).where(eq(assignmentPayouts.id, id)).limit(1);
+  if (!existing) return false;
+  const [assignment] = await db.select().from(assignments).where(and(eq(assignments.id, existing.assignmentId), eq(assignments.userId, userId))).limit(1);
+  if (!assignment) throw new Error("Assignment not found or access denied");
+  await db.delete(assignmentPayouts).where(eq(assignmentPayouts.id, id));
+  return true;
 };

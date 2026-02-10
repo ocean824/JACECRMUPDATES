@@ -15,6 +15,7 @@ import {
   Shield,
   BarChart3,
   ClipboardCheck,
+  ClipboardList,
   Landmark,
   MessageSquare,
   CalendarDays,
@@ -65,6 +66,7 @@ const accountingItems = [
   { title: "Journal Entries", url: "/journal", icon: FileText },
   { title: "Bond Settlements", url: "/bonds", icon: Landmark },
   { title: "Settlement Inbox", url: "/settlements", icon: Inbox },
+  { title: "Assignments", url: "/assignments", icon: ClipboardList },
 ];
 
 const financialItems = [

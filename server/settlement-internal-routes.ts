@@ -188,6 +188,33 @@ export function registerInternalSettlementRoutes(app: Express, isAuthenticated: 
         .where(eq(settlementSessions.sessionId, sessionId))
         .returning();
 
+      try {
+        const assignmentData = {
+          userId,
+          investorId: updated.investorId || undefined,
+          settlementSessionId: updated.id,
+          tradeId: updated.tradeId,
+          bondId: updated.bondId,
+          bondName: updated.bondName,
+          issuerName: updated.issuerName,
+          assignmentType: updated.assignmentType,
+          cusip: updated.cusip,
+          maturityDate: updated.maturityDate ? new Date(updated.maturityDate) : undefined,
+          couponRate: updated.couponRate,
+          unitCount: updated.unitCount,
+          unitPrice: updated.unitPrice,
+          totalAmount: updated.amount,
+          investorName: updated.investorName,
+          investorEmail: updated.investorEmail,
+          status: "active",
+          notes: notes || undefined,
+        };
+        await (storage as any).createAssignment(userId, assignmentData);
+        console.log(`Auto-created assignment for settlement ${sessionId}`);
+      } catch (assignErr) {
+        console.error("Failed to auto-create assignment:", assignErr);
+      }
+
       ensureUploadDir();
       const receiptId = `REC-${now.getTime()}-${sessionId.slice(0, 8)}`;
       const receiptBuffer = await renderSettlementReceiptPdf({
