@@ -1,4 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
@@ -60,6 +62,21 @@ app.post(
   }
 );
 
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false,
+}));
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 15,
+  message: { message: "Too many attempts, please try again later" },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use("/api/auth/login", authLimiter);
+app.use("/api/auth/register", authLimiter);
+
 app.use(
   express.json({
     verify: (req, _res, buf) => {
@@ -69,6 +86,13 @@ app.use(
 );
 
 app.use(express.urlencoded({ extended: false }));
+
+app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
+  if (err.type === "entity.parse.failed") {
+    return res.status(400).json({ message: "Invalid request body" });
+  }
+  next(err);
+});
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -190,16 +214,10 @@ let stripeInitStatus = { migrated: false, tables: 0, migrations: 0, error: null 
     console.error("Full error:", error.stack || error);
   }
 
-  // Health check endpoint for verifying production state
-  app.get("/api/health/stripe", (req, res) => {
+  app.get("/api/health/stripe", isLocalAuthenticated, (req, res) => {
     res.json({
       status: stripeInitStatus.migrated ? "ok" : "error",
-      tables: stripeInitStatus.tables,
-      migrations: stripeInitStatus.migrations,
       error: stripeInitStatus.error,
-      serverStartedAt: stripeInitStatus.startedAt,
-      nodeEnv: process.env.NODE_ENV,
-      isDeployment: process.env.REPLIT_DEPLOYMENT === "1",
     });
   });
 

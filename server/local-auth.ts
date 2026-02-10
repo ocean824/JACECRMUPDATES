@@ -7,11 +7,15 @@ import { eq, and, ne } from "drizzle-orm";
 import { z } from "zod";
 import { sendAdminApprovalNotification, sendPinToUser } from "./email-service";
 
+function stripHtmlTags(str: string): string {
+  return str.replace(/<[^>]*>/g, "").trim();
+}
+
 const registerSchema = z.object({
   email: z.string().email("Invalid email address"),
   password: z.string().min(8, "Password must be at least 8 characters"),
-  firstName: z.string().min(1, "First name is required"),
-  lastName: z.string().min(1, "Last name is required"),
+  firstName: z.string().transform(stripHtmlTags).pipe(z.string().min(1, "First name is required")),
+  lastName: z.string().transform(stripHtmlTags).pipe(z.string().min(1, "Last name is required")),
 });
 
 const completeRegistrationSchema = z.object({
