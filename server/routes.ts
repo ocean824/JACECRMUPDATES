@@ -34,6 +34,13 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
 });
 
+function toDate(val: any): Date | undefined {
+  if (!val) return undefined;
+  if (val instanceof Date) return val;
+  const d = new Date(val);
+  return isNaN(d.getTime()) ? undefined : d;
+}
+
 function getUserId(req: Request): string {
   const user = req.user as any;
   return user?.claims?.sub;
@@ -884,7 +891,13 @@ export async function registerRoutes(
   app.patch("/api/bond-settlements/:id", isAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
-      const settlement = await storage.updateBondSettlement(req.params.id, userId, req.body);
+      const settlementBody = {
+        ...req.body,
+        ...(req.body.purchaseDate !== undefined && { purchaseDate: toDate(req.body.purchaseDate) }),
+        ...(req.body.settlementDate !== undefined && { settlementDate: toDate(req.body.settlementDate) }),
+        ...(req.body.maturityDate !== undefined && { maturityDate: toDate(req.body.maturityDate) }),
+      };
+      const settlement = await storage.updateBondSettlement(req.params.id, userId, settlementBody);
       if (!settlement) {
         return res.status(404).json({ message: "Bond settlement not found" });
       }
@@ -1259,7 +1272,12 @@ export async function registerRoutes(
   app.post("/api/task-recurrences", isAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
-      const recurrence = await storage.createTaskRecurrence(userId, req.body);
+      const recurrence = await storage.createTaskRecurrence(userId, {
+        ...req.body,
+        startDate: toDate(req.body.startDate),
+        endDate: toDate(req.body.endDate),
+        nextGenerationAt: toDate(req.body.nextGenerationAt),
+      });
       await logAudit(userId, "create", "task_recurrence", recurrence.id, `Created recurring task: ${recurrence.taskTemplateTitle}`);
       res.status(201).json(recurrence);
     } catch (error) {
@@ -1271,7 +1289,13 @@ export async function registerRoutes(
   app.patch("/api/task-recurrences/:id", isAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
-      const recurrence = await storage.updateTaskRecurrence(req.params.id, userId, req.body);
+      const recurrenceBody = {
+        ...req.body,
+        ...(req.body.startDate !== undefined && { startDate: toDate(req.body.startDate) }),
+        ...(req.body.endDate !== undefined && { endDate: toDate(req.body.endDate) }),
+        ...(req.body.nextGenerationAt !== undefined && { nextGenerationAt: toDate(req.body.nextGenerationAt) }),
+      };
+      const recurrence = await storage.updateTaskRecurrence(req.params.id, userId, recurrenceBody);
       if (!recurrence) {
         return res.status(404).json({ message: "Recurrence not found" });
       }

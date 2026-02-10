@@ -6,6 +6,13 @@ import { insertVendorSchema, escrowAccounts } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 import { db } from "./db";
 
+function toDate(val: any): Date | undefined {
+  if (!val) return undefined;
+  if (val instanceof Date) return val;
+  const d = new Date(val);
+  return isNaN(d.getTime()) ? undefined : d;
+}
+
 // Get user ID from session
 function getUserId(req: Request): string {
   const user = req.user as any;
@@ -70,6 +77,9 @@ export function registerPhase4Routes(app: Express, isAuthenticated: (req: Reques
       const invoice = await (storage as any).createInvoice(userId, {
         ...req.body,
         invoiceNumber,
+        dueDate: toDate(req.body.dueDate),
+        issueDate: toDate(req.body.issueDate),
+        sentAt: toDate(req.body.sentAt),
       });
       await logAudit(userId, "create", "invoice", invoice.id, `Created invoice ${invoiceNumber}`);
       res.status(201).json(invoice);
@@ -83,7 +93,13 @@ export function registerPhase4Routes(app: Express, isAuthenticated: (req: Reques
   app.patch("/api/invoices/:id", isAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
-      const invoice = await (storage as any).updateInvoice(req.params.id, userId, req.body);
+      const invoiceBody = {
+        ...req.body,
+        ...(req.body.dueDate !== undefined && { dueDate: toDate(req.body.dueDate) }),
+        ...(req.body.issueDate !== undefined && { issueDate: toDate(req.body.issueDate) }),
+        ...(req.body.sentAt !== undefined && { sentAt: toDate(req.body.sentAt) }),
+      };
+      const invoice = await (storage as any).updateInvoice(req.params.id, userId, invoiceBody);
       if (!invoice) {
         return res.status(404).json({ message: "Invoice not found" });
       }
@@ -223,6 +239,10 @@ export function registerPhase4Routes(app: Express, isAuthenticated: (req: Reques
       const quote = await (storage as any).createQuote(userId, {
         ...req.body,
         quoteNumber,
+        validUntil: toDate(req.body.validUntil),
+        issueDate: toDate(req.body.issueDate),
+        sentAt: toDate(req.body.sentAt),
+        acceptedAt: toDate(req.body.acceptedAt),
       });
       await logAudit(userId, "create", "quote", quote.id, `Created quote ${quoteNumber}`);
       res.status(201).json(quote);
@@ -235,7 +255,14 @@ export function registerPhase4Routes(app: Express, isAuthenticated: (req: Reques
   app.patch("/api/quotes/:id", isAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
-      const quote = await (storage as any).updateQuote(req.params.id, userId, req.body);
+      const quoteBody = {
+        ...req.body,
+        ...(req.body.validUntil !== undefined && { validUntil: toDate(req.body.validUntil) }),
+        ...(req.body.issueDate !== undefined && { issueDate: toDate(req.body.issueDate) }),
+        ...(req.body.sentAt !== undefined && { sentAt: toDate(req.body.sentAt) }),
+        ...(req.body.acceptedAt !== undefined && { acceptedAt: toDate(req.body.acceptedAt) }),
+      };
+      const quote = await (storage as any).updateQuote(req.params.id, userId, quoteBody);
       if (!quote) {
         return res.status(404).json({ message: "Quote not found" });
       }
@@ -342,7 +369,10 @@ export function registerPhase4Routes(app: Express, isAuthenticated: (req: Reques
   app.post("/api/expenses", isAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
-      const expense = await (storage as any).createExpense(userId, req.body);
+      const expense = await (storage as any).createExpense(userId, {
+        ...req.body,
+        expenseDate: toDate(req.body.expenseDate),
+      });
       await logAudit(userId, "create", "expense", expense.id, `Created expense: ${expense.description}`);
       res.status(201).json(expense);
     } catch (error) {
@@ -354,7 +384,11 @@ export function registerPhase4Routes(app: Express, isAuthenticated: (req: Reques
   app.patch("/api/expenses/:id", isAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
-      const expense = await (storage as any).updateExpense(req.params.id, userId, req.body);
+      const expenseBody = {
+        ...req.body,
+        ...(req.body.expenseDate !== undefined && { expenseDate: toDate(req.body.expenseDate) }),
+      };
+      const expense = await (storage as any).updateExpense(req.params.id, userId, expenseBody);
       if (!expense) {
         return res.status(404).json({ message: "Expense not found" });
       }
@@ -502,6 +536,8 @@ export function registerPhase4Routes(app: Express, isAuthenticated: (req: Reques
       const employee = await (storage as any).createEmployee(userId, {
         ...req.body,
         employeeNumber,
+        hireDate: toDate(req.body.hireDate),
+        terminationDate: toDate(req.body.terminationDate),
       });
       await logAudit(userId, "create", "employee", employee.id, `Created employee: ${employee.firstName} ${employee.lastName}`);
       res.status(201).json(employee);
@@ -514,7 +550,12 @@ export function registerPhase4Routes(app: Express, isAuthenticated: (req: Reques
   app.patch("/api/employees/:id", isAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
-      const employee = await (storage as any).updateEmployee(req.params.id, userId, req.body);
+      const body = {
+        ...req.body,
+        ...(req.body.hireDate !== undefined && { hireDate: toDate(req.body.hireDate) }),
+        ...(req.body.terminationDate !== undefined && { terminationDate: toDate(req.body.terminationDate) }),
+      };
+      const employee = await (storage as any).updateEmployee(req.params.id, userId, body);
       if (!employee) {
         return res.status(404).json({ message: "Employee not found" });
       }
@@ -564,7 +605,11 @@ export function registerPhase4Routes(app: Express, isAuthenticated: (req: Reques
   app.post("/api/leave-requests", isAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
-      const request = await (storage as any).createLeaveRequest(userId, req.body);
+      const request = await (storage as any).createLeaveRequest(userId, {
+        ...req.body,
+        startDate: toDate(req.body.startDate),
+        endDate: toDate(req.body.endDate),
+      });
       await logAudit(userId, "create", "leave_request", request.id, `Created leave request for employee ${req.body.employeeId}`);
       res.status(201).json(request);
     } catch (error) {
@@ -576,7 +621,12 @@ export function registerPhase4Routes(app: Express, isAuthenticated: (req: Reques
   app.patch("/api/leave-requests/:id", isAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
-      const request = await (storage as any).updateLeaveRequest(req.params.id, userId, req.body);
+      const leaveBody = {
+        ...req.body,
+        ...(req.body.startDate !== undefined && { startDate: toDate(req.body.startDate) }),
+        ...(req.body.endDate !== undefined && { endDate: toDate(req.body.endDate) }),
+      };
+      const request = await (storage as any).updateLeaveRequest(req.params.id, userId, leaveBody);
       if (!request) {
         return res.status(404).json({ message: "Leave request not found" });
       }
@@ -629,7 +679,12 @@ export function registerPhase4Routes(app: Express, isAuthenticated: (req: Reques
   app.post("/api/payroll", isAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
-      const record = await (storage as any).createPayrollRecord(userId, req.body);
+      const record = await (storage as any).createPayrollRecord(userId, {
+        ...req.body,
+        payPeriodStart: toDate(req.body.payPeriodStart),
+        payPeriodEnd: toDate(req.body.payPeriodEnd),
+        paidAt: toDate(req.body.paidAt),
+      });
       await logAudit(userId, "create", "payroll", record.id, `Created payroll record for employee ${req.body.employeeId}`);
       res.status(201).json(record);
     } catch (error) {
@@ -641,7 +696,13 @@ export function registerPhase4Routes(app: Express, isAuthenticated: (req: Reques
   app.patch("/api/payroll/:id", isAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
-      const record = await (storage as any).updatePayrollRecord(req.params.id, userId, req.body);
+      const payrollBody = {
+        ...req.body,
+        ...(req.body.payPeriodStart !== undefined && { payPeriodStart: toDate(req.body.payPeriodStart) }),
+        ...(req.body.payPeriodEnd !== undefined && { payPeriodEnd: toDate(req.body.payPeriodEnd) }),
+        ...(req.body.paidAt !== undefined && { paidAt: toDate(req.body.paidAt) }),
+      };
+      const record = await (storage as any).updatePayrollRecord(req.params.id, userId, payrollBody);
       if (!record) {
         return res.status(404).json({ message: "Payroll record not found" });
       }
@@ -679,7 +740,10 @@ export function registerPhase4Routes(app: Express, isAuthenticated: (req: Reques
   app.post("/api/time-entries", isAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
-      const entry = await (storage as any).createTimeEntry(userId, req.body);
+      const entry = await (storage as any).createTimeEntry(userId, {
+        ...req.body,
+        date: toDate(req.body.date),
+      });
       res.status(201).json(entry);
     } catch (error) {
       console.error("Error creating time entry:", error);
@@ -690,7 +754,11 @@ export function registerPhase4Routes(app: Express, isAuthenticated: (req: Reques
   app.patch("/api/time-entries/:id", isAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
-      const entry = await (storage as any).updateTimeEntry(req.params.id, userId, req.body);
+      const timeBody = {
+        ...req.body,
+        ...(req.body.date !== undefined && { date: toDate(req.body.date) }),
+      };
+      const entry = await (storage as any).updateTimeEntry(req.params.id, userId, timeBody);
       if (!entry) {
         return res.status(404).json({ message: "Time entry not found" });
       }
