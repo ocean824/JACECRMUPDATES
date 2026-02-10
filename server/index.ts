@@ -104,6 +104,8 @@ app.use((req, res, next) => {
   next();
 });
 
+let stripeInitStatus = { migrated: false, tables: 0, migrations: 0, error: null as string | null, startedAt: new Date().toISOString() };
+
 (async () => {
   try {
     const { runMigrations } = await import("stripe-replit-sync");
@@ -111,8 +113,25 @@ app.use((req, res, next) => {
     const databaseUrl = process.env.DATABASE_URL;
     if (databaseUrl) {
       console.log("Initializing Stripe schema...");
+      console.log(`DATABASE_URL present: ${!!databaseUrl}, length: ${databaseUrl.length}`);
       await runMigrations({ databaseUrl });
       console.log("Stripe schema ready");
+
+      // Count stripe tables and migrations for diagnostics
+      try {
+        const { Pool } = await import("pg");
+        const pool = new Pool({ connectionString: databaseUrl, max: 1 });
+        const tableRes = await pool.query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'stripe' AND table_type = 'BASE TABLE'");
+        const migRes = await pool.query("SELECT COUNT(*) FROM stripe._migrations");
+        stripeInitStatus.tables = parseInt(tableRes.rows[0].count);
+        stripeInitStatus.migrations = parseInt(migRes.rows[0].count);
+        stripeInitStatus.migrated = true;
+        console.log(`Stripe diagnostics: ${stripeInitStatus.tables} tables, ${stripeInitStatus.migrations} migrations applied`);
+        await pool.end();
+      } catch (diagErr: any) {
+        console.log("Stripe diagnostics query failed:", diagErr.message);
+      }
+
       const stripeSync = await getStripeSync();
       const replitDomains = process.env.REPLIT_DOMAINS;
       if (replitDomains) {
@@ -135,10 +154,28 @@ app.use((req, res, next) => {
       stripeSync.syncBackfill()
         .then(() => console.log("Stripe data synced"))
         .catch((err: any) => console.error("Error syncing Stripe data:", err));
+    } else {
+      stripeInitStatus.error = "DATABASE_URL not set";
+      console.error("DATABASE_URL not set, cannot initialize Stripe");
     }
   } catch (error: any) {
+    stripeInitStatus.error = error.message;
     console.error("Failed to initialize Stripe:", error.message);
+    console.error("Full error:", error.stack || error);
   }
+
+  // Health check endpoint for verifying production state
+  app.get("/api/health/stripe", (req, res) => {
+    res.json({
+      status: stripeInitStatus.migrated ? "ok" : "error",
+      tables: stripeInitStatus.tables,
+      migrations: stripeInitStatus.migrations,
+      error: stripeInitStatus.error,
+      serverStartedAt: stripeInitStatus.startedAt,
+      nodeEnv: process.env.NODE_ENV,
+      isDeployment: process.env.REPLIT_DEPLOYMENT === "1",
+    });
+  });
 
   await registerRoutes(httpServer, app);
 
