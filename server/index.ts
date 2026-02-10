@@ -3,6 +3,9 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { WebhookHandlers } from "./webhookHandlers";
+import { registerAgentRoutes } from "./routes/agentRoutes";
+import { initAgentRegistry } from "./agents";
+import { isLocalAuthenticated } from "./local-auth";
 
 const app = express();
 const httpServer = createServer(app);
@@ -205,6 +208,14 @@ let stripeInitStatus = { migrated: false, tables: 0, migrations: 0, error: null 
   });
 
   await registerRoutes(httpServer, app);
+
+  try {
+    initAgentRegistry();
+    registerAgentRoutes(app, isLocalAuthenticated);
+    console.log("Agent runtime registered successfully");
+  } catch (agentErr: any) {
+    console.error("Failed to initialize agent runtime:", agentErr.message);
+  }
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
