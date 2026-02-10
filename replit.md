@@ -54,6 +54,7 @@ Preferred communication style: Simple, everyday language.
 - **AI Onboarding Assistant**: GPT-4o-mini powered chat assistant with streaming SSE responses, contextual guidance based on user progress, and conversation memory.
 - **Voice Assistant Widget**: Integrated voice assistant using OpenAI speech-to-text and text-to-speech (gpt-audio model), with microphone recording and audio playback. Available on all authenticated pages via floating "Voice Help" button.
 - **Settlement Management**: Internal settlement inbox with manual escrow confirmation flow, PDF receipt generation, BondAI webhook notifications on settlement events. Admin/internal roles can confirm or cancel submitted settlements via `/settlements` inbox page.
+- **Settlement Compliance Gate**: Investor compliance wizard that must be completed inside the iframe before settlement submission. Includes entity type selection (Individual/LLC/Trust), tax ID collection (SSN/EIN encrypted via AES-256-GCM), two forms of ID upload, accredited investor attestation, hold harmless agreement, credit report authorization and demo tri-merge pull, compliance packet PDF generation. Both investor submission and admin confirmation are blocked (409) until compliance is complete. Routes in `server/settlement-compliance-routes.ts`, data in `settlement_compliance` table.
 - **Reporting**: KPI dashboards, analytics, CSV exports.
 
 ### Design Patterns

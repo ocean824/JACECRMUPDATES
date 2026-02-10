@@ -122,6 +122,46 @@ export const settlementSessions = pgTable("settlement_sessions", {
   settledAt: timestamp("settled_at", { withTimezone: true }),
   cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  complianceStatus: varchar("compliance_status", { length: 30 }).default("not_started"),
+  complianceCompletedAt: timestamp("compliance_completed_at", { withTimezone: true }),
+});
+
+// Settlement Compliance (per-session compliance gate data)
+export const settlementCompliance = pgTable("settlement_compliance", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id", { length: 64 }).notNull().unique(),
+  entityType: varchar("entity_type", { length: 30 }),
+  legalName: varchar("legal_name", { length: 300 }),
+  taxIdType: varchar("tax_id_type", { length: 10 }),
+  taxIdLast4: varchar("tax_id_last4", { length: 4 }),
+  taxIdCiphertext: text("tax_id_ciphertext"),
+  taxIdIv: varchar("tax_id_iv", { length: 64 }),
+  taxIdTag: varchar("tax_id_tag", { length: 64 }),
+  idPrimaryFileKey: varchar("id_primary_file_key", { length: 500 }),
+  idPrimaryOriginalName: varchar("id_primary_original_name", { length: 255 }),
+  idSecondaryFileKey: varchar("id_secondary_file_key", { length: 500 }),
+  idSecondaryOriginalName: varchar("id_secondary_original_name", { length: 255 }),
+  creditReportFileKey: varchar("credit_report_file_key", { length: 500 }),
+  creditReportOriginalName: varchar("credit_report_original_name", { length: 255 }),
+  creditReportStatus: varchar("credit_report_status", { length: 30 }).default("not_requested"),
+  creditReportRequestedAt: timestamp("credit_report_requested_at", { withTimezone: true }),
+  creditReportCompletedAt: timestamp("credit_report_completed_at", { withTimezone: true }),
+  creditAuthorizationSigned: boolean("credit_authorization_signed").default(false),
+  creditAuthorizationSignedAt: timestamp("credit_authorization_signed_at", { withTimezone: true }),
+  accreditedInvestorAttested: boolean("accredited_investor_attested").default(false),
+  accreditedInvestorSignedAt: timestamp("accredited_investor_signed_at", { withTimezone: true }),
+  holdHarmlessSigned: boolean("hold_harmless_signed").default(false),
+  holdHarmlessSignedAt: timestamp("hold_harmless_signed_at", { withTimezone: true }),
+  privatePartySelfDirected: boolean("private_party_self_directed").default(false),
+  privatePartySelfDirectedSignedAt: timestamp("private_party_self_directed_signed_at", { withTimezone: true }),
+  signatureName: varchar("signature_name", { length: 255 }),
+  signatureIp: varchar("signature_ip", { length: 45 }),
+  signatureUserAgent: text("signature_user_agent"),
+  complianceStatus: varchar("compliance_status", { length: 30 }).default("not_started"),
+  compliancePacketFileKey: varchar("compliance_packet_file_key", { length: 500 }),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 // Investor Onboarding Submissions (encrypted payload)
@@ -327,6 +367,12 @@ export const insertSettlementSessionSchema = createInsertSchema(settlementSessio
   updatedAt: true,
 });
 
+export const insertSettlementComplianceSchema = createInsertSchema(settlementCompliance).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertInvestorOnboardingSubmissionSchema = createInsertSchema(investorOnboardingSubmissions).omit({
   id: true,
   submittedAt: true,
@@ -383,6 +429,9 @@ export type InsertExternalOnboardingSession = z.infer<typeof insertExternalOnboa
 
 export type SettlementSession = typeof settlementSessions.$inferSelect;
 export type InsertSettlementSession = z.infer<typeof insertSettlementSessionSchema>;
+
+export type SettlementComplianceRecord = typeof settlementCompliance.$inferSelect;
+export type InsertSettlementCompliance = z.infer<typeof insertSettlementComplianceSchema>;
 
 export type InvestorOnboardingSubmission = typeof investorOnboardingSubmissions.$inferSelect;
 export type InsertInvestorOnboardingSubmission = z.infer<typeof insertInvestorOnboardingSubmissionSchema>;

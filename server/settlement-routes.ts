@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { db } from "./db";
 import { desc, eq, sql } from "drizzle-orm";
-import { investors, settlementSessions } from "@shared/schema";
+import { investors, settlementSessions, settlementCompliance } from "@shared/schema";
 import { logAudit } from "./storage";
 
 export interface SettlementJwtPayload {
@@ -250,6 +250,8 @@ export function registerSettlementRoutes(app: Express) {
           paymentReference: updated.paymentReference,
           createdAt: updated.createdAt?.toISOString?.() ?? null,
           expiresAt: updated.expiresAt?.toISOString?.() ?? expDate.toISOString(),
+          complianceStatus: updated.complianceStatus || "not_started",
+          complianceRequired: true,
         });
       }
 
@@ -284,6 +286,8 @@ export function registerSettlementRoutes(app: Express) {
         paymentReference: null,
         createdAt: created?.createdAt?.toISOString?.() ?? new Date().toISOString(),
         expiresAt: expDate.toISOString(),
+        complianceStatus: "not_started",
+        complianceRequired: true,
       });
     } catch (error: any) {
       console.error("Settlement session error:", error);
@@ -315,6 +319,23 @@ export function registerSettlementRoutes(app: Express) {
       if (!session) return res.status(404).json({ message: "Settlement session not found" });
       if (session.status === "settled") return res.status(400).json({ message: "This settlement is already confirmed" });
       if (session.status === "cancelled") return res.status(400).json({ message: "This settlement has been cancelled" });
+
+      // Compliance gate: block submission unless compliance is complete
+      if (session.complianceStatus !== "complete") {
+        const [complianceRecord] = await db
+          .select()
+          .from(settlementCompliance)
+          .where(eq(settlementCompliance.sessionId, payload.sid))
+          .limit(1);
+
+        if (!complianceRecord || complianceRecord.complianceStatus !== "complete") {
+          return res.status(409).json({
+            message: "Compliance must be completed before submitting settlement",
+            code: "COMPLIANCE_REQUIRED",
+            complianceStatus: complianceRecord?.complianceStatus || "not_started",
+          });
+        }
+      }
 
       const now = new Date();
       const [updated] = await db

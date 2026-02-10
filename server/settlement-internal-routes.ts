@@ -3,7 +3,7 @@ import fs from "fs";
 import path from "path";
 import { desc, eq, sql } from "drizzle-orm";
 import { db } from "./db";
-import { investors, settlementSessions } from "@shared/schema";
+import { investors, settlementSessions, settlementCompliance } from "@shared/schema";
 import { storage, logAudit } from "./storage";
 import { renderSettlementReceiptPdf } from "./lib/pdf/renderSettlementReceiptPdf";
 import { sendWebhookToBondAI } from "./services/bondaiSettlementWebhook";
@@ -106,6 +106,23 @@ export function registerInternalSettlementRoutes(app: Express, isAuthenticated: 
       }
       if (existing.status !== "submitted") {
         return res.status(400).json({ message: "Settlement has not been submitted yet" });
+      }
+
+      // Compliance gate: block confirmation unless compliance is complete
+      if (existing.complianceStatus !== "complete") {
+        const [complianceRecord] = await db
+          .select()
+          .from(settlementCompliance)
+          .where(eq(settlementCompliance.sessionId, sessionId))
+          .limit(1);
+
+        if (!complianceRecord || complianceRecord.complianceStatus !== "complete") {
+          return res.status(409).json({
+            message: "Compliance must be completed before confirming settlement",
+            code: "COMPLIANCE_REQUIRED",
+            complianceStatus: complianceRecord?.complianceStatus || "not_started",
+          });
+        }
       }
 
       // Mark settled

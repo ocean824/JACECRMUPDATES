@@ -8,6 +8,7 @@ import { registerExternalOnboarding } from "./external-onboarding";
 import { registerPhase4Routes } from "./routes-phase4";
 import { registerSettlementRoutes } from "./settlement-routes";
 import { registerInternalSettlementRoutes } from "./settlement-internal-routes";
+import { registerSettlementComplianceRoutes } from "./settlement-compliance-routes";
 import { registerInvestorDocumentRoutes, registerExternalInvestorDocumentRoutes } from "./investor-documents";
 import multer from "multer";
 import path from "path";
@@ -2133,6 +2134,9 @@ export async function registerRoutes(
 
   // Register Settlement routes (BondAI settlement processing)
   registerSettlementRoutes(app);
+
+  // Settlement compliance gate routes (token-based, no login)
+  registerSettlementComplianceRoutes(app);
 
   // Internal settlements inbox + confirmation flow
   registerInternalSettlementRoutes(app, isAuthenticated);
