@@ -18,6 +18,7 @@ export interface SettlementJwtPayload {
   amount: number;
   bondName?: string;
   investorEmail?: string;
+  units?: number;
   unitCount?: number;
   unitPrice?: number;
   issuerName?: string;
@@ -114,7 +115,7 @@ export function registerSettlementRoutes(app: Express) {
       const bondName = typeof req.body?.bondName === "string" ? req.body.bondName : undefined;
       const investorEmail = typeof req.body?.investorEmail === "string" ? req.body.investorEmail : undefined;
 
-      const unitCount = req.body?.unitCount != null ? Number(req.body.unitCount) : undefined;
+      const unitCount = req.body?.unitCount != null ? Number(req.body.unitCount) : (req.body?.units != null ? Number(req.body.units) : undefined);
       const unitPrice = req.body?.unitPrice != null ? Number(req.body.unitPrice) : undefined;
       const issuerName = typeof req.body?.issuerName === "string" ? req.body.issuerName : undefined;
       const assignmentType = typeof req.body?.assignmentType === "string" ? req.body.assignmentType : undefined;
@@ -302,7 +303,7 @@ export function registerSettlementRoutes(app: Express) {
           bondName: payload.bondName ?? null,
           status: "pending",
           expiresAt: expDate,
-          unitCount: payload.unitCount != null ? payload.unitCount.toString() : null,
+          unitCount: (payload.unitCount ?? payload.units) != null ? (payload.unitCount ?? payload.units)!.toString() : null,
           unitPrice: payload.unitPrice != null ? payload.unitPrice.toString() : null,
           issuerName: payload.issuerName ?? null,
           assignmentType: payload.assignmentType ?? null,
@@ -312,6 +313,7 @@ export function registerSettlementRoutes(app: Express) {
         })
         .returning();
 
+      const resolvedUnitCount = payload.unitCount ?? payload.units ?? null;
       res.json({
         sessionId: payload.sid,
         tradeId: payload.tradeId,
@@ -325,7 +327,7 @@ export function registerSettlementRoutes(app: Express) {
         expiresAt: expDate.toISOString(),
         complianceStatus: "not_started",
         complianceRequired: true,
-        unitCount: payload.unitCount ?? null,
+        unitCount: resolvedUnitCount,
         unitPrice: payload.unitPrice ?? null,
         issuerName: payload.issuerName ?? null,
         assignmentType: payload.assignmentType ?? null,
