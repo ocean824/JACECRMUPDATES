@@ -903,9 +903,9 @@ export function registerPhase4Routes(app: Express, isAuthenticated: (req: Reques
   });
 
   function getEscrowEncryptionKey(): Buffer {
-    const base64Key = process.env.JACE_ENCRYPTION_KEY_BASE64 || "";
+    const base64Key = process.env.JACE_ENCRYPTION_KEY_BASE64;
     if (!base64Key) {
-      return crypto.createHash("sha256").update("dev-jace-encryption-key").digest();
+      throw new Error("JACE_ENCRYPTION_KEY_BASE64 must be configured for encryption operations");
     }
     const key = Buffer.from(base64Key, "base64");
     if (key.length !== 32) throw new Error("JACE_ENCRYPTION_KEY_BASE64 must decode to 32 bytes");

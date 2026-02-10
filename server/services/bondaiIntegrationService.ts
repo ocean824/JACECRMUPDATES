@@ -43,7 +43,8 @@ export interface BondAIWebhookPayload {
 // Signature verification
 export function verifyBondAISignature(payload: Buffer, signature: string): { ok: boolean; reason?: string } {
   if (!BONDAI_WEBHOOK_SECRET) {
-    return { ok: true, reason: "No secret configured - skipping verification" };
+    console.error("BONDAI_WEBHOOK_SECRET not configured - rejecting unverified signature");
+    return { ok: false, reason: "BONDAI_WEBHOOK_SECRET must be configured" };
   }
   
   if (!signature) {

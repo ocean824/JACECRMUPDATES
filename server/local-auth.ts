@@ -1,5 +1,6 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import { db } from "./db";
 import { users, pendingRegistrations, usedPins } from "@shared/models/auth";
 import { eq, and, ne } from "drizzle-orm";
@@ -32,12 +33,13 @@ function generateInvitePin(): string {
   const pinLength = 8;
   let pin = '';
   
+  const randomBytes = crypto.randomBytes(pinLength + 2);
   for (let i = 0; i < pinLength - 1; i++) {
-    pin += alphanumeric.charAt(Math.floor(Math.random() * alphanumeric.length));
+    pin += alphanumeric.charAt(randomBytes[i] % alphanumeric.length);
   }
   
-  const specialChar = specialChars.charAt(Math.floor(Math.random() * specialChars.length));
-  const insertPos = Math.floor(Math.random() * (pin.length + 1));
+  const specialChar = specialChars.charAt(randomBytes[pinLength - 1] % specialChars.length);
+  const insertPos = randomBytes[pinLength] % (pin.length + 1);
   pin = pin.slice(0, insertPos) + specialChar + pin.slice(insertPos);
   
   return pin;
@@ -301,8 +303,7 @@ export function setupLocalAuth(app: Express) {
       await sendPinToUser(pending.email, pending.firstName, pin);
 
       res.json({
-        message: "Registration approved. PIN sent to user. Expires in 2 hours.",
-        pin,
+        message: "Registration approved. PIN sent to user's email. Expires in 2 hours.",
         expiresAt: expiresAt.toISOString(),
       });
     } catch (error) {

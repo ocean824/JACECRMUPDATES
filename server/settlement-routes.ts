@@ -72,8 +72,10 @@ function requireBondAISecret(req: Request): { ok: boolean; reason?: string } {
   const expected = process.env.BONDAI_WEBHOOK_SECRET;
   const provided = (req.headers["x-bondai-webhook-secret"] as string) || (req.headers["x-api-key"] as string);
 
-  // If no secret is configured, don't block (dev mode)
-  if (!expected) return { ok: true, reason: "No BONDAI_WEBHOOK_SECRET configured" };
+  if (!expected) {
+    console.error("BONDAI_WEBHOOK_SECRET not configured - rejecting request for security");
+    return { ok: false, reason: "BONDAI_WEBHOOK_SECRET must be configured" };
+  }
   if (!provided) return { ok: false, reason: "Missing BondAI secret header" };
   return provided === expected ? { ok: true } : { ok: false, reason: "Invalid BondAI secret" };
 }

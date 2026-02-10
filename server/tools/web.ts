@@ -5,19 +5,52 @@ export async function webFetch(args: WebFetchArgs, _ctx: ToolContext) {
   const url = args?.url;
   if (!url || typeof url !== "string") throw new Error("webFetch: url is required");
 
-  // Basic SSRF guard: only allow http/https and block localhost/private IP literals
   if (!/^https?:\/\//i.test(url)) throw new Error("webFetch: only http/https URLs are allowed");
-  if (/localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]/i.test(url)) throw new Error("webFetch: blocked host");
+
+  const blockedPatterns = [
+    /localhost/i,
+    /127\.\d+\.\d+\.\d+/,
+    /0\.0\.0\.0/,
+    /\[::1\]/,
+    /10\.\d+\.\d+\.\d+/,
+    /172\.(1[6-9]|2\d|3[01])\.\d+\.\d+/,
+    /192\.168\.\d+\.\d+/,
+    /169\.254\.\d+\.\d+/,
+    /\[fd[0-9a-f]{2}:/i,
+    /\[fe80:/i,
+    /\.internal\b/i,
+    /\.local\b/i,
+  ];
+  for (const pat of blockedPatterns) {
+    if (pat.test(url)) throw new Error("webFetch: blocked host");
+  }
 
   const controller = new AbortController();
   const t = setTimeout(() => controller.abort(), 10_000);
 
   const res = await fetch(url, {
     method: "GET",
-    redirect: "follow",
+    redirect: "manual",
     signal: controller.signal,
     headers: { "User-Agent": "JACE-Agent/1.0" },
   }).finally(() => clearTimeout(t));
+
+  if (res.status >= 300 && res.status < 400) {
+    const location = res.headers.get("location") || "";
+    for (const pat of blockedPatterns) {
+      if (pat.test(location)) throw new Error("webFetch: redirect to blocked host");
+    }
+    const redirectRes = await fetch(location, {
+      method: "GET",
+      redirect: "manual",
+      signal: controller.signal,
+      headers: { "User-Agent": "JACE-Agent/1.0" },
+    });
+    if (!redirectRes.ok) throw new Error(`webFetch: HTTP ${redirectRes.status}`);
+    const text = await redirectRes.text();
+    const maxChars = Math.min(Math.max(args.max_chars ?? 20_000, 1_000), 60_000);
+    return { ok: true, url, status: redirectRes.status, text: text.slice(0, maxChars) };
+  }
 
   if (!res.ok) throw new Error(`webFetch: HTTP ${res.status}`);
 

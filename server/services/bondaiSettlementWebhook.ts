@@ -26,7 +26,6 @@ export async function sendWebhookToBondAI(
       .digest("hex");
 
     console.log(`[JACE WEBHOOK] Settlement webhook POST ${webhookUrl}`);
-    console.log(`[JACE WEBHOOK] Settlement payload: ${body}`);
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);

@@ -158,8 +158,15 @@ export function registerStripeRoutes(
   app.get("/api/stripe/payment-status/:paymentIntentId", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const piId = req.params.paymentIntentId as string;
+      const userId = (req.session as any)?.userId || (req.user as any)?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
       const stripe = await getUncachableStripeClient();
       const paymentIntent = await stripe.paymentIntents.retrieve(piId);
+      if (paymentIntent.metadata?.userId && paymentIntent.metadata.userId !== userId) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
       res.json({
         id: paymentIntent.id,
         status: paymentIntent.status,

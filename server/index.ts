@@ -30,8 +30,6 @@ app.post(
         return res.status(400).json({ error: "Invalid webhook payload" });
       }
 
-      await WebhookHandlers.processWebhook(req.body as Buffer, sig);
-
       const { getUncachableStripeClient } = await import("./stripeClient");
       const stripe = await getUncachableStripeClient();
       const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -42,6 +40,8 @@ app.post(
       }
 
       const event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
+
+      await WebhookHandlers.processWebhook(req.body as Buffer, sig);
 
       if (event && event.type) {
         const paymentIntent = event.data?.object;
@@ -96,10 +96,6 @@ app.use((req, res, next) => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      }
-
       log(logLine);
     }
   });

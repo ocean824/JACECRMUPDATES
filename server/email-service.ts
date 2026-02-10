@@ -1,5 +1,9 @@
 import { Resend } from 'resend';
 
+function escapeHtml(str: string): string {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+}
+
 let connectionSettings: any;
 
 async function getCredentials() {
@@ -54,9 +58,9 @@ export async function sendAdminApprovalNotification(
           <h2 style="color: #2563eb;">New User Registration Request</h2>
           <p>A new user has requested to create an account on JACE CRM:</p>
           <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
-            <p><strong>Name:</strong> ${pendingUser.firstName} ${pendingUser.lastName}</p>
-            <p><strong>Email:</strong> ${pendingUser.email}</p>
-            <p><strong>Request ID:</strong> ${pendingUser.id}</p>
+            <p><strong>Name:</strong> ${escapeHtml(pendingUser.firstName)} ${escapeHtml(pendingUser.lastName)}</p>
+            <p><strong>Email:</strong> ${escapeHtml(pendingUser.email)}</p>
+            <p><strong>Request ID:</strong> ${escapeHtml(String(pendingUser.id))}</p>
           </div>
           <p>Please log in to the admin portal to approve or reject this request.</p>
           <p style="color: #6b7280; font-size: 12px; margin-top: 30px;">
@@ -89,11 +93,11 @@ export async function sendPinToUser(
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #2563eb;">Registration Approved!</h2>
-          <p>Hello ${userName},</p>
+          <p>Hello ${escapeHtml(userName)},</p>
           <p>Your JACE CRM account registration has been approved by an administrator.</p>
           <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center;">
             <p style="margin-bottom: 10px;">Your unique PIN code is:</p>
-            <p style="font-size: 32px; font-weight: bold; color: #2563eb; letter-spacing: 8px;">${pin}</p>
+            <p style="font-size: 32px; font-weight: bold; color: #2563eb; letter-spacing: 8px;">${escapeHtml(pin)}</p>
           </div>
           <p>Use this PIN to complete your account registration. This PIN is unique and can only be used once.</p>
           <p style="color: #6b7280; font-size: 12px; margin-top: 30px;">

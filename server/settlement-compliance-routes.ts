@@ -17,7 +17,11 @@ function ensureUploadDir() {
 }
 
 function getSettlementJwtSecret(): string {
-  return process.env.SETTLEMENT_JWT_SECRET || process.env.BONDAI_SETTLEMENT_SECRET || "dev_settlement_secret";
+  const secret = process.env.SETTLEMENT_JWT_SECRET || process.env.BONDAI_SETTLEMENT_SECRET;
+  if (!secret) {
+    throw new Error("SETTLEMENT_JWT_SECRET or BONDAI_SETTLEMENT_SECRET must be configured");
+  }
+  return secret;
 }
 
 function maskLast4(v?: string | null): string | null {
@@ -43,9 +47,9 @@ function encryptSensitive(value: string, key: Buffer): { ciphertextB64: string; 
 }
 
 function getEncryptionKey(): Buffer {
-  const base64Key = process.env.JACE_ENCRYPTION_KEY_BASE64 || "";
+  const base64Key = process.env.JACE_ENCRYPTION_KEY_BASE64;
   if (!base64Key) {
-    return crypto.createHash("sha256").update("dev-jace-encryption-key").digest();
+    throw new Error("JACE_ENCRYPTION_KEY_BASE64 must be configured for encryption operations");
   }
   const key = Buffer.from(base64Key, "base64");
   if (key.length !== 32) {
@@ -84,7 +88,7 @@ async function resolveOwnerUserIdForSession(session: typeof settlementSessions.$
 
 function verifySessionToken(token: string): { sessionId: string } {
   const secret = getSettlementJwtSecret();
-  const decoded = jwt.verify(token, secret) as any;
+  const decoded = jwt.verify(token, secret, { algorithms: ["HS256"] }) as any;
   if (!decoded?.sessionId) throw new Error("Invalid settlement token");
   return { sessionId: decoded.sessionId };
 }
