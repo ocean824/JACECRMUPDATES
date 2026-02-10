@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { CheckCircle, XCircle, Download, RefreshCw, Inbox, FileText, IdCard, ShieldCheck } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CheckCircle, XCircle, Download, RefreshCw, Inbox, FileText, IdCard, ShieldCheck, Landmark } from "lucide-react";
 
 type SettlementSession = {
   id: string;
@@ -43,6 +44,17 @@ type SettlementSession = {
   settledAt: string | null;
   cancelledAt: string | null;
   failureReason: string | null;
+  escrowAccountId: string | null;
+};
+
+type EscrowAccountSummary = {
+  id: string;
+  accountName: string;
+  bankName: string | null;
+  accountNumberLast4: string | null;
+  routingNumberLast4: string | null;
+  isDefault: boolean;
+  isActive: boolean;
 };
 
 function formatMoney(value: string): string {
@@ -65,6 +77,11 @@ export default function SettlementsPage() {
   const [cancelReason, setCancelReason] = useState("");
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [mode, setMode] = useState<"confirm" | "cancel" | null>(null);
+  const [selectedEscrowId, setSelectedEscrowId] = useState<string>("");
+
+  const escrowAccounts = useQuery<EscrowAccountSummary[]>({
+    queryKey: ["/api/escrow-accounts"],
+  });
 
   const summary = useQuery<{ submittedCount: number; pendingCount: number }>({
     queryKey: ["settlements", "summary"],
@@ -104,8 +121,8 @@ export default function SettlementsPage() {
   }, [location, inbox.isLoading, inboxCount, summary.data?.submittedCount]);
 
   const confirmMutation = useMutation({
-    mutationFn: async ({ sessionId, notes }: { sessionId: string; notes: string }) => {
-      return apiRequest("POST", `/api/admin/settlements/${sessionId}/confirm`, { notes });
+    mutationFn: async ({ sessionId, notes, escrowAccountId }: { sessionId: string; notes: string; escrowAccountId?: string }) => {
+      return apiRequest("POST", `/api/admin/settlements/${sessionId}/confirm`, { notes, escrowAccountId: escrowAccountId || undefined });
     },
     onSuccess: async () => {
       toast({ title: "Settlement confirmed", description: "Receipt generated and BondAI notified." });
@@ -144,6 +161,8 @@ export default function SettlementsPage() {
   function openConfirm(sessionId: string) {
     setActiveSessionId(sessionId);
     setMode("confirm");
+    const defaultAccount = (escrowAccounts.data || []).find((a) => a.isDefault && a.isActive);
+    setSelectedEscrowId(defaultAccount?.id || "");
   }
 
   function openCancel(sessionId: string) {
@@ -367,12 +386,37 @@ export default function SettlementsPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
+                  <Label>Escrow Account</Label>
+                  {(escrowAccounts.data || []).filter((a) => a.isActive).length > 0 ? (
+                    <Select value={selectedEscrowId} onValueChange={setSelectedEscrowId}>
+                      <SelectTrigger data-testid="select-escrow-account">
+                        <SelectValue placeholder="Select escrow account..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(escrowAccounts.data || []).filter((a) => a.isActive).map((a) => (
+                          <SelectItem key={a.id} value={a.id} data-testid={`select-escrow-${a.id}`}>
+                            <span className="flex items-center gap-2">
+                              <Landmark className="h-3 w-3" />
+                              {a.accountName}
+                              {a.bankName ? ` (${a.bankName})` : ""}
+                              {a.accountNumberLast4 ? ` ****${a.accountNumberLast4}` : ""}
+                              {a.isDefault ? " [Default]" : ""}
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <div className="text-sm text-muted-foreground">No escrow accounts configured. <a href="/escrow" className="underline">Add one</a></div>
+                  )}
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="confirmNotes">Notes (optional)</Label>
                   <Input id="confirmNotes" value={confirmNotes} onChange={(e) => setConfirmNotes(e.target.value)} placeholder="Escrow confirmation details\u2026" data-testid="input-confirm-notes" />
                 </div>
                 <div className="flex gap-2">
                   <Button
-                    onClick={() => confirmMutation.mutate({ sessionId: active.sessionId, notes: confirmNotes })}
+                    onClick={() => confirmMutation.mutate({ sessionId: active.sessionId, notes: confirmNotes, escrowAccountId: selectedEscrowId || undefined })}
                     disabled={confirmMutation.isPending}
                     data-testid="button-confirm-settlement"
                   >

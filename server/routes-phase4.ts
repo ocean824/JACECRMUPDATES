@@ -1,7 +1,10 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { storage, logAudit } from "./storage";
 import crypto from "crypto";
-import { insertVendorSchema } from "@shared/schema";
+import { z } from "zod";
+import { insertVendorSchema, escrowAccounts } from "@shared/schema";
+import { eq, and } from "drizzle-orm";
+import { db } from "./db";
 
 // Get user ID from session
 function getUserId(req: Request): string {
@@ -873,11 +876,67 @@ export function registerPhase4Routes(app: Express, isAuthenticated: (req: Reques
 
   // ============ ESCROW ACCOUNTS API ============
 
+  const escrowCreateSchema = z.object({
+    accountName: z.string().min(1),
+    bankName: z.string().optional(),
+    accountType: z.string().optional(),
+    accountNumber: z.string().min(4),
+    routingNumber: z.string().min(4),
+    balance: z.string().optional(),
+    currency: z.string().optional(),
+    isActive: z.boolean().optional(),
+    isDefault: z.boolean().optional(),
+    notes: z.string().optional().nullable(),
+  });
+
+  const escrowUpdateSchema = z.object({
+    accountName: z.string().min(1).optional(),
+    bankName: z.string().optional(),
+    accountType: z.string().optional(),
+    accountNumber: z.string().min(4).optional(),
+    routingNumber: z.string().min(4).optional(),
+    balance: z.string().optional(),
+    currency: z.string().optional(),
+    isActive: z.boolean().optional(),
+    isDefault: z.boolean().optional(),
+    notes: z.string().optional().nullable(),
+  });
+
+  function getEscrowEncryptionKey(): Buffer {
+    const base64Key = process.env.JACE_ENCRYPTION_KEY_BASE64 || "";
+    if (!base64Key) {
+      return crypto.createHash("sha256").update("dev-jace-encryption-key").digest();
+    }
+    const key = Buffer.from(base64Key, "base64");
+    if (key.length !== 32) throw new Error("JACE_ENCRYPTION_KEY_BASE64 must decode to 32 bytes");
+    return key;
+  }
+
+  function escrowEncrypt(value: string, key: Buffer): { ciphertextB64: string; ivHex: string; tagHex: string } {
+    const iv = crypto.randomBytes(12);
+    const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
+    const ciphertext = Buffer.concat([cipher.update(Buffer.from(value, "utf8")), cipher.final()]);
+    const tag = cipher.getAuthTag();
+    return { ciphertextB64: ciphertext.toString("base64"), ivHex: iv.toString("hex"), tagHex: tag.toString("hex") };
+  }
+
+  function escrowDecrypt(ciphertextB64: string, ivHex: string, tagHex: string, key: Buffer): string {
+    const decipher = crypto.createDecipheriv("aes-256-gcm", key, Buffer.from(ivHex, "hex"));
+    decipher.setAuthTag(Buffer.from(tagHex, "hex"));
+    const decrypted = Buffer.concat([decipher.update(Buffer.from(ciphertextB64, "base64")), decipher.final()]);
+    return decrypted.toString("utf8");
+  }
+
+  function stripEscrowSensitiveFields(account: any) {
+    const { accountNumberCiphertext, accountNumberIv, accountNumberTag, routingNumberCiphertext, routingNumberIv, routingNumberTag, ...safe } = account;
+    return safe;
+  }
+
   app.get("/api/escrow-accounts", isAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
       const accounts = await (storage as any).getEscrowAccounts(userId);
-      res.json(accounts);
+      res.json(accounts.map(stripEscrowSensitiveFields));
     } catch (error) {
       console.error("Error fetching escrow accounts:", error);
       res.status(500).json({ message: "Failed to fetch escrow accounts" });
@@ -891,20 +950,68 @@ export function registerPhase4Routes(app: Express, isAuthenticated: (req: Reques
       if (!account) {
         return res.status(404).json({ message: "Escrow account not found" });
       }
-      res.json(account);
+      res.json(stripEscrowSensitiveFields(account));
     } catch (error) {
       console.error("Error fetching escrow account:", error);
       res.status(500).json({ message: "Failed to fetch escrow account" });
     }
   });
 
+  app.get("/api/escrow-accounts/:id/decrypt", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const account = await (storage as any).getEscrowAccount(req.params.id, userId);
+      if (!account) {
+        return res.status(404).json({ message: "Escrow account not found" });
+      }
+      const encKey = getEscrowEncryptionKey();
+      let accountNumber: string | null = null;
+      let routingNumber: string | null = null;
+      if (account.accountNumberCiphertext && account.accountNumberIv && account.accountNumberTag) {
+        accountNumber = escrowDecrypt(account.accountNumberCiphertext, account.accountNumberIv, account.accountNumberTag, encKey);
+      }
+      if (account.routingNumberCiphertext && account.routingNumberIv && account.routingNumberTag) {
+        routingNumber = escrowDecrypt(account.routingNumberCiphertext, account.routingNumberIv, account.routingNumberTag, encKey);
+      }
+      const safe = stripEscrowSensitiveFields(account);
+      res.json({ ...safe, accountNumber, routingNumber });
+    } catch (error) {
+      console.error("Error decrypting escrow account:", error);
+      res.status(500).json({ message: "Failed to decrypt escrow account" });
+    }
+  });
+
   app.post("/api/escrow-accounts", isAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
-      const account = await (storage as any).createEscrowAccount(userId, req.body);
+      const parsed = escrowCreateSchema.parse(req.body);
+      const encKey = getEscrowEncryptionKey();
+
+      const acctEnc = escrowEncrypt(parsed.accountNumber, encKey);
+      const routeEnc = escrowEncrypt(parsed.routingNumber, encKey);
+
+      if (parsed.isDefault) {
+        await db.update(escrowAccounts).set({ isDefault: false }).where(and(eq(escrowAccounts.userId, userId), eq(escrowAccounts.isDefault, true)));
+      }
+
+      const { accountNumber, routingNumber, ...rest } = parsed;
+      const account = await (storage as any).createEscrowAccount(userId, {
+        ...rest,
+        accountNumberLast4: accountNumber.slice(-4),
+        accountNumberCiphertext: acctEnc.ciphertextB64,
+        accountNumberIv: acctEnc.ivHex,
+        accountNumberTag: acctEnc.tagHex,
+        routingNumberLast4: routingNumber.slice(-4),
+        routingNumberCiphertext: routeEnc.ciphertextB64,
+        routingNumberIv: routeEnc.ivHex,
+        routingNumberTag: routeEnc.tagHex,
+      });
       await logAudit(userId, "create", "escrow_account", account.id, `Created escrow account: ${account.accountName}`);
-      res.status(201).json(account);
-    } catch (error) {
+      res.status(201).json(stripEscrowSensitiveFields(account));
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
       console.error("Error creating escrow account:", error);
       res.status(500).json({ message: "Failed to create escrow account" });
     }
@@ -913,14 +1020,60 @@ export function registerPhase4Routes(app: Express, isAuthenticated: (req: Reques
   app.patch("/api/escrow-accounts/:id", isAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
-      const account = await (storage as any).updateEscrowAccount(req.params.id, userId, req.body);
+      const parsed = escrowUpdateSchema.parse(req.body);
+      const encKey = getEscrowEncryptionKey();
+
+      const updateData: any = { ...parsed };
+      delete updateData.accountNumber;
+      delete updateData.routingNumber;
+
+      if (parsed.accountNumber) {
+        const enc = escrowEncrypt(parsed.accountNumber, encKey);
+        updateData.accountNumberLast4 = parsed.accountNumber.slice(-4);
+        updateData.accountNumberCiphertext = enc.ciphertextB64;
+        updateData.accountNumberIv = enc.ivHex;
+        updateData.accountNumberTag = enc.tagHex;
+      }
+
+      if (parsed.routingNumber) {
+        const enc = escrowEncrypt(parsed.routingNumber, encKey);
+        updateData.routingNumberLast4 = parsed.routingNumber.slice(-4);
+        updateData.routingNumberCiphertext = enc.ciphertextB64;
+        updateData.routingNumberIv = enc.ivHex;
+        updateData.routingNumberTag = enc.tagHex;
+      }
+
+      if (parsed.isDefault) {
+        await db.update(escrowAccounts).set({ isDefault: false }).where(and(eq(escrowAccounts.userId, userId), eq(escrowAccounts.isDefault, true)));
+      }
+
+      const account = await (storage as any).updateEscrowAccount(req.params.id, userId, updateData);
       if (!account) {
         return res.status(404).json({ message: "Escrow account not found" });
       }
-      res.json(account);
-    } catch (error) {
+      res.json(stripEscrowSensitiveFields(account));
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
       console.error("Error updating escrow account:", error);
       res.status(500).json({ message: "Failed to update escrow account" });
+    }
+  });
+
+  app.delete("/api/escrow-accounts/:id", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const account = await (storage as any).getEscrowAccount(req.params.id, userId);
+      if (!account) {
+        return res.status(404).json({ message: "Escrow account not found" });
+      }
+      await (storage as any).deleteEscrowAccount(req.params.id, userId);
+      await logAudit(userId, "delete", "escrow_account", req.params.id, `Deleted escrow account: ${account.accountName}`);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting escrow account:", error);
+      res.status(500).json({ message: "Failed to delete escrow account" });
     }
   });
 

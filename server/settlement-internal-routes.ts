@@ -93,6 +93,7 @@ export function registerInternalSettlementRoutes(app: Express, isAuthenticated: 
           settledAt: settlementSessions.settledAt,
           cancelledAt: settlementSessions.cancelledAt,
           failureReason: settlementSessions.failureReason,
+          escrowAccountId: settlementSessions.escrowAccountId,
 
           entityType: settlementCompliance.entityType,
           entityLegalName: settlementCompliance.entityLegalName,
@@ -148,6 +149,7 @@ export function registerInternalSettlementRoutes(app: Express, isAuthenticated: 
       const userId = getUserId(req);
       const sessionId = req.params.sessionId;
       const notes = typeof req.body?.notes === "string" ? req.body.notes : null;
+      const escrowAccountId = typeof req.body?.escrowAccountId === "string" ? req.body.escrowAccountId : null;
 
       const [existing] = await db
         .select()
@@ -181,6 +183,7 @@ export function registerInternalSettlementRoutes(app: Express, isAuthenticated: 
           status: "settled",
           settledAt: now,
           updatedAt: now,
+          ...(escrowAccountId ? { escrowAccountId } : {}),
         })
         .where(eq(settlementSessions.sessionId, sessionId))
         .returning();

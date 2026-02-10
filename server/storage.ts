@@ -1378,6 +1378,7 @@ export interface IStorageExtended extends IStorage {
   getEscrowAccount(id: string, userId: string): Promise<EscrowAccount | undefined>;
   createEscrowAccount(userId: string, account: InsertEscrowAccount): Promise<EscrowAccount>;
   updateEscrowAccount(id: string, userId: string, account: Partial<InsertEscrowAccount>): Promise<EscrowAccount | undefined>;
+  deleteEscrowAccount(id: string, userId: string): Promise<boolean>;
 
   // Escrow Transactions
   getEscrowTransactions(escrowAccountId: string, userId: string): Promise<EscrowTransaction[]>;
@@ -1715,6 +1716,11 @@ DatabaseStorage.prototype.createEscrowAccount = async function(userId: string, a
 DatabaseStorage.prototype.updateEscrowAccount = async function(id: string, userId: string, account: Partial<InsertEscrowAccount>): Promise<EscrowAccount | undefined> {
   const [updated] = await db.update(escrowAccounts).set({ ...account, updatedAt: new Date() }).where(and(eq(escrowAccounts.id, id), eq(escrowAccounts.userId, userId))).returning();
   return updated;
+};
+
+DatabaseStorage.prototype.deleteEscrowAccount = async function(id: string, userId: string): Promise<boolean> {
+  await db.delete(escrowAccounts).where(and(eq(escrowAccounts.id, id), eq(escrowAccounts.userId, userId)));
+  return true;
 };
 
 // Escrow Transactions
