@@ -37,6 +37,7 @@ import {
   Scale,
   FileSpreadsheet,
   Inbox,
+  CircleDollarSign,
 } from "lucide-react";
 import {
   Sidebar,
@@ -72,6 +73,7 @@ const financialItems = [
   { title: "Expenses", url: "/expenses", icon: CreditCard },
   { title: "Escrow Accounts", url: "/escrow", icon: Banknote },
   { title: "Vendors", url: "/vendors", icon: Building2 },
+  { title: "Payments", url: "/payments", icon: CircleDollarSign },
 ];
 
 const reportsItems = [

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -34,6 +34,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Plus, FileText, Send, Eye, DollarSign, Trash2, Building2 } from "lucide-react";
 import { Link } from "wouter";
 import { format } from "date-fns";
+import { StripePaymentDialog } from "@/components/stripe-payment-dialog";
 
 interface Invoice {
   id: string;
@@ -72,6 +73,7 @@ const statusColors: Record<string, string> = {
 export default function InvoicesPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [paymentDialog, setPaymentDialog] = useState<{ open: boolean; clientSecret: string; amount: number; description: string }>({ open: false, clientSecret: "", amount: 0, description: "" });
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -118,6 +120,32 @@ export default function InvoicesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
       toast({ title: "Invoice updated successfully" });
+    },
+  });
+
+  const payWithStripe = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/payments/invoice/${id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Failed to process payment");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setPaymentDialog({
+        open: true,
+        clientSecret: data.clientSecret,
+        amount: data.amount,
+        description: "Invoice payment",
+      });
+    },
+    onError: (error: any) => {
+      toast({ title: "Payment failed", description: error.message, variant: "destructive" });
     },
   });
 
@@ -376,13 +404,13 @@ export default function InvoicesPage() {
                             <Send className="h-4 w-4" />
                           </Button>
                         )}
-                        {["sent", "viewed", "partial"].includes(invoice.status) && (
+                        {["sent", "viewed", "partial", "overdue"].includes(invoice.status) && (
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => {
-                              // Open payment dialog
-                            }}
+                            data-testid={`button-pay-invoice-${invoice.id}`}
+                            disabled={payWithStripe.isPending}
+                            onClick={() => payWithStripe.mutate(invoice.id)}
                           >
                             <DollarSign className="h-4 w-4" />
                           </Button>
@@ -405,6 +433,17 @@ export default function InvoicesPage() {
           )}
         </CardContent>
       </Card>
+      <StripePaymentDialog
+        open={paymentDialog.open}
+        onOpenChange={(open) => setPaymentDialog((prev) => ({ ...prev, open }))}
+        clientSecret={paymentDialog.clientSecret}
+        amount={paymentDialog.amount}
+        description={paymentDialog.description}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/payments"] });
+        }}
+      />
     </div>
   );
 }

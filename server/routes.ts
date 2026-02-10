@@ -10,6 +10,7 @@ import { registerSettlementRoutes } from "./settlement-routes";
 import { registerInternalSettlementRoutes } from "./settlement-internal-routes";
 import { registerSettlementComplianceRoutes } from "./settlement-compliance-routes";
 import { registerInvestorDocumentRoutes, registerExternalInvestorDocumentRoutes } from "./investor-documents";
+import { registerStripeRoutes } from "./stripe-routes";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -2143,6 +2144,9 @@ export async function registerRoutes(
 
   // Register Phase 4 routes (Invoicing, Expenses, HR, BondAI Integration)
   registerPhase4Routes(app, isAuthenticated);
+
+  // Register Stripe payment routes
+  registerStripeRoutes(app, isAuthenticated);
 
   return httpServer;
 }

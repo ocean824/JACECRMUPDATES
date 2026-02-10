@@ -56,6 +56,7 @@ Preferred communication style: Simple, everyday language.
 - **Escrow Account Management**: Multi-account escrow management with AES-256-GCM encrypted checking/routing numbers (only last 4 digits visible). Full CRUD at `/escrow` page. Routes in `server/routes-phase4.ts`, data in `escrow_accounts` table. Decrypt endpoint available for admin view. Default account auto-selected during settlement confirmation.
 - **Settlement Management**: Internal settlement inbox with manual escrow confirmation flow, escrow account selection per settlement, PDF receipt generation, BondAI webhook notifications on settlement events. Admin/internal roles can confirm or cancel submitted settlements via `/settlements` inbox page.
 - **Settlement Compliance Gate**: Investor compliance wizard that must be completed inside the iframe before settlement submission. Includes entity type selection (Individual/LLC/Trust), tax ID collection (SSN/EIN encrypted via AES-256-GCM), two forms of ID upload, accredited investor attestation, hold harmless agreement, credit report authorization and demo tri-merge pull, compliance packet PDF generation. Both investor submission and admin confirmation are blocked (409) until compliance is complete. Routes in `server/settlement-compliance-routes.ts`, data in `settlement_compliance` table.
+- **Stripe Payment Processing**: B2B outgoing payments for invoices, expenses, and vendors via Stripe PaymentIntents. Uses `stripe-replit-sync` for webhook management and data synchronization. Payment history tracked at `/payments` page. "Pay with Stripe" buttons on invoices (sent/viewed/partial/overdue) and expenses (approved). Routes in `server/stripe-routes.ts`, client in `server/stripeClient.ts`, webhooks in `server/webhookHandlers.ts`. Stripe schema auto-created in separate `stripe` schema namespace. Webhook route registered before `express.json()` middleware in `server/index.ts`.
 - **Reporting**: KPI dashboards, analytics, CSV exports.
 
 ### Design Patterns
@@ -96,6 +97,7 @@ Preferred communication style: Simple, everyday language.
 - **BondAI**: External investor onboarding, utilizing JWTs, AES-256-GCM encryption, HMAC-SHA256 webhooks, and CORS restrictions.
 - **Resend**: For sending confirmation emails post-onboarding.
 - **Multer**: For document uploads.
+- **Stripe**: B2B payment processing via `stripe` and `stripe-replit-sync` packages. Credentials auto-fetched from Replit connection API.
 
 ### Environment Variables
 - `DATABASE_URL`: PostgreSQL connection string.

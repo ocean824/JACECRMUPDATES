@@ -1303,6 +1303,7 @@ export interface IStorageExtended extends IStorage {
   // Invoice Payments
   getInvoicePayments(invoiceId: string): Promise<InvoicePayment[]>;
   createInvoicePayment(payment: InsertInvoicePayment): Promise<InvoicePayment>;
+  getPaymentByStripeIntentId(stripePaymentIntentId: string): Promise<InvoicePayment | undefined>;
 
   // Quotes
   getQuotes(userId: string): Promise<Quote[]>;
@@ -1459,6 +1460,11 @@ DatabaseStorage.prototype.getInvoicePayments = async function(invoiceId: string)
 DatabaseStorage.prototype.createInvoicePayment = async function(payment: InsertInvoicePayment): Promise<InvoicePayment> {
   const [created] = await db.insert(invoicePayments).values(payment).returning();
   return created;
+};
+
+DatabaseStorage.prototype.getPaymentByStripeIntentId = async function(stripePaymentIntentId: string): Promise<InvoicePayment | undefined> {
+  const [payment] = await db.select().from(invoicePayments).where(eq(invoicePayments.stripePaymentIntentId, stripePaymentIntentId));
+  return payment;
 };
 
 // Quotes

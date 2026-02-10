@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
+import { WebhookHandlers } from "./webhookHandlers";
 
 const app = express();
 const httpServer = createServer(app);
@@ -11,6 +12,50 @@ declare module "http" {
     rawBody: unknown;
   }
 }
+
+app.post(
+  "/api/stripe/webhook",
+  express.raw({ type: "application/json" }),
+  async (req, res) => {
+    const signature = req.headers["stripe-signature"];
+    if (!signature) {
+      return res.status(400).json({ error: "Missing stripe-signature" });
+    }
+    try {
+      const sig = Array.isArray(signature) ? signature[0] : signature;
+      if (!Buffer.isBuffer(req.body)) {
+        return res.status(400).json({ error: "Invalid webhook payload" });
+      }
+
+      await WebhookHandlers.processWebhook(req.body as Buffer, sig);
+
+      const { getUncachableStripeClient } = await import("./stripeClient");
+      const stripe = await getUncachableStripeClient();
+      const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+      if (!endpointSecret) {
+        console.error("STRIPE_WEBHOOK_SECRET not configured, rejecting unverified webhook");
+        return res.status(400).json({ error: "Webhook secret not configured" });
+      }
+
+      const event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
+
+      if (event && event.type) {
+        const paymentIntent = event.data?.object;
+        if (event.type === "payment_intent.succeeded" && paymentIntent) {
+          await WebhookHandlers.handlePaymentIntentSucceeded(paymentIntent);
+        } else if (event.type === "payment_intent.payment_failed" && paymentIntent) {
+          await WebhookHandlers.handlePaymentIntentFailed(paymentIntent);
+        }
+      }
+
+      res.status(200).json({ received: true });
+    } catch (error: any) {
+      console.error("Stripe webhook error:", error.message);
+      res.status(400).json({ error: "Webhook signature verification failed" });
+    }
+  }
+);
 
 app.use(
   express.json({
@@ -60,6 +105,41 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  try {
+    const { runMigrations } = await import("stripe-replit-sync");
+    const { getStripeSync } = await import("./stripeClient");
+    const databaseUrl = process.env.DATABASE_URL;
+    if (databaseUrl) {
+      console.log("Initializing Stripe schema...");
+      await runMigrations({ databaseUrl });
+      console.log("Stripe schema ready");
+      const stripeSync = await getStripeSync();
+      const replitDomains = process.env.REPLIT_DOMAINS;
+      if (replitDomains) {
+        const webhookBaseUrl = `https://${replitDomains.split(",")[0]}`;
+        try {
+          const result = await stripeSync.findOrCreateManagedWebhook(
+            `${webhookBaseUrl}/api/stripe/webhook`
+          );
+          if (result?.webhook) {
+            console.log(`Stripe webhook configured: ${result.webhook.url}`);
+          } else {
+            console.log("Stripe webhook setup returned no webhook, continuing...");
+          }
+        } catch (whErr: any) {
+          console.log("Stripe webhook setup skipped:", whErr.message);
+        }
+      } else {
+        console.log("REPLIT_DOMAINS not set, skipping webhook setup");
+      }
+      stripeSync.syncBackfill()
+        .then(() => console.log("Stripe data synced"))
+        .catch((err: any) => console.error("Error syncing Stripe data:", err));
+    }
+  } catch (error: any) {
+    console.error("Failed to initialize Stripe:", error.message);
+  }
+
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,8 +31,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, CreditCard, Check, Trash2, Receipt } from "lucide-react";
+import { Plus, CreditCard, Check, Trash2, Receipt, DollarSign } from "lucide-react";
 import { format } from "date-fns";
+import { StripePaymentDialog } from "@/components/stripe-payment-dialog";
 
 interface Expense {
   id: string;
@@ -71,6 +72,7 @@ const categoryOptions = [
 
 export default function ExpensesPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [paymentDialog, setPaymentDialog] = useState<{ open: boolean; clientSecret: string; amount: number; description: string }>({ open: false, clientSecret: "", amount: 0, description: "" });
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -111,6 +113,32 @@ export default function ExpensesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
       toast({ title: "Expense approved" });
+    },
+  });
+
+  const payWithStripe = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/payments/expense/${id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Failed to process payment");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setPaymentDialog({
+        open: true,
+        clientSecret: data.clientSecret,
+        amount: data.amount,
+        description: "Expense reimbursement",
+      });
+    },
+    onError: (error: any) => {
+      toast({ title: "Payment failed", description: error.message, variant: "destructive" });
     },
   });
 
@@ -328,6 +356,17 @@ export default function ExpensesPage() {
                             <Check className="h-4 w-4 text-green-600" />
                           </Button>
                         )}
+                        {expense.status === "approved" && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            data-testid={`button-pay-expense-${expense.id}`}
+                            disabled={payWithStripe.isPending}
+                            onClick={() => payWithStripe.mutate(expense.id)}
+                          >
+                            <DollarSign className="h-4 w-4" />
+                          </Button>
+                        )}
                         {expense.receiptUrl && (
                           <Button variant="ghost" size="sm" asChild>
                             <a href={expense.receiptUrl} target="_blank" rel="noopener noreferrer">
@@ -355,6 +394,17 @@ export default function ExpensesPage() {
           )}
         </CardContent>
       </Card>
+      <StripePaymentDialog
+        open={paymentDialog.open}
+        onOpenChange={(open) => setPaymentDialog((prev) => ({ ...prev, open }))}
+        clientSecret={paymentDialog.clientSecret}
+        amount={paymentDialog.amount}
+        description={paymentDialog.description}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/payments"] });
+        }}
+      />
     </div>
   );
 }

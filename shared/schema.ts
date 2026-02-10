@@ -1520,10 +1520,13 @@ export const invoiceLineItems = pgTable("invoice_line_items", {
 // Invoice payments
 export const invoicePayments = pgTable("invoice_payments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  invoiceId: varchar("invoice_id").notNull().references(() => invoices.id, { onDelete: "cascade" }),
+  invoiceId: varchar("invoice_id").references(() => invoices.id, { onDelete: "cascade" }),
+  expenseId: varchar("expense_id").references(() => expenses.id),
   amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
   paymentMethod: varchar("payment_method", { length: 50 }),
   paymentReference: varchar("payment_reference", { length: 255 }),
+  stripePaymentIntentId: varchar("stripe_payment_intent_id", { length: 255 }),
+  stripeStatus: varchar("stripe_status", { length: 50 }),
   notes: text("notes"),
   paidAt: timestamp("paid_at").defaultNow().notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -1802,6 +1805,10 @@ export const invoicePaymentRelations = relations(invoicePayments, ({ one }) => (
   invoice: one(invoices, {
     fields: [invoicePayments.invoiceId],
     references: [invoices.id],
+  }),
+  expense: one(expenses, {
+    fields: [invoicePayments.expenseId],
+    references: [expenses.id],
   }),
 }));
 
