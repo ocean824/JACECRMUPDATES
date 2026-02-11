@@ -55,7 +55,8 @@ export function registerAssignmentRoutes(app: Express, isAuthenticated: (req: Re
   app.patch("/api/assignments/:id", isAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
-      const parsed = insertAssignmentSchema.partial().safeParse(req.body);
+      const { userId: _, createdAt: _c, updatedAt: _u, id: _i, ...safeBody } = req.body;
+      const parsed = insertAssignmentSchema.partial().safeParse(safeBody);
       if (!parsed.success) {
         return res.status(400).json({ message: "Validation failed", errors: parsed.error.errors });
       }
@@ -138,9 +139,10 @@ export function registerAssignmentRoutes(app: Express, isAuthenticated: (req: Re
       if (!assignment) {
         return res.status(404).json({ message: "Assignment not found" });
       }
+      const { assignmentId: _a, createdAt: _c, updatedAt: _u, id: _i, ...safeBody } = req.body;
       const parsed = insertAssignmentPayoutSchema.partial().safeParse({
-        ...req.body,
-        ...(req.body.payoutDate !== undefined && { payoutDate: new Date(req.body.payoutDate) }),
+        ...safeBody,
+        ...(safeBody.payoutDate !== undefined && { payoutDate: new Date(safeBody.payoutDate) }),
       });
       if (!parsed.success) {
         return res.status(400).json({ message: "Validation failed", errors: parsed.error.errors });
@@ -160,12 +162,7 @@ export function registerAssignmentRoutes(app: Express, isAuthenticated: (req: Re
   app.get("/api/assignment-payouts/all", isAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
-      const allAssignments = await (storage as any).getAssignments(userId);
-      const allPayouts: any[] = [];
-      for (const a of allAssignments) {
-        const payouts = await (storage as any).getAssignmentPayouts(a.id, userId);
-        allPayouts.push(...payouts.map((p: any) => ({ ...p, bondName: a.bondName, investorName: a.investorName })));
-      }
+      const allPayouts = await (storage as any).getAllAssignmentPayouts(userId);
       res.json(allPayouts);
     } catch (error) {
       console.error("Error fetching all payouts:", error);

@@ -546,7 +546,7 @@ export default function CalendarPage() {
         if (p.payoutDate && p.status === "scheduled") {
           synthetic.push({
             id: `payout-${p.id}`,
-            userId: "",
+            userId: "synthetic",
             title: `Payout: ${p.bondName || "Bond"} - $${Number(p.amount).toLocaleString()}`,
             eventType: "payout" as any,
             startTime: new Date(p.payoutDate),

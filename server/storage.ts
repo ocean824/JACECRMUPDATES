@@ -333,6 +333,9 @@ export interface IStorage {
   // Compliance Audit Events
   getComplianceAuditEvents(investorId: string): Promise<ComplianceAuditEvent[]>;
   createComplianceAuditEvent(userId: string, event: InsertComplianceAuditEvent): Promise<ComplianceAuditEvent>;
+
+  // Assignment Payouts (all)
+  getAllAssignmentPayouts(userId: string): Promise<(AssignmentPayout & { bondName: string | null; investorName: string | null })[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1920,6 +1923,8 @@ DatabaseStorage.prototype.updateAssignment = async function(id: string, userId: 
 };
 
 DatabaseStorage.prototype.deleteAssignment = async function(id: string, userId: string): Promise<boolean> {
+  const [assignment] = await db.select().from(assignments).where(and(eq(assignments.id, id), eq(assignments.userId, userId))).limit(1);
+  if (!assignment) return false;
   await db.delete(assignmentPayouts).where(eq(assignmentPayouts.assignmentId, id));
   await db.delete(assignments).where(and(eq(assignments.id, id), eq(assignments.userId, userId)));
   return true;
@@ -1954,4 +1959,26 @@ DatabaseStorage.prototype.deleteAssignmentPayout = async function(id: string, us
   if (!assignment) throw new Error("Assignment not found or access denied");
   await db.delete(assignmentPayouts).where(eq(assignmentPayouts.id, id));
   return true;
+};
+
+DatabaseStorage.prototype.getAllAssignmentPayouts = async function(userId: string): Promise<(AssignmentPayout & { bondName: string | null; investorName: string | null })[]> {
+  const results = await db
+    .select({
+      id: assignmentPayouts.id,
+      assignmentId: assignmentPayouts.assignmentId,
+      payoutDate: assignmentPayouts.payoutDate,
+      amount: assignmentPayouts.amount,
+      payoutType: assignmentPayouts.payoutType,
+      status: assignmentPayouts.status,
+      notes: assignmentPayouts.notes,
+      createdAt: assignmentPayouts.createdAt,
+      updatedAt: assignmentPayouts.updatedAt,
+      bondName: assignments.bondName,
+      investorName: assignments.investorName,
+    })
+    .from(assignmentPayouts)
+    .innerJoin(assignments, eq(assignmentPayouts.assignmentId, assignments.id))
+    .where(eq(assignments.userId, userId))
+    .orderBy(desc(assignmentPayouts.payoutDate));
+  return results;
 };

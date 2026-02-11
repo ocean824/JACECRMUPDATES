@@ -140,8 +140,7 @@ function AddPayoutDialog({
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/assignments", assignmentId, "payouts"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/assignments", assignmentId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/assignments/${assignmentId}`] });
       toast({ title: "Payout added" });
       onOpenChange(false);
       form.reset();
@@ -298,7 +297,7 @@ function EditPayoutDialog({
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/assignments", assignmentId, "payouts"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/assignments/${assignmentId}`] });
       toast({ title: "Payout updated" });
       onOpenChange(false);
     },
@@ -384,22 +383,20 @@ export default function AssignmentDetailPage() {
   const [editingPayout, setEditingPayout] = useState<AssignmentPayout | null>(null);
   const [deletingPayout, setDeletingPayout] = useState<AssignmentPayout | null>(null);
 
-  const { data: assignment, isLoading: assignmentLoading } = useQuery<Assignment>({
-    queryKey: ["/api/assignments", id],
+  const { data: assignmentData, isLoading: assignmentLoading } = useQuery<{payouts: AssignmentPayout[]} & Assignment>({
+    queryKey: [`/api/assignments/${id}`],
     enabled: !!id,
   });
 
-  const { data: payouts = [], isLoading: payoutsLoading } = useQuery<AssignmentPayout[]>({
-    queryKey: ["/api/assignments", id, "payouts"],
-    enabled: !!id,
-  });
+  const assignment = assignmentData ? { ...assignmentData } : undefined;
+  const payouts = assignmentData?.payouts || [];
 
   const deleteMutation = useMutation({
     mutationFn: async (payoutId: string) => {
       await apiRequest("DELETE", `/api/assignments/${id}/payouts/${payoutId}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/assignments", id, "payouts"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/assignments/${id}`] });
       toast({ title: "Payout deleted" });
       setDeletingPayout(null);
     },
@@ -568,7 +565,7 @@ export default function AssignmentDetailPage() {
           </Button>
         </CardHeader>
         <CardContent>
-          {payoutsLoading ? (
+          {assignmentLoading ? (
             <div className="space-y-3">
               {[1, 2].map((i) => (
                 <Skeleton key={i} className="h-12 w-full" />
