@@ -9,6 +9,7 @@ import { investors, settlementSessions, settlementCompliance, journalEntries, jo
 import { logAudit } from "./storage";
 import { storage } from "./storage";
 import { renderSettlementReceiptPdf } from "./lib/pdf/renderSettlementReceiptPdf";
+import { sendBondAISettlementWebhook } from "./services/bondaiSettlementWebhook";
 
 export interface SettlementJwtPayload {
   sid: string;
@@ -552,6 +553,11 @@ export function registerSettlementRoutes(app: Express) {
       } catch {
       }
 
+      sendBondAISettlementWebhook("settlement.completed", updated.tradeId, updated.sessionId, {
+        paymentReference: updated.paymentReference || paymentReference,
+        paidAt: new Date().toISOString(),
+      }).catch(err => console.error("[JACE WEBHOOK] settlement.completed fire-and-forget error:", err));
+
       res.json({
         success: true,
         status: updated.status,
@@ -607,6 +613,10 @@ export function registerSettlementRoutes(app: Express) {
         );
       } catch {
       }
+
+      sendBondAISettlementWebhook("settlement.cancelled", payload.tradeId, payload.sid).catch(
+        err => console.error("[JACE WEBHOOK] settlement.cancelled fire-and-forget error:", err)
+      );
 
       res.json({ success: true, message: "Settlement cancelled" });
     } catch (error: any) {

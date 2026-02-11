@@ -8,7 +8,7 @@ import { db } from "./db";
 import { documents, investors, settlementCompliance, settlementSessions } from "@shared/schema";
 import { storage, logAudit } from "./storage";
 import { renderSettlementReceiptPdf } from "./lib/pdf/renderSettlementReceiptPdf";
-import { sendWebhookToBondAI } from "./services/bondaiSettlementWebhook";
+import { sendBondAISettlementWebhook } from "./services/bondaiSettlementWebhook";
 
 const UPLOAD_DIR = "./uploads";
 
@@ -290,20 +290,19 @@ export function registerInternalSettlementRoutes(app: Express, isAuthenticated: 
         req.ip
       );
 
-      const webhookUrl = process.env.BONDAI_WEBHOOK_URL;
-      const webhookSecret = process.env.BONDAI_WEBHOOK_SECRET;
       let webhookResult: any = null;
-
-      if (webhookUrl && webhookSecret) {
-        webhookResult = await sendWebhookToBondAI(webhookUrl, webhookSecret, "settlement.completed", {
-          tradeId: updated.tradeId,
-          sessionId,
+      try {
+        webhookResult = await sendBondAISettlementWebhook("settlement.completed", updated.tradeId, sessionId, {
+          paymentReference: updated.paymentReference,
+          paidAt: new Date().toISOString(),
           investorEmail: updated.investorEmail,
           amount: updated.amount,
-          paymentReference: updated.paymentReference,
           receiptId,
           receiptUrl: `/api/admin/settlements/${sessionId}/receipt`,
         });
+      } catch (err: any) {
+        console.error("[JACE WEBHOOK] internal confirm webhook error:", err?.message);
+        webhookResult = { success: false, error: err?.message };
       }
 
       res.json({

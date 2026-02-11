@@ -1,31 +1,50 @@
 import crypto from "crypto";
 
 export type SettlementWebhookEvent =
-  | "settlement.submitted"
   | "settlement.completed"
+  | "settlement.failed"
   | "settlement.cancelled";
 
-export async function sendWebhookToBondAI(
-  webhookUrl: string,
-  webhookSecret: string,
-  event: SettlementWebhookEvent | string,
-  payload: Record<string, unknown>
-): Promise<{ success: boolean; statusCode?: number; error?: string }> {
+interface WebhookResult {
+  success: boolean;
+  statusCode?: number;
+  error?: string;
+}
+
+export async function sendBondAISettlementWebhook(
+  eventType: SettlementWebhookEvent,
+  tradeId: number,
+  sessionId: string,
+  additionalData: Record<string, unknown> = {}
+): Promise<WebhookResult> {
+  const webhookUrl = process.env.BONDAI_WEBHOOK_URL || "https://bondai.app/api/jace/webhook";
+  const secret = process.env.JACE_WEBHOOK_SECRET;
+
+  if (!secret) {
+    console.error("[JACE WEBHOOK] JACE_WEBHOOK_SECRET not configured, skipping webhook");
+    return { success: false, error: "JACE_WEBHOOK_SECRET not configured" };
+  }
+
+  const payload = {
+    eventId: `evt_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`,
+    eventType,
+    correlationId: `trade-${tradeId}`,
+    data: {
+      tradeId: Number(tradeId),
+      sessionId,
+      ...additionalData,
+    },
+  };
+
+  const body = JSON.stringify(payload);
+
+  const signature = crypto
+    .createHmac("sha256", secret)
+    .update(body)
+    .digest("hex");
+
   try {
-    const { type: _t, eventId: _e, completedAt: _c, ...safePayload } = payload as any;
-    const body = JSON.stringify({
-      eventId: `settlement-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`,
-      type: event,
-      completedAt: new Date().toISOString(),
-      ...safePayload,
-    });
-
-    const signature = crypto
-      .createHmac("sha256", webhookSecret)
-      .update(body, "utf8")
-      .digest("hex");
-
-    console.log(`[JACE WEBHOOK] Settlement webhook POST ${webhookUrl}`);
+    console.log(`[JACE WEBHOOK] Sending ${eventType} for trade ${tradeId} to ${webhookUrl}`);
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
@@ -42,17 +61,11 @@ export async function sendWebhookToBondAI(
     clearTimeout(timeout);
 
     const respText = await response.text().catch(() => "");
-    console.log(`[JACE WEBHOOK] Settlement webhook response: ${response.status} ${respText}`);
+    console.log(`[JACE WEBHOOK] Response: ${response.status} ${respText.substring(0, 200)}`);
 
-    return {
-      success: response.ok,
-      statusCode: response.status,
-    };
+    return { success: response.ok, statusCode: response.status };
   } catch (err: any) {
-    console.error("[JACE WEBHOOK] Failed to send settlement webhook to BondAI:", err?.message);
-    return {
-      success: false,
-      error: err?.message || "Unknown error",
-    };
+    console.error(`[JACE WEBHOOK] Failed to send ${eventType}:`, err?.message);
+    return { success: false, error: err?.message || "Unknown error" };
   }
 }
