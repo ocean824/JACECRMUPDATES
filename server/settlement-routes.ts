@@ -228,7 +228,7 @@ export function registerSettlementRoutes(app: Express) {
       }
 
       const secret = settlementSecretOrThrow();
-      const payload = verifySettlementJwt(token, secret, "settlement");
+      const payload = verifySettlementJwt(token, secret);
 
       const [existing] = await db
         .select()
@@ -374,7 +374,7 @@ export function registerSettlementRoutes(app: Express) {
       }
 
       const secret = settlementSecretOrThrow();
-      const payload = verifySettlementJwt(token, secret, "settlement");
+      const payload = verifySettlementJwt(token, secret);
 
       const [session] = await db
         .select()
@@ -571,7 +571,7 @@ export function registerSettlementRoutes(app: Express) {
       if (!token) return res.status(400).json({ message: "Missing token" });
 
       const secret = settlementSecretOrThrow();
-      const payload = verifySettlementJwt(token, secret, "settlement");
+      const payload = verifySettlementJwt(token, secret);
 
       const [session] = await db
         .select()
@@ -621,7 +621,7 @@ export function registerSettlementRoutes(app: Express) {
       if (!token) return res.status(400).json({ message: "Missing token" });
 
       const secret = settlementSecretOrThrow();
-      const payload = verifySettlementJwt(token, secret, "settlement");
+      const payload = verifySettlementJwt(token, secret);
 
       const [session] = await db
         .select()
