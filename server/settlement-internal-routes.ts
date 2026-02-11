@@ -1,4 +1,5 @@
 import type { Express, Request, Response, NextFunction } from "express";
+import jwt from "jsonwebtoken";
 import fs from "fs";
 import path from "path";
 import { desc, eq, sql } from "drizzle-orm";
@@ -352,6 +353,43 @@ export function registerInternalSettlementRoutes(app: Express, isAuthenticated: 
     } catch (error) {
       console.error("Error cancelling settlement:", error);
       res.status(500).json({ message: "Failed to cancel settlement" });
+    }
+  });
+
+  app.post("/api/admin/settlements/:sessionId/preview-token", isAuthenticated, requireInternalRole, async (req, res) => {
+    try {
+      const sessionId = req.params.sessionId;
+
+      const [session] = await db
+        .select()
+        .from(settlementSessions)
+        .where(eq(settlementSessions.sessionId, sessionId))
+        .limit(1);
+
+      if (!session) return res.status(404).json({ message: "Settlement session not found" });
+
+      const secret = process.env.JACE_SETTLEMENT_SECRET || process.env.SETTLEMENT_JWT_SECRET;
+      if (!secret) return res.status(500).json({ message: "Settlement secret not configured" });
+
+      const nowSec = Math.floor(Date.now() / 1000);
+      const token = jwt.sign({
+        sid: session.sessionId,
+        tradeId: session.tradeId,
+        bondId: session.bondId,
+        amount: Number(session.amount),
+        bondName: session.bondName,
+        investorEmail: session.investorEmail,
+        iat: nowSec,
+        exp: nowSec + 900,
+      }, secret, { algorithm: "HS256" });
+
+      res.json({
+        token,
+        url: `/settlement?session=${encodeURIComponent(token)}`,
+      });
+    } catch (error) {
+      console.error("Error generating preview token:", error);
+      res.status(500).json({ message: "Failed to generate preview token" });
     }
   });
 

@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckCircle, XCircle, Download, RefreshCw, Inbox, FileText, IdCard, ShieldCheck, Landmark } from "lucide-react";
+import { CheckCircle, XCircle, Download, RefreshCw, Inbox, FileText, IdCard, ShieldCheck, Landmark, Eye } from "lucide-react";
 
 type SettlementSession = {
   id: string;
@@ -78,6 +78,9 @@ export default function SettlementsPage() {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [mode, setMode] = useState<"confirm" | "cancel" | null>(null);
   const [selectedEscrowId, setSelectedEscrowId] = useState<string>("");
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   const escrowAccounts = useQuery<EscrowAccountSummary[]>({
     queryKey: ["/api/escrow-accounts"],
@@ -172,6 +175,24 @@ export default function SettlementsPage() {
 
   function receiptUrl(sessionId: string) {
     return `/api/admin/settlements/${sessionId}/receipt`;
+  }
+
+  async function openPreview(sessionId: string) {
+    setPreviewLoading(true);
+    try {
+      const res = await fetch(`/api/admin/settlements/${sessionId}/preview-token`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to generate preview");
+      const data = await res.json();
+      setPreviewUrl(data.url);
+      setPreviewOpen(true);
+    } catch (err: any) {
+      toast({ title: "Preview failed", description: err?.message || "Unable to load preview", variant: "destructive" });
+    } finally {
+      setPreviewLoading(false);
+    }
   }
 
   function adminDocUrl(docId: string) {
@@ -278,6 +299,9 @@ export default function SettlementsPage() {
                 </TableCell>
                 <TableCell>{s.status}</TableCell>
                 <TableCell className="text-right space-x-2">
+                  <Button size="sm" variant="outline" disabled={previewLoading} onClick={() => openPreview(s.sessionId)} data-testid={`preview-${s.sessionId}`}>
+                    <Eye className="h-4 w-4 mr-1" /> Preview
+                  </Button>
                   {s.status === "submitted" ? (
                     <>
                       <Button size="sm" onClick={() => openConfirm(s.sessionId)} data-testid={`confirm-${s.sessionId}`}>
@@ -451,6 +475,28 @@ export default function SettlementsPage() {
                 </div>
               </div>
             ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={previewOpen} onOpenChange={(v) => { setPreviewOpen(v); if (!v) setPreviewUrl(null); }}>
+        <DialogContent className="max-w-6xl h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Settlement Page Preview</DialogTitle>
+            <DialogDescription>This is the settlement page as the investor sees it from BondAI. Read-only admin preview.</DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 min-h-0">
+            {previewUrl ? (
+              <iframe
+                src={previewUrl}
+                className="w-full h-full rounded-md border"
+                title="Settlement Preview"
+                data-testid="iframe-settlement-preview"
+                sandbox="allow-scripts allow-same-origin allow-forms"
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full text-muted-foreground">Loading preview...</div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
