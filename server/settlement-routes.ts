@@ -245,6 +245,7 @@ export function registerSettlementRoutes(app: Express) {
       const expDate = new Date(payload.exp * 1000);
 
       if (existing) {
+        const resolvedUnitCount = payload.unitCount ?? payload.units;
         const [updated] = await db
           .update(settlementSessions)
           .set({
@@ -260,6 +261,13 @@ export function registerSettlementRoutes(app: Express) {
             bondName: payload.bondName ?? existing.bondName,
             expiresAt: expDate,
             updatedAt: new Date(),
+            unitCount: resolvedUnitCount != null ? resolvedUnitCount.toString() : existing.unitCount,
+            unitPrice: payload.unitPrice != null ? payload.unitPrice.toString() : existing.unitPrice,
+            issuerName: payload.issuerName ?? existing.issuerName,
+            assignmentType: payload.assignmentType ?? existing.assignmentType,
+            cusip: payload.cusip ?? existing.cusip,
+            maturityDate: payload.maturityDate ? new Date(payload.maturityDate) : existing.maturityDate,
+            couponRate: payload.couponRate != null ? payload.couponRate.toString() : existing.couponRate,
           })
           .where(eq(settlementSessions.sessionId, payload.sid))
           .returning();
