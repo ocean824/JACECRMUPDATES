@@ -89,8 +89,12 @@ async function resolveOwnerUserIdForSession(session: typeof settlementSessions.$
 function verifySessionToken(token: string): { sessionId: string } {
   const secret = getSettlementJwtSecret();
   const decoded = jwt.verify(token, secret, { algorithms: ["HS256"] }) as any;
-  if (!decoded?.sessionId) throw new Error("Invalid settlement token");
-  return { sessionId: decoded.sessionId };
+  const sessionId = decoded?.sessionId || decoded?.sid;
+  if (!sessionId) throw new Error("Invalid settlement token");
+  if (decoded.purpose && decoded.purpose !== "settlement" && decoded.purpose !== "compliance") {
+    throw new Error("Token purpose not valid for compliance operations");
+  }
+  return { sessionId };
 }
 
 const upload = multer({

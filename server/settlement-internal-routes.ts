@@ -1,5 +1,6 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 import { desc, eq, sql } from "drizzle-orm";
@@ -20,9 +21,6 @@ async function requireInternalRole(req: Request, res: Response, next: NextFuncti
   try {
     const userId = getUserId(req);
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
-
-    const userSession = (req.session as any)?.user;
-    if (userSession?.isAdmin === "true") return next();
 
     const role = await storage.getUserRole(userId);
     const allowed = new Set(["admin", "accounting", "ops", "investor_relations"]);
@@ -159,6 +157,21 @@ export function registerInternalSettlementRoutes(app: Express, isAuthenticated: 
         .limit(1);
 
       if (!existing) return res.status(404).json({ message: "Settlement session not found" });
+
+      if (escrowAccountId) {
+        const { escrowAccounts } = await import("@shared/schema");
+        const [escrow] = await db
+          .select()
+          .from(escrowAccounts)
+          .where(eq(escrowAccounts.id, escrowAccountId))
+          .limit(1);
+        if (!escrow) {
+          return res.status(400).json({ message: "Invalid escrow account" });
+        }
+        if (escrow.userId && escrow.userId !== userId) {
+          return res.status(403).json({ message: "Escrow account access denied" });
+        }
+      }
 
       if (existing.status === "settled") {
         return res.status(400).json({ message: "Settlement is already confirmed" });
@@ -379,6 +392,8 @@ export function registerInternalSettlementRoutes(app: Express, isAuthenticated: 
         amount: Number(session.amount),
         bondName: session.bondName,
         investorEmail: session.investorEmail,
+        purpose: "preview",
+        jti: crypto.randomUUID(),
         iat: nowSec,
         exp: nowSec + 900,
       }, secret, { algorithm: "HS256" });
@@ -410,10 +425,28 @@ export function registerInternalSettlementRoutes(app: Express, isAuthenticated: 
     }
   });
 
-  app.get("/api/investor-settlements", isAuthenticated, async (req, res) => {
+  app.get("/api/investor-settlements", isAuthenticated, async (req: any, res) => {
     try {
       const investorId = typeof req.query.investorId === "string" ? req.query.investorId : null;
       if (!investorId) return res.status(400).json({ message: "investorId is required" });
+
+      const userId = getUserId(req);
+      if (userId) {
+        const [inv] = await db
+          .select()
+          .from(investors)
+          .where(eq(investors.id, investorId))
+          .limit(1);
+        if (!inv) {
+          return res.status(404).json({ message: "Investor not found" });
+        }
+        if (inv.userId && inv.userId !== userId) {
+          const userRole = await storage.getUserRole(userId);
+          if (!userRole?.role || !["admin", "accounting", "ops", "investor_relations"].includes(userRole.role)) {
+            return res.status(403).json({ message: "Access denied" });
+          }
+        }
+      }
 
       const rows = await db
         .select({

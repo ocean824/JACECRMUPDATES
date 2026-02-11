@@ -28,6 +28,8 @@ export interface SettlementJwtPayload {
   couponRate?: number;
   exp: number;
   iat?: number;
+  jti?: string;
+  purpose?: string;
 }
 
 function settlementSecretOrThrow(): string {
@@ -52,11 +54,16 @@ function setFrameAncestorsHeaders(res: Response) {
   res.setHeader("Content-Security-Policy", `frame-ancestors ${fa};`);
 }
 
-function verifySettlementJwt(token: string, secret: string): SettlementJwtPayload {
+function verifySettlementJwt(token: string, secret: string, expectedPurpose?: string): SettlementJwtPayload {
   try {
     const decoded = jwt.verify(token, secret, { algorithms: ["HS256"] }) as SettlementJwtPayload;
     if (!decoded.sid || typeof decoded.tradeId !== "number" || typeof decoded.amount !== "number") {
       throw new Error("Invalid token claims");
+    }
+    if (expectedPurpose) {
+      if (!decoded.purpose || decoded.purpose !== expectedPurpose) {
+        throw new Error(`Token purpose mismatch: expected ${expectedPurpose}, got ${decoded.purpose || "none"}`);
+      }
     }
     return decoded;
   } catch (err: any) {
@@ -67,15 +74,18 @@ function verifySettlementJwt(token: string, secret: string): SettlementJwtPayloa
 }
 
 function signSettlementJwt(
-  payload: Omit<SettlementJwtPayload, "exp" | "iat">,
+  payload: Omit<SettlementJwtPayload, "exp" | "iat" | "jti">,
   secret: string,
-  expiresInSeconds: number
+  expiresInSeconds: number,
+  purpose: string = "settlement"
 ): string {
   const nowSec = Math.floor(Date.now() / 1000);
   const full: SettlementJwtPayload = {
     ...(payload as any),
     iat: nowSec,
     exp: nowSec + expiresInSeconds,
+    jti: crypto.randomUUID(),
+    purpose,
   };
   return jwt.sign(full, secret, { algorithm: "HS256" });
 }
@@ -192,7 +202,8 @@ export function registerSettlementRoutes(app: Express) {
           couponRate,
         },
         secret,
-        60 * 60
+        60 * 60,
+        "settlement"
       );
 
       const origin = `${req.protocol}://${req.get("host")}`;
@@ -217,7 +228,7 @@ export function registerSettlementRoutes(app: Express) {
       }
 
       const secret = settlementSecretOrThrow();
-      const payload = verifySettlementJwt(token, secret);
+      const payload = verifySettlementJwt(token, secret, "settlement");
 
       const [existing] = await db
         .select()
@@ -249,20 +260,14 @@ export function registerSettlementRoutes(app: Express) {
         const [updated] = await db
           .update(settlementSessions)
           .set({
-            tradeId: payload.tradeId,
-            bondId: payload.bondId ?? null,
-            bondaiInvestorId: payload.investorId ?? null,
             investorEmail: payload.investorEmail ?? existing.investorEmail,
             investorId: matchedInvestorId,
             investorName: matchedInvestorName,
             ipAddress,
             userAgent,
-            amount: payload.amount.toString(),
             bondName: payload.bondName ?? existing.bondName,
             expiresAt: expDate,
             updatedAt: new Date(),
-            unitCount: resolvedUnitCount != null ? resolvedUnitCount.toString() : existing.unitCount,
-            unitPrice: payload.unitPrice != null ? payload.unitPrice.toString() : existing.unitPrice,
             issuerName: payload.issuerName ?? existing.issuerName,
             assignmentType: payload.assignmentType ?? existing.assignmentType,
             cusip: payload.cusip ?? existing.cusip,
@@ -362,7 +367,7 @@ export function registerSettlementRoutes(app: Express) {
       }
 
       const secret = settlementSecretOrThrow();
-      const payload = verifySettlementJwt(token, secret);
+      const payload = verifySettlementJwt(token, secret, "settlement");
 
       const [session] = await db
         .select()
@@ -371,6 +376,24 @@ export function registerSettlementRoutes(app: Express) {
         .limit(1);
 
       if (!session) return res.status(404).json({ message: "Settlement session not found" });
+      if (Math.abs(payload.amount - Number(session.amount)) > 0.01) {
+        console.error(`SECURITY: Amount mismatch on settlement ${payload.sid} - token: ${payload.amount}, db: ${session.amount}`);
+        return res.status(403).json({ message: "Settlement amount mismatch detected" });
+      }
+      const dbUnitCount = session.unitCount != null ? Number(session.unitCount) : null;
+      const tokenUnitCount = payload.unitCount ?? payload.units ?? null;
+      if (dbUnitCount != null && tokenUnitCount != null && Math.abs(dbUnitCount - tokenUnitCount) > 0.001) {
+        console.error(`SECURITY: Unit count mismatch on settlement ${payload.sid} - token: ${tokenUnitCount}, db: ${dbUnitCount}`);
+        return res.status(403).json({ message: "Settlement unit count mismatch detected" });
+      }
+
+      const dbUnitPrice = session.unitPrice != null ? Number(session.unitPrice) : null;
+      const tokenUnitPrice = payload.unitPrice ?? null;
+      if (dbUnitPrice != null && tokenUnitPrice != null && Math.abs(dbUnitPrice - tokenUnitPrice) > 0.01) {
+        console.error(`SECURITY: Unit price mismatch on settlement ${payload.sid} - token: ${tokenUnitPrice}, db: ${dbUnitPrice}`);
+        return res.status(403).json({ message: "Settlement unit price mismatch detected" });
+      }
+
       if (session.status === "settled") return res.status(400).json({ message: "This settlement is already confirmed" });
       if (session.status === "cancelled") return res.status(400).json({ message: "This settlement has been cancelled" });
 
@@ -541,7 +564,7 @@ export function registerSettlementRoutes(app: Express) {
       if (!token) return res.status(400).json({ message: "Missing token" });
 
       const secret = settlementSecretOrThrow();
-      const payload = verifySettlementJwt(token, secret);
+      const payload = verifySettlementJwt(token, secret, "settlement");
 
       const [session] = await db
         .select()
@@ -591,7 +614,7 @@ export function registerSettlementRoutes(app: Express) {
       if (!token) return res.status(400).json({ message: "Missing token" });
 
       const secret = settlementSecretOrThrow();
-      const payload = verifySettlementJwt(token, secret);
+      const payload = verifySettlementJwt(token, secret, "settlement");
 
       const [session] = await db
         .select()

@@ -1,8 +1,6 @@
 import { storage } from "../storage";
 import type { ToolContext } from "./types";
 
-// IMPORTANT: This tool is deliberately constrained to a safe allowlist of storage methods.
-// If you want to expose more DB reads/writes, add explicit method names below.
 const READ_METHODS = new Set<string>([
   "getInvestor",
   "getInvestors",
@@ -28,9 +26,12 @@ const WRITE_METHODS = new Set<string>([
   "updateBondSettlement",
   "createBondSettlement",
   "updateInvestorCompliance",
+  "createDocument"
+]);
+
+const ADMIN_ONLY_WRITE_METHODS = new Set<string>([
   "setUserRole",
   "updateUserRole",
-  "createDocument"
 ]);
 
 type DbToolArgs = {
@@ -38,7 +39,7 @@ type DbToolArgs = {
   params?: any[];
 };
 
-export async function dbRead(args: DbToolArgs, _ctx: ToolContext) {
+export async function dbRead(args: DbToolArgs, ctx: ToolContext) {
   const method = args?.method;
   const params = Array.isArray(args?.params) ? args.params : [];
 
@@ -47,6 +48,10 @@ export async function dbRead(args: DbToolArgs, _ctx: ToolContext) {
   }
   if (!READ_METHODS.has(method)) {
     throw new Error(`dbRead: method not allowed: ${method}`);
+  }
+
+  if (!ctx.userId) {
+    throw new Error("dbRead: authenticated user context required");
   }
 
   // @ts-expect-error dynamic method call on storage
@@ -59,15 +64,28 @@ export async function dbRead(args: DbToolArgs, _ctx: ToolContext) {
   return await fn.apply(storage, params);
 }
 
-export async function dbWrite(args: DbToolArgs, _ctx: ToolContext) {
+export async function dbWrite(args: DbToolArgs, ctx: ToolContext) {
   const method = args?.method;
   const params = Array.isArray(args?.params) ? args.params : [];
 
   if (!method || typeof method !== "string") {
     throw new Error("dbWrite: method is required");
   }
-  if (!WRITE_METHODS.has(method)) {
+
+  if (ADMIN_ONLY_WRITE_METHODS.has(method)) {
+    if (!ctx.userId) {
+      throw new Error(`dbWrite: ${method} requires admin authentication`);
+    }
+    const role = await storage.getUserRole(String(ctx.userId));
+    if (!role?.role || role.role !== "admin") {
+      throw new Error(`dbWrite: ${method} is restricted to admin users only`);
+    }
+  } else if (!WRITE_METHODS.has(method)) {
     throw new Error(`dbWrite: method not allowed: ${method}`);
+  }
+
+  if (!ctx.userId) {
+    throw new Error("dbWrite: authenticated user context required");
   }
 
   // @ts-expect-error dynamic method call on storage
