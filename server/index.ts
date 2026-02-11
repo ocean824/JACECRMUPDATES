@@ -1,6 +1,8 @@
 import express, { type Request, Response, NextFunction } from "express";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
+import path from "path";
+import fs from "fs";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
@@ -219,6 +221,14 @@ let stripeInitStatus = { migrated: false, tables: 0, migrations: 0, error: null 
       status: stripeInitStatus.migrated ? "ok" : "error",
       error: stripeInitStatus.error,
     });
+  });
+
+  app.get("/api/download/updates-log", (_req, res) => {
+    const filePath = path.resolve("JACE_CRM_Updates_Log.docx");
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ message: "File not found" });
+    }
+    res.download(filePath, "JACE_CRM_Updates_Log.docx");
   });
 
   await registerRoutes(httpServer, app);
