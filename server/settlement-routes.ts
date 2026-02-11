@@ -257,9 +257,7 @@ export function registerSettlementRoutes(app: Express) {
 
       if (existing) {
         const resolvedUnitCount = payload.unitCount ?? payload.units;
-        const [updated] = await db
-          .update(settlementSessions)
-          .set({
+        const updateFields: Record<string, any> = {
             investorEmail: payload.investorEmail ?? existing.investorEmail,
             investorId: matchedInvestorId,
             investorName: matchedInvestorName,
@@ -273,7 +271,16 @@ export function registerSettlementRoutes(app: Express) {
             cusip: payload.cusip ?? existing.cusip,
             maturityDate: payload.maturityDate ? new Date(payload.maturityDate) : existing.maturityDate,
             couponRate: payload.couponRate != null ? payload.couponRate.toString() : existing.couponRate,
-          })
+        };
+        if (existing.unitCount == null && resolvedUnitCount != null) {
+          updateFields.unitCount = resolvedUnitCount.toString();
+        }
+        if (existing.unitPrice == null && payload.unitPrice != null) {
+          updateFields.unitPrice = payload.unitPrice.toString();
+        }
+        const [updated] = await db
+          .update(settlementSessions)
+          .set(updateFields)
           .where(eq(settlementSessions.sessionId, payload.sid))
           .returning();
 
