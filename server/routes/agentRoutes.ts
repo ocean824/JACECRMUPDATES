@@ -42,7 +42,7 @@ export function registerAgentRoutes(app: Express, isAuthenticated: any) {
         input: body.input,
         context: body.context,
         session_id: body.session_id,
-        user_id: req.user?.id,
+        user_id: req.user?.id != null ? Number(req.user.id) : undefined,
       });
 
       return res.json({ ok: true, agent_id: body.agent_id, result, ms: Date.now() - startedAt });
@@ -89,7 +89,7 @@ export function registerAgentRoutes(app: Express, isAuthenticated: any) {
             input: t.input,
             context: t.context,
             session_id: t.session_id,
-            user_id: req.user?.id,
+            user_id: req.user?.id != null ? Number(req.user.id) : undefined,
           });
           return out.result;
         },
@@ -114,7 +114,7 @@ async function runAgentWithTools(opts: {
   input: string;
   context?: any;
   session_id?: string;
-  user_id?: string;
+  user_id?: number;
 }) {
   const startedAt = Date.now();
   const agent = getAgent(opts.agent_id);
