@@ -297,6 +297,8 @@ export function registerInternalSettlementRoutes(app: Express, isAuthenticated: 
           paidAt: new Date().toISOString(),
           investorEmail: updated.investorEmail,
           amount: updated.amount,
+          ipAddress: updated.ipAddress,
+          userAgent: updated.userAgent,
           receiptId,
           receiptUrl: `/api/admin/settlements/${sessionId}/receipt`,
         });

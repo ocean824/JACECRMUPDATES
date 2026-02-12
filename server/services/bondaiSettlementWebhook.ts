@@ -17,7 +17,11 @@ export async function sendBondAISettlementWebhook(
   sessionId: string,
   additionalData: Record<string, unknown> = {}
 ): Promise<WebhookResult> {
-  const webhookUrl = process.env.BONDAI_WEBHOOK_URL || "https://bondai.app/api/jace/webhook";
+  const webhookUrl = process.env.BONDAI_WEBHOOK_URL;
+  if (!webhookUrl) {
+    console.error("[JACE WEBHOOK] BONDAI_WEBHOOK_URL not configured, skipping webhook");
+    return { success: false, error: "BONDAI_WEBHOOK_URL not configured" };
+  }
   const secret = process.env.JACE_WEBHOOK_SECRET;
 
   if (!secret) {

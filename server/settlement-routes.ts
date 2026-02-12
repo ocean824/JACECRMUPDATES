@@ -27,6 +27,8 @@ export interface SettlementJwtPayload {
   cusip?: string;
   maturityDate?: string;
   couponRate?: number;
+  ipAddress?: string;
+  userAgent?: string;
   exp: number;
   iat?: number;
   jti?: string;
@@ -156,8 +158,8 @@ export function registerSettlementRoutes(app: Express) {
         }
       }
 
-      const ipAddress = getClientIp(req);
-      const userAgent = getUserAgent(req);
+      const ipAddress = typeof req.body?.ipAddress === "string" ? req.body.ipAddress : getClientIp(req);
+      const userAgent = typeof req.body?.userAgent === "string" ? req.body.userAgent : getUserAgent(req);
 
       const [inserted] = await db
         .insert(settlementSessions)
@@ -252,8 +254,8 @@ export function registerSettlementRoutes(app: Express) {
         }
       }
 
-      const ipAddress = getClientIp(req);
-      const userAgent = getUserAgent(req);
+      const ipAddress = payload.ipAddress || getClientIp(req);
+      const userAgent = payload.userAgent || getUserAgent(req);
       const expDate = new Date(payload.exp * 1000);
 
       if (existing) {
@@ -318,8 +320,8 @@ export function registerSettlementRoutes(app: Express) {
           investorId: matchedInvestorId,
           investorName: matchedInvestorName,
           investorEmail: payload.investorEmail ?? null,
-          ipAddress,
-          userAgent,
+          ipAddress: payload.ipAddress || ipAddress,
+          userAgent: payload.userAgent || userAgent,
           amount: payload.amount.toString(),
           bondName: payload.bondName ?? null,
           status: "pending",
@@ -554,8 +556,12 @@ export function registerSettlementRoutes(app: Express) {
       }
 
       sendBondAISettlementWebhook("settlement.completed", updated.tradeId, updated.sessionId, {
+        investorEmail: updated.investorEmail,
+        amount: updated.amount,
         paymentReference: updated.paymentReference || paymentReference,
         paidAt: new Date().toISOString(),
+        ipAddress: updated.ipAddress,
+        userAgent: updated.userAgent,
       }).catch(err => console.error("[JACE WEBHOOK] settlement.completed fire-and-forget error:", err));
 
       res.json({
@@ -614,7 +620,11 @@ export function registerSettlementRoutes(app: Express) {
       } catch {
       }
 
-      sendBondAISettlementWebhook("settlement.cancelled", payload.tradeId, payload.sid).catch(
+      sendBondAISettlementWebhook("settlement.cancelled", payload.tradeId, payload.sid, {
+        ipAddress: getClientIp(req),
+        userAgent: getUserAgent(req),
+        reason,
+      }).catch(
         err => console.error("[JACE WEBHOOK] settlement.cancelled fire-and-forget error:", err)
       );
 
