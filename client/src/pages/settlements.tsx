@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckCircle, XCircle, Download, RefreshCw, Inbox, FileText, IdCard, ShieldCheck, Landmark, Eye } from "lucide-react";
+import { CheckCircle, XCircle, Download, RefreshCw, Inbox, FileText, IdCard, ShieldCheck, Landmark, Eye, Send, Loader2 } from "lucide-react";
 
 type SettlementSession = {
   id: string;
@@ -45,6 +45,9 @@ type SettlementSession = {
   cancelledAt: string | null;
   failureReason: string | null;
   escrowAccountId: string | null;
+  webhookStatus?: string | null;
+  webhookAttemptCount?: number | null;
+  webhookLastError?: string | null;
 };
 
 type EscrowAccountSummary = {
@@ -156,6 +159,19 @@ export default function SettlementsPage() {
     },
   });
 
+  const resendWebhookMutation = useMutation({
+    mutationFn: async (sessionId: string) => {
+      return apiRequest("POST", `/api/admin/webhooks/${sessionId}/resend`);
+    },
+    onSuccess: async () => {
+      toast({ title: "Webhook queued", description: "The webhook has been re-queued for delivery." });
+      await qc.invalidateQueries({ queryKey: ["settlements"] });
+    },
+    onError: (err: any) => {
+      toast({ title: "Resend failed", description: err?.message || "Unable to resend webhook", variant: "destructive" });
+    },
+  });
+
   const active = useMemo(() => {
     if (!activeSessionId) return null;
     return (inbox.data || []).find((s) => s.sessionId === activeSessionId) || (recent.data || []).find((s) => s.sessionId === activeSessionId) || null;
@@ -220,13 +236,14 @@ export default function SettlementsPage() {
             <TableHead>Compliance</TableHead>
             <TableHead>Docs</TableHead>
             <TableHead>Status</TableHead>
+            <TableHead>Webhook</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {rows.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
+              <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
                 No settlements in this view.
               </TableCell>
             </TableRow>
@@ -298,6 +315,33 @@ export default function SettlementsPage() {
                   </div>
                 </TableCell>
                 <TableCell>{s.status}</TableCell>
+                <TableCell>
+                  {s.status === "settled" ? (
+                    <div className="flex items-center gap-1">
+                      {s.webhookStatus === "SENT" ? (
+                        <span className="text-xs text-green-600 dark:text-green-400 font-medium" data-testid={`webhook-status-${s.sessionId}`}>Delivered</span>
+                      ) : s.webhookStatus === "DEAD" ? (
+                        <span className="text-xs text-red-600 dark:text-red-400 font-medium" data-testid={`webhook-status-${s.sessionId}`}>Failed</span>
+                      ) : s.webhookStatus === "PENDING" ? (
+                        <span className="text-xs text-yellow-600 dark:text-yellow-400 font-medium" data-testid={`webhook-status-${s.sessionId}`}>Pending</span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground" data-testid={`webhook-status-${s.sessionId}`}>N/A</span>
+                      )}
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => resendWebhookMutation.mutate(s.sessionId)}
+                        disabled={resendWebhookMutation.isPending}
+                        title="Resend webhook"
+                        data-testid={`resend-webhook-${s.sessionId}`}
+                      >
+                        <Send className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">{"\u2014"}</span>
+                  )}
+                </TableCell>
                 <TableCell className="text-right space-x-2">
                   <Button size="sm" variant="outline" disabled={previewLoading} onClick={() => openPreview(s.sessionId)} data-testid={`preview-${s.sessionId}`}>
                     <Eye className="h-4 w-4 mr-1" /> Preview

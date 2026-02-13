@@ -3,12 +3,12 @@ import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import fs from "fs";
 import path from "path";
-import { desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "./db";
-import { documents, investors, settlementCompliance, settlementSessions } from "@shared/schema";
+import { documents, investors, settlementCompliance, settlementSessions, webhookOutbox } from "@shared/schema";
 import { storage, logAudit } from "./storage";
 import { renderSettlementReceiptPdf } from "./lib/pdf/renderSettlementReceiptPdf";
-import { sendBondAISettlementWebhook } from "./services/bondaiSettlementWebhook";
+
 
 const UPLOAD_DIR = "./uploads";
 
@@ -111,6 +111,28 @@ export function registerInternalSettlementRoutes(app: Express, isAuthenticated: 
             from documents
             where category = 'settlement_compliance'
               and filename = ('settlement-compliance-' || ${settlementSessions.sessionId} || '.pdf')
+            limit 1
+          )`,
+
+          webhookStatus: sql<string | null>`(
+            select status
+            from webhook_outbox
+            where event_key like ('settle:' || ${settlementSessions.sessionId} || '%')
+            order by created_at desc
+            limit 1
+          )`,
+          webhookAttemptCount: sql<number | null>`(
+            select attempt_count
+            from webhook_outbox
+            where event_key like ('settle:' || ${settlementSessions.sessionId} || '%')
+            order by created_at desc
+            limit 1
+          )`,
+          webhookLastError: sql<string | null>`(
+            select last_error
+            from webhook_outbox
+            where event_key like ('settle:' || ${settlementSessions.sessionId} || '%')
+            order by created_at desc
             limit 1
           )`,
         })
@@ -290,21 +312,38 @@ export function registerInternalSettlementRoutes(app: Express, isAuthenticated: 
         req.ip
       );
 
-      let webhookResult: any = null;
-      try {
-        webhookResult = await sendBondAISettlementWebhook("settlement.completed", updated.tradeId, sessionId, {
+      const eventKey = `settle:${sessionId}`;
+      const webhookPayload = JSON.stringify({
+        eventId: `evt_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`,
+        eventType: "settlement.completed",
+        correlationId: `trade-${updated.tradeId}`,
+        data: {
+          tradeId: Number(updated.tradeId),
+          sessionId,
           paymentReference: updated.paymentReference,
-          paidAt: new Date().toISOString(),
+          paidAt: now.toISOString(),
           investorEmail: updated.investorEmail,
           amount: updated.amount,
-          ipAddress: updated.ipAddress,
-          userAgent: updated.userAgent,
           receiptId,
           receiptUrl: `/api/admin/settlements/${sessionId}/receipt`,
-        });
+        },
+      });
+
+      let webhookEnqueued = false;
+      try {
+        await db.insert(webhookOutbox).values({
+          tenantId: userId,
+          destination: "BONDAI",
+          eventType: "settlement.completed",
+          eventKey,
+          payloadJson: webhookPayload,
+          status: "PENDING",
+          nextAttemptAt: new Date(),
+        }).onConflictDoNothing();
+        webhookEnqueued = true;
+        console.log(`[OUTBOX] Enqueued settlement.completed for ${eventKey}`);
       } catch (err: any) {
-        console.error("[JACE WEBHOOK] internal confirm webhook error:", err?.message);
-        webhookResult = { success: false, error: err?.message };
+        console.error("[OUTBOX] Failed to enqueue webhook:", err?.message);
       }
 
       res.json({
@@ -312,7 +351,7 @@ export function registerInternalSettlementRoutes(app: Express, isAuthenticated: 
         session: updated,
         receiptId,
         receiptUrl: `/api/admin/settlements/${sessionId}/receipt`,
-        webhook: webhookResult,
+        webhookEnqueued,
       });
     } catch (error) {
       console.error("Error confirming settlement:", error);
@@ -423,6 +462,156 @@ export function registerInternalSettlementRoutes(app: Express, isAuthenticated: 
     } catch (error) {
       console.error("Error downloading settlement receipt:", error);
       res.status(500).json({ message: "Failed to download receipt" });
+    }
+  });
+
+  app.post("/api/admin/settlements/manual", isAuthenticated, requireInternalRole, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const { tradeId, investorEmail, investorName, amount, bondName, bondId, paymentReference, notes } = req.body;
+
+      if (!tradeId || !amount) {
+        return res.status(400).json({ message: "tradeId and amount are required" });
+      }
+
+      const sessionId = crypto.randomUUID();
+      const now = new Date();
+      const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+      const [session] = await db
+        .insert(settlementSessions)
+        .values({
+          sessionId,
+          tradeId: Number(tradeId),
+          investorEmail: investorEmail || null,
+          investorName: investorName || null,
+          amount: String(amount),
+          bondName: bondName || null,
+          bondId: bondId ? Number(bondId) : null,
+          paymentReference: paymentReference || null,
+          status: "submitted",
+          complianceStatus: "complete",
+          complianceCompletedAt: now,
+          createdAt: now,
+          updatedAt: now,
+          expiresAt,
+        })
+        .returning();
+
+      await logAudit(userId, "create", "settlement_session", sessionId, `Manual settlement draft for Trade ${tradeId}`, { tradeId, amount, investorEmail }, req.ip);
+
+      res.json({ success: true, session });
+    } catch (error) {
+      console.error("Error creating manual settlement:", error);
+      res.status(500).json({ message: "Failed to create manual settlement" });
+    }
+  });
+
+  app.get("/api/admin/webhooks/:sessionId", isAuthenticated, requireInternalRole, async (req, res) => {
+    try {
+      const sessionId = req.params.sessionId;
+
+      const [session] = await db
+        .select()
+        .from(settlementSessions)
+        .where(eq(settlementSessions.sessionId, sessionId))
+        .limit(1);
+
+      if (!session) return res.status(404).json({ message: "Session not found" });
+
+      const payload = {
+        eventId: `evt_preview_${Date.now()}`,
+        eventType: "settlement.completed",
+        correlationId: `trade-${session.tradeId}`,
+        data: {
+          tradeId: Number(session.tradeId),
+          sessionId: session.sessionId,
+          investorEmail: session.investorEmail,
+          amount: session.amount,
+          bondName: session.bondName,
+          paymentReference: session.paymentReference,
+          paidAt: session.settledAt?.toISOString() || null,
+        },
+      };
+
+      const outboxRows = await db
+        .select()
+        .from(webhookOutbox)
+        .where(eq(webhookOutbox.eventKey, `settle:${sessionId}`))
+        .limit(5);
+
+      res.json({ payload, outboxEntries: outboxRows });
+    } catch (error) {
+      console.error("Error previewing webhook:", error);
+      res.status(500).json({ message: "Failed to preview webhook" });
+    }
+  });
+
+  app.post("/api/admin/webhooks/:sessionId/resend", isAuthenticated, requireInternalRole, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const sessionId = req.params.sessionId;
+
+      const [session] = await db
+        .select()
+        .from(settlementSessions)
+        .where(eq(settlementSessions.sessionId, sessionId))
+        .limit(1);
+
+      if (!session) return res.status(404).json({ message: "Session not found" });
+
+      if (session.status !== "settled") {
+        return res.status(400).json({ message: "Can only resend webhooks for settled sessions" });
+      }
+
+      const eventKey = `settle:${sessionId}:resend:${Date.now()}`;
+      const payload = JSON.stringify({
+        eventId: `evt_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`,
+        eventType: "settlement.completed",
+        correlationId: `trade-${session.tradeId}`,
+        data: {
+          tradeId: Number(session.tradeId),
+          sessionId: session.sessionId,
+          investorEmail: session.investorEmail,
+          amount: session.amount,
+          bondName: session.bondName,
+          paymentReference: session.paymentReference,
+          paidAt: session.settledAt?.toISOString() || null,
+          resend: true,
+        },
+      });
+
+      await db.insert(webhookOutbox).values({
+        tenantId: userId,
+        destination: "BONDAI",
+        eventType: "settlement.completed",
+        eventKey,
+        payloadJson: payload,
+        status: "PENDING",
+        nextAttemptAt: new Date(),
+      });
+
+      await logAudit(userId, "create", "webhook_resend", sessionId, `Resent webhook for Trade ${session.tradeId}`, { eventKey }, req.ip);
+
+      res.json({ success: true, eventKey });
+    } catch (error) {
+      console.error("Error resending webhook:", error);
+      res.status(500).json({ message: "Failed to resend webhook" });
+    }
+  });
+
+  app.get("/api/admin/webhooks/outbox", isAuthenticated, requireInternalRole, async (_req, res) => {
+    try {
+      const rows = await db
+        .select()
+        .from(webhookOutbox)
+        .orderBy(desc(webhookOutbox.createdAt))
+        .limit(100);
+
+      res.json(rows);
+    } catch (error) {
+      console.error("Error fetching outbox:", error);
+      res.status(500).json({ message: "Failed to fetch outbox" });
     }
   });
 

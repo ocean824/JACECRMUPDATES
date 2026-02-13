@@ -10,6 +10,7 @@ import { WebhookHandlers } from "./webhookHandlers";
 import { registerAgentRoutes } from "./routes/agentRoutes";
 import { initAgentRegistry } from "./agents";
 import { isLocalAuthenticated } from "./local-auth";
+import { startOutboxDispatcher } from "./jobs/webhookOutboxDispatcher";
 
 const app = express();
 const httpServer = createServer(app);
@@ -277,6 +278,7 @@ let stripeInitStatus = { migrated: false, tables: 0, migrations: 0, error: null 
     },
     () => {
       log(`serving on port ${port}`);
+      startOutboxDispatcher();
     },
   );
 })();
