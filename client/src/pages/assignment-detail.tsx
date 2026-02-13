@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -52,7 +53,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Plus, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2, CheckCircle } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Assignment, AssignmentPayout } from "@shared/schema";
 import { assignmentStatuses, payoutTypes, payoutStatuses } from "@shared/schema";
@@ -70,6 +71,7 @@ const formatDate = (val: string | Date | null | undefined) => {
 const getStatusBadgeVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
   switch (status) {
     case "active": return "default";
+    case "settled": return "default";
     case "matured": return "secondary";
     case "closed": return "outline";
     case "defaulted": return "destructive";
@@ -382,6 +384,9 @@ export default function AssignmentDetailPage() {
   const [isAddPayoutOpen, setIsAddPayoutOpen] = useState(false);
   const [editingPayout, setEditingPayout] = useState<AssignmentPayout | null>(null);
   const [deletingPayout, setDeletingPayout] = useState<AssignmentPayout | null>(null);
+  const [settleOpen, setSettleOpen] = useState(false);
+  const [settleNotes, setSettleNotes] = useState("");
+  const [settlePaymentRef, setSettlePaymentRef] = useState("");
 
   const { data: assignmentData, isLoading: assignmentLoading } = useQuery<{payouts: AssignmentPayout[]} & Assignment>({
     queryKey: [`/api/assignments/${id}`],
@@ -402,6 +407,27 @@ export default function AssignmentDetailPage() {
     },
     onError: () => {
       toast({ title: "Failed to delete payout", variant: "destructive" });
+    },
+  });
+
+  const settleMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/assignments/${id}/settle`, {
+        notes: settleNotes || undefined,
+        paymentReference: settlePaymentRef || undefined,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/assignments/${id}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/assignments"] });
+      toast({ title: "Assignment settled", description: "Payment marked as settled and BondAI notified." });
+      setSettleOpen(false);
+      setSettleNotes("");
+      setSettlePaymentRef("");
+    },
+    onError: (err: any) => {
+      toast({ title: "Failed to settle", description: err?.message || "Unable to mark as settled", variant: "destructive" });
     },
   });
 
@@ -459,6 +485,12 @@ export default function AssignmentDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-4 flex-wrap">
+          {assignment.status === "active" && (
+            <Button onClick={() => setSettleOpen(true)} data-testid="button-mark-settled">
+              <CheckCircle className="h-4 w-4 mr-2" />
+              Mark Payment Settled
+            </Button>
+          )}
           <div className="text-right">
             <div className="text-sm text-muted-foreground">Total Amount</div>
             <div className="text-xl font-bold" data-testid="text-total-amount">{formatCurrency(assignment.totalAmount)}</div>
@@ -675,6 +707,49 @@ export default function AssignmentDetailPage() {
               data-testid="button-confirm-delete-payout"
             >
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={settleOpen} onOpenChange={(open) => { if (!open) { setSettleOpen(false); setSettleNotes(""); setSettlePaymentRef(""); } }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Mark Payment as Settled</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will mark the assignment as settled and notify BondAI that the payment has been completed. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <Label htmlFor="settle-payment-ref">Payment Reference (optional)</Label>
+              <Input
+                id="settle-payment-ref"
+                placeholder="e.g., Wire transfer #12345"
+                value={settlePaymentRef}
+                onChange={(e) => setSettlePaymentRef(e.target.value)}
+                data-testid="input-settle-payment-ref"
+              />
+            </div>
+            <div>
+              <Label htmlFor="settle-notes">Notes (optional)</Label>
+              <Textarea
+                id="settle-notes"
+                placeholder="Additional settlement notes..."
+                value={settleNotes}
+                onChange={(e) => setSettleNotes(e.target.value)}
+                data-testid="input-settle-notes"
+              />
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-settle">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => settleMutation.mutate()}
+              disabled={settleMutation.isPending}
+              data-testid="button-confirm-settle"
+            >
+              {settleMutation.isPending ? "Settling..." : "Confirm Settlement"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

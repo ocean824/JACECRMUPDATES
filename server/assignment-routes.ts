@@ -193,4 +193,92 @@ export function registerAssignmentRoutes(app: Express, isAuthenticated: (req: Re
       res.status(500).json({ message: "Failed to delete assignment payout" });
     }
   });
+
+  app.post("/api/assignments/:id/settle", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const assignment = await (storage as any).getAssignment(req.params.id, userId);
+      if (!assignment) {
+        return res.status(404).json({ message: "Assignment not found" });
+      }
+      if (assignment.status === "settled") {
+        return res.status(400).json({ message: "Assignment is already settled" });
+      }
+      if (assignment.status === "closed" || assignment.status === "defaulted") {
+        return res.status(400).json({ message: `Cannot settle an assignment with status '${assignment.status}'` });
+      }
+
+      const notes = typeof req.body?.notes === "string" ? req.body.notes : undefined;
+      const paymentReference = typeof req.body?.paymentReference === "string" ? req.body.paymentReference : undefined;
+      const now = new Date();
+
+      let tradeId = assignment.tradeId;
+      let bondaiSessionId: string | null = null;
+
+      if (assignment.settlementSessionId) {
+        try {
+          const { db } = await import("./db");
+          const { settlementSessions } = await import("@shared/schema");
+          const { eq } = await import("drizzle-orm");
+          const [session] = await db
+            .select({ sessionId: settlementSessions.sessionId, tradeId: settlementSessions.tradeId })
+            .from(settlementSessions)
+            .where(eq(settlementSessions.id, assignment.settlementSessionId))
+            .limit(1);
+          if (session) {
+            bondaiSessionId = session.sessionId;
+            if (!tradeId) tradeId = session.tradeId;
+          }
+        } catch (err) {
+          console.error("Failed to load settlement session for webhook:", err);
+        }
+      }
+
+      if (!tradeId) {
+        return res.status(400).json({ message: "Cannot settle: no trade ID linked to this assignment. BondAI webhook notification is required." });
+      }
+
+      const updated = await (storage as any).updateAssignment(req.params.id, userId, {
+        status: "settled",
+        notes: notes ? (assignment.notes ? `${assignment.notes}\n\n[Settled ${now.toISOString()}] ${notes}` : `[Settled ${now.toISOString()}] ${notes}`) : assignment.notes,
+      });
+
+      if (assignment.settlementSessionId) {
+        try {
+          const { db } = await import("./db");
+          const { settlementSessions } = await import("@shared/schema");
+          const { eq } = await import("drizzle-orm");
+          await db
+            .update(settlementSessions)
+            .set({ status: "settled", settledAt: now, updatedAt: now, paymentReference: paymentReference || undefined })
+            .where(eq(settlementSessions.id, assignment.settlementSessionId));
+        } catch (err) {
+          console.error("Failed to update linked settlement session:", err);
+        }
+      }
+
+      try {
+        const { sendBondAISettlementWebhook } = await import("./services/bondaiSettlementWebhook");
+        await sendBondAISettlementWebhook("settlement.completed", tradeId, bondaiSessionId || req.params.id, {
+          investorEmail: assignment.investorEmail,
+          amount: assignment.totalAmount,
+          paymentReference: paymentReference || null,
+          paidAt: now.toISOString(),
+          bondName: assignment.bondName,
+          issuerName: assignment.issuerName,
+          unitCount: assignment.unitCount,
+          unitPrice: assignment.unitPrice,
+          manualSettlement: true,
+        });
+      } catch (err: any) {
+        console.error("[JACE WEBHOOK] Manual settlement webhook error:", err?.message);
+      }
+
+      await logAudit(userId, "update", "assignment", req.params.id, `Manually settled assignment: ${assignment.bondName || req.params.id}`, { paymentReference, notes });
+      res.json({ success: true, assignment: updated });
+    } catch (error) {
+      console.error("Error settling assignment:", error);
+      res.status(500).json({ message: "Failed to settle assignment" });
+    }
+  });
 }

@@ -2221,6 +2221,7 @@ export type QuoteStatus = typeof quoteStatuses[number]["value"];
 
 export const assignmentStatuses = [
   { value: "active", label: "Active", color: "bg-green-500" },
+  { value: "settled", label: "Settled", color: "bg-emerald-600" },
   { value: "matured", label: "Matured", color: "bg-blue-500" },
   { value: "closed", label: "Closed", color: "bg-gray-500" },
   { value: "defaulted", label: "Defaulted", color: "bg-red-500" },
