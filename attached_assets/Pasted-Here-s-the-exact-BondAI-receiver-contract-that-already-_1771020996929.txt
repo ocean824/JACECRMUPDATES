@@ -1,0 +1,78 @@
+Here’s the exact BondAI receiver contract that already exists in your current JACE settlements repo, pulled straight from:
+
+README_SETTLEMENT_FLOW.md (callback section)
+
+server/services/bondaiSettlementWebhook.ts (signing + send logic)
+
+BondAI Receiving Endpoint Contract (Current)
+Endpoint
+
+POST {BONDAI_WEBHOOK_URL}
+(Whatever URL BondAI exposes; JACE is configured via env var.)
+
+Headers
+
+Content-Type: application/json
+
+X-Webhook-Timestamp: <epoch_milliseconds_as_string>
+
+X-Webhook-Signature: <hex_hmac_sha256>
+
+Body (JSON)
+{
+  "event": "settlement.completed",
+  "timestamp": "2026-02-06T00:00:00.000Z",
+  "payload": {
+    "tradeId": 123,
+    "sessionId": "uuid",
+    "investorEmail": "investor@example.com",
+    "amount": "2000.00",
+    "paymentReference": "WIRE-ABC-1234",
+    "receiptId": "uuid",
+    "receiptUrl": "/api/admin/settlements/uuid/receipt"
+  }
+}
+
+Signature Rule (EXACT)
+
+BondAI expects:
+
+X-Webhook-Timestamp = Date.now().toString() (epoch ms)
+
+body = exact raw JSON string of the request body above (stringified)
+
+signaturePayload = ${X-Webhook-Timestamp}.${body}
+
+X-Webhook-Signature = HMAC_SHA256_HEX(BONDAI_WEBHOOK_SECRET, signaturePayload)
+
+This is exactly what your repo’s sender does.
+
+Allowed event values (as implemented in code)
+
+From server/services/bondaiSettlementWebhook.ts:
+
+settlement.submitted
+
+settlement.completed
+
+settlement.cancelled
+
+And your internal confirm route currently sends settlement.completed with the payload fields shown above.
+
+Alignment note for Manual Settle
+
+If you want Manual Settle to match BondAI 1:1, then on confirm you must send the same envelope + headers and keep the payload fields/types exactly:
+
+tradeId number (BondAI correlation)
+
+sessionId string (JACE settlement session id)
+
+amount string (your DB uses decimal, Drizzle returns string)
+
+plus the rest as shown
+
+So for Manual Settle, either:
+
+require the admin to enter/select a BondAI tradeId when “Notify BondAI” is enabled, or
+
+don’t send the webhook if there’s no tradeId (otherwise you’ll deviate from BondAI’s receiver schema).

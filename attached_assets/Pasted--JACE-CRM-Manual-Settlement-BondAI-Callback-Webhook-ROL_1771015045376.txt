@@ -1,0 +1,453 @@
+“JACE CRM Manual Settlement + BondAI Callback Webhook”
+ROLE / OPERATING MODE
+
+You are a Principal Full-Stack TypeScript Engineer working inside the existing JACE CRM monorepo on Replit. You must:
+
+Inspect the repo and match all existing patterns (routes, DB, RBAC, audit, docs, PDF, ledger).
+
+Implement Manual Settle UI + endpoints + DB + ledger + audit AND a BondAI callback webhook.
+
+Ensure idempotency, tenant isolation, and no TypeScript errors.
+
+Prefer full-file rewrites over fragile patch scripts.
+
+0) FEATURE GOAL (UPDATED)
+
+Add Manual Settlement to internal /settlements and add a webhook callback to BondAI that fires only after an internal settlement is successfully confirmed.
+
+Button: Manual Settle (Admin-only)
+
+Wizard creates settlement draft, then confirms it
+
+Confirm action:
+
+posts ledger idempotently
+
+generates receipt PDF
+
+writes audit logs
+
+enqueues & delivers BondAI webhook after DB commit
+
+Provide admin tooling to preview payload and manually resend/test webhook.
+
+1) ENV VARS (ADD)
+
+Add to .env.example and docs:
+
+BONDAI_WEBHOOK_URL (full URL endpoint BondAI exposes to receive settlement confirmations)
+
+BONDAI_WEBHOOK_SECRET (HMAC secret shared with BondAI)
+
+BONDAI_WEBHOOK_TIMEOUT_MS (default 8000)
+
+BONDAI_WEBHOOK_ENABLED (true|false, default true in production)
+
+BONDAI_WEBHOOK_MAX_ATTEMPTS (default 8)
+
+2) DB: OUTBOX TABLE FOR RELIABLE WEBHOOKS (REQUIRED)
+
+Implement an outbox so webhook delivery is reliable and sequenced correctly.
+
+Create table: webhook_outbox
+
+Fields (adjust types to your DB conventions):
+
+id uuid pk
+
+tenant_id uuid
+
+destination text (always "BONDAI")
+
+event_type text (ex: "settlement.confirmed")
+
+event_key text (unique idempotency key for delivery; ex: settlement:<settlementId>:confirmed)
+
+payload_json jsonb
+
+status text enum: PENDING | DELIVERED | FAILED
+
+attempt_count int default 0
+
+next_attempt_at timestamp default now
+
+last_status_code int nullable
+
+last_error text nullable
+
+created_at, updated_at
+
+Constraints:
+
+Unique: (tenant_id, destination, event_key)
+
+This guarantees no duplicate deliveries even if confirm is clicked twice.
+
+3) BACKEND API (EXPANDED)
+
+You already implement:
+
+POST /api/settlements/manual (create draft)
+
+POST /api/settlements/:id/manual/confirm
+
+POST /api/settlements/:id/manual/cancel
+
+3.1 Sequencing rule (CRITICAL)
+
+In the confirm endpoint:
+
+Start DB transaction
+
+Update settlement -> confirmed
+
+Audit log -> confirmed
+
+Ledger post -> idempotent
+
+Receipt PDF -> store
+
+Insert webhook_outbox row (PENDING) with payload for BondAI
+
+Commit transaction
+
+After commit: trigger dispatcher “kick” (or let interval pick it up)
+
+Do NOT call BondAI webhook inside the DB transaction.
+
+4) BOND AI WEBHOOK: PAYLOAD CONTRACT (YOU MUST IMPLEMENT)
+4.1 Event envelope
+
+Payload format must be stable and versioned:
+
+{
+  "event": "settlement.confirmed",
+  "version": "1.0",
+  "sentAt": "2026-02-13T18:22:11.123Z",
+  "tenantId": "uuid",
+  "settlement": {
+    "settlementId": "uuid",
+    "source": "MANUAL",
+    "status": "CONFIRMED",
+    "manualReference": "WIRE-CHS-2026-02-13",
+    "amount": 250000,
+    "currency": "USD",
+    "paymentRef": "WIRECONF-12345",
+    "confirmedAt": "ISO",
+    "confirmedByUserId": "uuid",
+    "investor": {
+      "investorId": "uuid",
+      "name": "string",
+      "email": "string"
+    },
+    "assignment": {
+      "assignmentId": "uuid|null",
+      "bondName": "string|null"
+    },
+    "documents": {
+      "receiptPdf": {
+        "documentId": "uuid",
+        "url": "string"
+      },
+      "evidence": [
+        { "documentId": "uuid", "url": "string", "type": "wire_confirmation" }
+      ]
+    }
+  }
+}
+
+4.2 Security headers (HMAC)
+
+Send:
+
+X-BondAI-Event: settlement.confirmed
+
+X-BondAI-Timestamp: <unix_ms>
+
+X-BondAI-Signature: v1=<hex_hmac_sha256(timestamp + "." + rawBody)>
+
+X-Idempotency-Key: <event_key>
+
+5) WEBHOOK SENDER CODE (PASTE THIS INTO REPO)
+
+Create: server/services/bondaiWebhook.ts (or matching folder)
+
+import crypto from "crypto";
+import pRetry from "p-retry";
+
+type BondAIWebhookResult = {
+  ok: boolean;
+  status: number;
+  responseText: string;
+};
+
+function requireEnv(name: string): string {
+  const v = process.env[name];
+  if (!v) throw new Error(`Missing env: ${name}`);
+  return v;
+}
+
+export function buildBondAISignature(secret: string, timestampMs: number, rawBody: string) {
+  // signature base = "<timestamp>.<rawBody>"
+  const base = `${timestampMs}.${rawBody}`;
+  const hmac = crypto.createHmac("sha256", secret).update(base).digest("hex");
+  return `v1=${hmac}`;
+}
+
+export async function sendBondAIWebhook(args: {
+  event: string; // "settlement.confirmed"
+  eventKey: string; // idempotency key
+  payload: unknown;
+}): Promise<BondAIWebhookResult> {
+  const enabled = (process.env.BONDAI_WEBHOOK_ENABLED ?? "true").toLowerCase() === "true";
+  if (!enabled) return { ok: true, status: 204, responseText: "BONDAI_WEBHOOK_ENABLED=false (skipped)" };
+
+  const url = requireEnv("BONDAI_WEBHOOK_URL");
+  const secret = requireEnv("BONDAI_WEBHOOK_SECRET");
+  const timeoutMs = Number(process.env.BONDAI_WEBHOOK_TIMEOUT_MS ?? "8000");
+
+  const timestampMs = Date.now();
+  const rawBody = JSON.stringify(args.payload);
+  const signature = buildBondAISignature(secret, timestampMs, rawBody);
+
+  const attempt = async (): Promise<BondAIWebhookResult> => {
+    const ac = new AbortController();
+    const t = setTimeout(() => ac.abort(), timeoutMs);
+
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-bondai-event": args.event,
+          "x-bondai-timestamp": String(timestampMs),
+          "x-bondai-signature": signature,
+          "x-idempotency-key": args.eventKey,
+        },
+        body: rawBody,
+        signal: ac.signal,
+      });
+
+      const text = await res.text();
+      // Retry rules:
+      // - retry on 429 and 5xx
+      // - do not retry on other 4xx
+      if (res.status === 429 || (res.status >= 500 && res.status <= 599)) {
+        throw new pRetry.AbortError(`Retryable status ${res.status}: ${text.slice(0, 300)}`);
+      }
+      if (res.status >= 400) {
+        // non-retryable client error
+        return { ok: false, status: res.status, responseText: text };
+      }
+      return { ok: true, status: res.status, responseText: text };
+    } finally {
+      clearTimeout(t);
+    }
+  };
+
+  // p-retry: retry transient failures (network/abort/429/5xx)
+  const result = await pRetry(attempt, {
+    retries: Number(process.env.BONDAI_WEBHOOK_MAX_ATTEMPTS ?? "8"),
+    factor: 2,
+    minTimeout: 500,
+    maxTimeout: 10_000,
+    randomize: true,
+  }).catch((err: any) => {
+    // If it exhausts retries or hits AbortError, treat as failed delivery attempt
+    return { ok: false, status: 0, responseText: String(err?.message ?? err) } as BondAIWebhookResult;
+  });
+
+  return result;
+}
+
+6) OUTBOX DISPATCHER (PASTE THIS TOO)
+
+Create: server/jobs/webhookOutboxDispatcher.ts (or similar)
+
+import { sendBondAIWebhook } from "../services/bondaiWebhook";
+
+// These types/functions must match your repo’s DB layer.
+// Replace with Drizzle/Prisma SQL calls accordingly.
+import { db } from "../db";
+import { webhookOutbox } from "../db/schema"; // adjust path
+
+const DISPATCH_INTERVAL_MS = 10_000;
+let started = false;
+
+export function startWebhookOutboxDispatcher() {
+  if (started) return;
+  started = true;
+
+  setInterval(async () => {
+    try {
+      // Fetch due events (limit small)
+      const due = await db.query.webhookOutbox.findMany({
+        where: (t: any, { and, eq, lte }: any) =>
+          and(eq(t.status, "PENDING"), lte(t.nextAttemptAt, new Date())),
+        limit: 10,
+        orderBy: (t: any, { asc }: any) => [asc(t.nextAttemptAt)],
+      });
+
+      for (const row of due) {
+        if (row.destination !== "BONDAI") continue;
+
+        const result = await sendBondAIWebhook({
+          event: row.eventType,
+          eventKey: row.eventKey,
+          payload: row.payloadJson,
+        });
+
+        if (result.ok) {
+          await db.update(webhookOutbox).set({
+            status: "DELIVERED",
+            attemptCount: row.attemptCount + 1,
+            lastStatusCode: result.status,
+            lastError: null,
+            updatedAt: new Date(),
+          }).where((t: any, { eq }: any) => eq(t.id, row.id));
+        } else {
+          const attemptCount = row.attemptCount + 1;
+          const maxAttempts = Number(process.env.BONDAI_WEBHOOK_MAX_ATTEMPTS ?? "8");
+
+          // Backoff schedule
+          const backoffMs = Math.min(60_000, 1_000 * Math.pow(2, Math.min(attemptCount, 6)));
+          const nextAttempt = new Date(Date.now() + backoffMs);
+
+          await db.update(webhookOutbox).set({
+            status: attemptCount >= maxAttempts ? "FAILED" : "PENDING",
+            attemptCount,
+            lastStatusCode: result.status || null,
+            lastError: result.responseText?.slice(0, 1000) ?? "unknown error",
+            nextAttemptAt: attemptCount >= maxAttempts ? null : nextAttempt,
+            updatedAt: new Date(),
+          }).where((t: any, { eq }: any) => eq(t.id, row.id));
+        }
+      }
+    } catch (err) {
+      // log but never crash server loop
+      console.error("[webhookOutboxDispatcher] error:", err);
+    }
+  }, DISPATCH_INTERVAL_MS);
+}
+
+
+Then call startWebhookOutboxDispatcher() from server startup (e.g., server/index.ts).
+
+7) CONFIRM ENDPOINT: WHERE TO ENQUEUE OUTBOX (SHOW SEQUENCING)
+
+In the confirm handler (manual or general confirm), after receipt generation, inside the transaction, insert outbox:
+
+// inside DB transaction after settlement becomes CONFIRMED
+const eventKey = `settlement:${settlementId}:confirmed`;
+
+await tx.insert(webhookOutbox).values({
+  tenantId,
+  destination: "BONDAI",
+  eventType: "settlement.confirmed",
+  eventKey,
+  payloadJson: bondaiPayload, // built from confirmed settlement + docs
+  status: "PENDING",
+  attemptCount: 0,
+  nextAttemptAt: new Date(),
+  createdAt: new Date(),
+  updatedAt: new Date(),
+}).onConflictDoNothing(); // idempotent
+
+
+After commit, do nothing special (interval dispatcher will pick it up). Optionally “kick” by running a single dispatch tick (not required).
+
+8) ADMIN “MANUAL TEST / RESEND” ENDPOINTS (REQUIRED)
+
+Add admin-only endpoints:
+
+GET /api/admin/settlements/:id/bondai-payload
+
+returns the exact payload JSON that would be sent
+
+POST /api/admin/settlements/:id/bondai-webhook/resend
+
+inserts outbox row if missing or resets it to PENDING and sets nextAttemptAt=now
+
+(Optional but highly useful) POST /api/admin/bondai-webhook/test
+
+body: { "url": "https://webhook.site/...", "payload": {...} }
+
+sends the payload to that URL (admin-only).
+If you don’t want arbitrary URL sending, skip this and use only BONDAI_WEBHOOK_URL.
+
+9) MANUAL TEST INSTRUCTIONS (YOU MUST DOCUMENT + ENABLE)
+
+Add /docs/SETTLEMENTS_MANUAL.md section: Webhook Manual Testing
+
+Option A: Test with webhook.site (fastest)
+
+Go to webhook.site and copy the unique URL.
+
+Set in Replit Secrets:
+
+BONDAI_WEBHOOK_URL = <webhook.site url>
+
+BONDAI_WEBHOOK_SECRET = testsecret
+
+In JACE CRM:
+
+Create manual settlement → Confirm
+
+Confirm webhook.site received:
+
+headers include x-bondai-event, x-bondai-timestamp, x-bondai-signature, x-idempotency-key
+
+body matches schema.
+
+Option B: Curl resend from admin endpoint
+
+After confirming a settlement, run:
+
+curl -X POST "https://<your-replit-domain>/api/admin/settlements/<SETTLEMENT_ID>/bondai-webhook/resend" \
+  -H "Authorization: Bearer <ADMIN_JWT>" \
+  -H "Content-Type: application/json"
+
+
+Then check server logs for dispatcher delivery result and outbox row status.
+
+Option C: Validate schema locally (dev-only sink)
+
+(Optional) create a dev-only endpoint /api/dev/bondai-webhook-sink that:
+
+validates payload against Zod schema
+
+verifies HMAC signature
+
+returns 200 OK if valid
+This gives you a deterministic “schema correctness” confirmation without relying on external tooling.
+
+10) UI: Add “Webhook Status” visibility (RECOMMENDED)
+
+On settlements table, add a column:
+
+BondAI Webhook: Pending / Delivered / Failed
+
+If failed, show tooltip with last_error
+Add a “Resend” button per row (Admin only) calling the resend endpoint.
+
+11) DEFINITION OF DONE (UPDATED)
+
+Manual Settle wizard works (draft → confirm)
+
+Ledger posted idempotently
+
+Receipt PDF stored
+
+Audit logs written
+
+BondAI webhook is enqueued on confirm (outbox)
+
+Dispatcher sends webhook with HMAC headers
+
+Admin can preview payload + resend webhook
+
+Manual test steps in docs verified using webhook.site
+
+No TS errors, build passes
+
+BEGIN IMPLEMENTATION NOW.

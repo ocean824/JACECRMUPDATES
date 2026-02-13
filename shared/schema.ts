@@ -429,6 +429,24 @@ export const assignmentPayoutRelations = relations(assignmentPayouts, ({ one }) 
   assignment: one(assignments, { fields: [assignmentPayouts.assignmentId], references: [assignments.id] }),
 }));
 
+// Webhook Outbox table for reliable event delivery
+// Uniqueness of (tenantId, destination, eventKey) is enforced by onConflictDoNothing in insert logic
+export const webhookOutbox = pgTable("webhook_outbox", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").notNull(),
+  destination: varchar("destination", { length: 30 }).notNull().default("BONDAI"),
+  eventType: varchar("event_type", { length: 100 }).notNull(),
+  eventKey: varchar("event_key", { length: 255 }).notNull(),
+  payloadJson: text("payload_json").notNull(),
+  status: varchar("status", { length: 20 }).notNull().default("PENDING"),
+  attemptCount: integer("attempt_count").notNull().default(0),
+  nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }).defaultNow(),
+  lastStatusCode: integer("last_status_code"),
+  lastError: text("last_error"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 // Insert schemas - omit auto-generated fields
 export const insertUserRoleSchema = createInsertSchema(userRoles).omit({
   id: true,
@@ -539,6 +557,15 @@ export const insertAssignmentPayoutSchema = createInsertSchema(assignmentPayouts
 });
 export type AssignmentPayout = typeof assignmentPayouts.$inferSelect;
 export type InsertAssignmentPayout = z.infer<typeof insertAssignmentPayoutSchema>;
+
+export const insertWebhookOutboxSchema = createInsertSchema(webhookOutbox).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type WebhookOutbox = typeof webhookOutbox.$inferSelect;
+export type InsertWebhookOutbox = z.infer<typeof insertWebhookOutboxSchema>;
 
 export type InvestorOnboardingSubmission = typeof investorOnboardingSubmissions.$inferSelect;
 export type InsertInvestorOnboardingSubmission = z.infer<typeof insertInvestorOnboardingSubmissionSchema>;
