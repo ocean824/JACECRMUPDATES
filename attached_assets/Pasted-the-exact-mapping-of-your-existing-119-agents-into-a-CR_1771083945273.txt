@@ -1,0 +1,222 @@
+the exact mapping of your existing 119 agents into a CRUD-Blue Team and the exact way to instruct AGENT_00 (or your Replit agent runner) to execute it (parallel scan → triage → fix → verify → evidence).
+
+1) CRUD-Blue Team = role map to YOUR actual agent IDs
+Core Blue Team (the “minimum set”)
+Blue Team Role	What it does	Your Agent ID
+Blue Orchestrator	plans runs, routes tasks, merges Issue Packets, decides order	AGENT_00
+API/Contract Scanner	endpoint CRUD, request/response schema, status codes, idempotency	AGENT_18 (Staff Backend)
+DB/Schema Scanner	schema/migrations, constraints, indexes, referential integrity	AGENT_28 (DBRE)
+Auth/Tenancy Scanner	RBAC, tenant isolation, access control failures	AGENT_40 (AppSec) + AGENT_07 (CISO)
+UI CRUD Scanner	forms, mutations, list/detail pages, client validations	AGENT_19 (Staff Frontend)
+Observability/Audit Scanner	logs, audit trail, run IDs, correlation IDs, evidence	AGENT_27 (Observability)
+Test/E2E Scanner	creates/executes regression + CRUD test pack	AGENT_68 (Autonomous Test Swarm)
+Fix Implementer	writes patches	AGENT_70–AGENT_85 (Fullstack Implementers)
+Release/CI Gate	build/check gates	AGENT_21 (Release/CI)
+Stability + Safety Add-ons (recommended)
+Role	Why	Agent
+Policy Gate	enforces tool boundaries + “no forbidden tools”	AGENT_110
+Watchdog	catches drift/hallucinations + quarantines bad agent output	AGENT_111
+Auto-Remediation	can synthesize patches + verify	AGENT_112
+Rollback Manager	last-known-good tagging + rollback plan	AGENT_113
+Evidence Pack Builder	assembles proof for audit/compliance	AGENT_115
+SSOT Standards	ensures docs/specs stay consistent repo-wide	AGENT_118
+Incident Commander	if it’s production-impacting	AGENT_69
+2) The execution blueprint (what runs in parallel vs sequential)
+Phase A — Parallel “Scan Swarm” (concurrency 6)
+
+Run these at the same time:
+
+AGENT_18 API scan
+
+AGENT_28 DB scan
+
+AGENT_40 + AGENT_07 Auth/Sec scan
+
+AGENT_19 UI scan
+
+AGENT_27 Observability scan
+
+AGENT_68 Test scan (create/repro steps)
+
+Output requirement for every scan agent: Issue Packets in strict JSON.
+
+Phase B — Orchestrator triage (AGENT_00)
+
+Deduplicate issues
+
+Rank by severity (P0–P3)
+
+Produce fix plan: which implementers to use, file paths, test plan
+
+Phase C — Fix + Test loop (concurrency 3)
+
+Parallelize inside the loop:
+
+1–2 fullstack implementers patching
+
+1 test swarm node validating
+
+Then:
+
+AGENT_40 security re-review
+
+AGENT_21 CI gate
+
+AGENT_115 evidence pack
+
+3) The exact /api/agent/run-many payload to launch Phase A (paste-ready)
+
+Replace <TARGET> with what you want scanned (examples: Accounts CRUD, Settlements page, POST /api/settlements/manual-settle, ledger journal entries).
+
+curl -s -X POST "$REPLIT_URL/api/agent/run-many" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "concurrency": 6,
+    "tasks": [
+      {
+        "agent_id": "AGENT_18",
+        "input": "BLUE_SCAN_API for <TARGET>. Find CRUD contract issues: endpoints, schemas, status codes, idempotency. Output ONLY Issue Packets JSON array."
+      },
+      {
+        "agent_id": "AGENT_28",
+        "input": "BLUE_SCAN_DB for <TARGET>. Find schema/migration/constraint/index/soft-delete/tenant-scope issues. Output ONLY Issue Packets JSON array."
+      },
+      {
+        "agent_id": "AGENT_40",
+        "input": "BLUE_SCAN_AUTH for <TARGET>. Find RBAC/tenant isolation issues across UI/API/DB. Output ONLY Issue Packets JSON array."
+      },
+      {
+        "agent_id": "AGENT_19",
+        "input": "BLUE_SCAN_UI for <TARGET>. Find CRUD UX/data bugs: forms, list/detail, client validation vs server validation mismatch. Output ONLY Issue Packets JSON array."
+      },
+      {
+        "agent_id": "AGENT_27",
+        "input": "BLUE_SCAN_OBS for <TARGET>. Find missing audit logs, correlation ids, run logs, tool-call evidence gaps. Output ONLY Issue Packets JSON array."
+      },
+      {
+        "agent_id": "AGENT_68",
+        "input": "BLUE_SCAN_TEST for <TARGET>. Produce repro steps + minimal regression test plan; identify failing/ missing tests. Output ONLY Issue Packets JSON array."
+      }
+    ]
+  }'
+
+4) The exact AGENT_00 prompt to MERGE + TRIAGE (paste-ready)
+
+After Phase A returns, paste the outputs into AGENT_00 with this:
+
+You are running CRUD-BLUE TEAM TRIAGE.
+
+INPUTS: I will paste multiple JSON arrays of Issue Packets from scan agents (API/DB/AUTH/UI/OBS/TEST).
+TASK:
+1) Merge all Issue Packets into one list.
+2) Deduplicate by (category + resource + surface.api_endpoint + surface.db_table + symptom similarity).
+3) Assign severity P0-P3.
+4) Output TWO things:
+   A) BLUE_REPORT.json = array of Issue Packets with status OPEN and ranked order.
+   B) FIX_PLAN.json = ordered steps with:
+      - issues addressed
+      - exact agent assignments (use implementer clones AGENT_70-AGENT_85)
+      - files likely involved (repo paths)
+      - tests to add/run
+      - verification checklist
+FORMAT RULES:
+- Output valid JSON only.
+- No prose outside JSON.
+
+5) The fix loop payload (patch + test + review)
+
+Once AGENT_00 gives you FIX_PLAN.json, run this (edit issue IDs accordingly):
+
+curl -s -X POST "$REPLIT_URL/api/agent/run-many" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "concurrency": 3,
+    "tasks": [
+      {
+        "agent_id": "AGENT_70",
+        "input": "Implement fixes for issues: ISSUE_1, ISSUE_2. Provide file diffs + code changes. Keep changes minimal. Output: PATCH_NOTES + DIFF SUMMARY."
+      },
+      {
+        "agent_id": "AGENT_71",
+        "input": "Implement fixes for issues: ISSUE_3, ISSUE_4. Provide file diffs + code changes. Output: PATCH_NOTES + DIFF SUMMARY."
+      },
+      {
+        "agent_id": "AGENT_68",
+        "input": "Validate fixes. Add/repair tests proving ISSUE_1..ISSUE_4 are fixed. Output: TEST_COMMANDS + expected results + any remaining failures as Issue Packets."
+      }
+    ]
+  }'
+
+
+Then run security + CI gates:
+
+curl -s -X POST "$REPLIT_URL/api/agent/run-many" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "concurrency": 2,
+    "tasks": [
+      { "agent_id": "AGENT_40", "input": "Security review the patches. Check RBAC/tenant isolation/tool boundaries. Output: approvals or new Issue Packets." },
+      { "agent_id": "AGENT_21", "input": "Run repo gates: npm run check + build verification steps. Output: pass/fail + logs summary + issues as Issue Packets." }
+    ]
+  }'
+
+6) If you want this fully automatic (Orchestrator “macro” behavior)
+
+Tell AGENT_00 to treat any request like:
+
+BLUE_RUN(target)
+
+spawn scan swarm (Phase A)
+
+merge/triage
+
+assign implementers
+
+re-run tests
+
+package evidence
+
+Here’s the macro prompt to paste into AGENT_00:
+
+Enable BLUE_RUN macro.
+
+When I say: BLUE_RUN(<TARGET>),
+you must:
+1) Generate a run-many task list using these agents:
+   API=AGENT_18, DB=AGENT_28, AUTH=AGENT_40, UI=AGENT_19, OBS=AGENT_27, TEST=AGENT_68
+2) After results return, merge + dedupe + rank issues into BLUE_REPORT.json
+3) Create FIX_PLAN.json assigning implementers from AGENT_70-AGENT_85 (pick 2-4 based on count)
+4) Provide the exact run-many JSON payloads I should execute next for Fix + Test + Review.
+Output requirements:
+- All issues are Issue Packets JSON.
+- All next-step instructions are runnable curl payloads.
+
+7) “Where/what is it supposed to find?” (the universal coverage map)
+
+When you say CRUD Blue Team, you’re not just checking tables—you’re checking the full “CRUD chain”:
+
+UI Route → API Endpoint → Service/Domain Rules → DB Table(s) → Audit/Logs → Tests
+
+For every resource, it should verify:
+
+Create: input validation, uniqueness, idempotency key, audit record exists
+
+Read: tenant scope enforced, no sensitive leaks, pagination safe
+
+Update: optimistic concurrency (version/updatedAt), partial update correctness
+
+Delete: soft-delete policy, cascade rules, cannot delete referenced rows, audit record
+
+Next step (no questions, just pick one):
+
+Tell me your first target like:
+
+BLUE_RUN(Settlements Manual Settle)
+
+BLUE_RUN(Chart of Accounts CRUD)
+
+BLUE_RUN(Journal Entries + Lines CRUD)
+
+BLUE_RUN(Agent run-many reliability + logs)
+
+…and I’ll hand you the exact scan swarm payload specialized to that module (endpoints/tables/pages you should include) and the exact implementer split (which AGENT_70–85 to assign).
