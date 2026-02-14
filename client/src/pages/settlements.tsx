@@ -10,7 +10,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckCircle, XCircle, Download, RefreshCw, Inbox, FileText, IdCard, ShieldCheck, Landmark, Eye, Send, Loader2 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { CheckCircle, XCircle, Download, RefreshCw, Inbox, FileText, IdCard, ShieldCheck, Landmark, Eye, Send, Loader2, Plus } from "lucide-react";
 
 type SettlementSession = {
   id: string;
@@ -84,6 +85,18 @@ export default function SettlementsPage() {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualForm, setManualForm] = useState({
+    tradeId: "",
+    investorName: "",
+    investorEmail: "",
+    bondName: "",
+    bondId: "",
+    amount: "",
+    paymentReference: "",
+    notes: "",
+  });
 
   const escrowAccounts = useQuery<EscrowAccountSummary[]>({
     queryKey: ["/api/escrow-accounts"],
@@ -169,6 +182,30 @@ export default function SettlementsPage() {
     },
     onError: (err: any) => {
       toast({ title: "Resend failed", description: err?.message || "Unable to resend webhook", variant: "destructive" });
+    },
+  });
+
+  const manualSettleMutation = useMutation({
+    mutationFn: async (data: typeof manualForm) => {
+      return apiRequest("POST", "/api/admin/settlements/manual", {
+        tradeId: Number(data.tradeId),
+        amount: data.amount,
+        investorName: data.investorName || undefined,
+        investorEmail: data.investorEmail || undefined,
+        bondName: data.bondName || undefined,
+        bondId: data.bondId ? Number(data.bondId) : undefined,
+        paymentReference: data.paymentReference || undefined,
+        notes: data.notes || undefined,
+      });
+    },
+    onSuccess: async () => {
+      toast({ title: "Manual settlement created", description: "The settlement has been added to the inbox for confirmation." });
+      setManualOpen(false);
+      setManualForm({ tradeId: "", investorName: "", investorEmail: "", bondName: "", bondId: "", amount: "", paymentReference: "", notes: "" });
+      await qc.invalidateQueries({ queryKey: ["settlements"] });
+    },
+    onError: (err: any) => {
+      toast({ title: "Failed to create settlement", description: err?.message || "Unable to create manual settlement", variant: "destructive" });
     },
   });
 
@@ -382,9 +419,12 @@ export default function SettlementsPage() {
           <h1 className="text-3xl font-bold tracking-tight">Settlements</h1>
           <p className="text-muted-foreground">Internal settlement inbox. Confirm only after escrow/wire verification.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button variant="outline" onClick={() => qc.invalidateQueries({ queryKey: ["settlements"] })} data-testid="button-refresh-settlements">
             <RefreshCw className="h-4 w-4 mr-1" /> Refresh
+          </Button>
+          <Button variant="outline" onClick={() => setManualOpen(true)} data-testid="button-manual-settle">
+            <Plus className="h-4 w-4 mr-1" /> Manual Settle
           </Button>
           <Button onClick={() => setOpen(true)} data-testid="button-open-inbox">
             <Inbox className="h-4 w-4 mr-1" /> Open Inbox
@@ -541,6 +581,126 @@ export default function SettlementsPage() {
             ) : (
               <div className="flex items-center justify-center h-full text-muted-foreground">Loading preview...</div>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={manualOpen} onOpenChange={setManualOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Manual Settlement</DialogTitle>
+            <DialogDescription>Create a settlement entry manually. It will appear in the inbox as "submitted" so you can review and confirm it, which triggers the journal entry, assignment, and BondAI webhook.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="manual-tradeId">Trade ID *</Label>
+                <Input
+                  id="manual-tradeId"
+                  type="number"
+                  min="1"
+                  placeholder="e.g. 1001"
+                  value={manualForm.tradeId}
+                  onChange={(e) => setManualForm((p) => ({ ...p, tradeId: e.target.value }))}
+                  data-testid="input-manual-tradeId"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="manual-amount">Amount (USD) *</Label>
+                <Input
+                  id="manual-amount"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  placeholder="e.g. 50000.00"
+                  value={manualForm.amount}
+                  onChange={(e) => setManualForm((p) => ({ ...p, amount: e.target.value }))}
+                  data-testid="input-manual-amount"
+                />
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="manual-investorName">Investor Name</Label>
+                <Input
+                  id="manual-investorName"
+                  placeholder="Jane Smith"
+                  value={manualForm.investorName}
+                  onChange={(e) => setManualForm((p) => ({ ...p, investorName: e.target.value }))}
+                  data-testid="input-manual-investorName"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="manual-investorEmail">Investor Email</Label>
+                <Input
+                  id="manual-investorEmail"
+                  type="email"
+                  placeholder="jane@example.com"
+                  value={manualForm.investorEmail}
+                  onChange={(e) => setManualForm((p) => ({ ...p, investorEmail: e.target.value }))}
+                  data-testid="input-manual-investorEmail"
+                />
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="manual-bondName">Bond Name</Label>
+                <Input
+                  id="manual-bondName"
+                  placeholder="e.g. Series A 2026"
+                  value={manualForm.bondName}
+                  onChange={(e) => setManualForm((p) => ({ ...p, bondName: e.target.value }))}
+                  data-testid="input-manual-bondName"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="manual-bondId">Bond ID</Label>
+                <Input
+                  id="manual-bondId"
+                  type="number"
+                  min="1"
+                  placeholder="Optional"
+                  value={manualForm.bondId}
+                  onChange={(e) => setManualForm((p) => ({ ...p, bondId: e.target.value }))}
+                  data-testid="input-manual-bondId"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="manual-paymentRef">Payment Reference</Label>
+              <Input
+                id="manual-paymentRef"
+                placeholder="Wire ref, check #, etc."
+                value={manualForm.paymentReference}
+                onChange={(e) => setManualForm((p) => ({ ...p, paymentReference: e.target.value }))}
+                data-testid="input-manual-paymentReference"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="manual-notes">Notes</Label>
+              <Textarea
+                id="manual-notes"
+                placeholder="Any additional details..."
+                value={manualForm.notes}
+                onChange={(e) => setManualForm((p) => ({ ...p, notes: e.target.value }))}
+                data-testid="input-manual-notes"
+                className="resize-none"
+                rows={3}
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setManualOpen(false)} data-testid="button-cancel-manual-settle">
+                Cancel
+              </Button>
+              <Button
+                onClick={() => manualSettleMutation.mutate(manualForm)}
+                disabled={manualSettleMutation.isPending || !manualForm.tradeId || !manualForm.amount}
+                data-testid="button-submit-manual-settle"
+              >
+                {manualSettleMutation.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Plus className="h-4 w-4 mr-1" />}
+                Create Settlement
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
