@@ -5,7 +5,7 @@ import fs from "fs";
 import path from "path";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "./db";
-import { accounts, assignments, bondSettlements, documents, investors, journalEntries, journalEntryLines, settlementCompliance, settlementSessions, webhookOutbox } from "@shared/schema";
+import { accounts, assignments, bondSettlements, documents, escrowAccounts, investors, journalEntries, journalEntryLines, settlementCompliance, settlementSessions, webhookOutbox } from "@shared/schema";
 import { storage, logAudit } from "./storage";
 import { renderSettlementReceiptPdf } from "./lib/pdf/renderSettlementReceiptPdf";
 
@@ -203,7 +203,7 @@ export function registerInternalSettlementRoutes(app: Express, isAuthenticated: 
       const userId = getUserId(req);
       const sessionId = req.params.sessionId;
       const notes = typeof req.body?.notes === "string" ? req.body.notes : null;
-      const escrowAccountId = typeof req.body?.escrowAccountId === "string" ? req.body.escrowAccountId : null;
+      let escrowAccountId = typeof req.body?.escrowAccountId === "string" ? req.body.escrowAccountId : null;
 
       const [existing] = await db
         .select()
@@ -213,19 +213,43 @@ export function registerInternalSettlementRoutes(app: Express, isAuthenticated: 
 
       if (!existing) return res.status(404).json({ message: "Settlement session not found" });
 
-      if (escrowAccountId) {
-        const { escrowAccounts } = await import("@shared/schema");
-        const [escrow] = await db
+      if (!escrowAccountId) {
+        const [defaultEscrow] = await db
           .select()
           .from(escrowAccounts)
-          .where(eq(escrowAccounts.id, escrowAccountId))
+          .where(
+            and(
+              eq(escrowAccounts.userId, userId),
+              eq(escrowAccounts.isDefault, true),
+              eq(escrowAccounts.isActive, true)
+            )
+          )
           .limit(1);
-        if (!escrow) {
-          return res.status(400).json({ message: "Invalid escrow account" });
+        if (defaultEscrow) {
+          escrowAccountId = defaultEscrow.id;
         }
-        if (escrow.userId && escrow.userId !== userId) {
-          return res.status(403).json({ message: "Escrow account access denied" });
-        }
+      }
+
+      if (!escrowAccountId) {
+        return res.status(400).json({
+          message: "No escrow account available. Please create an escrow account and mark it as default before confirming settlements.",
+          code: "ESCROW_REQUIRED",
+        });
+      }
+
+      const [escrow] = await db
+        .select()
+        .from(escrowAccounts)
+        .where(eq(escrowAccounts.id, escrowAccountId))
+        .limit(1);
+      if (!escrow) {
+        return res.status(400).json({ message: "Invalid escrow account" });
+      }
+      if (escrow.userId && escrow.userId !== userId) {
+        return res.status(403).json({ message: "Escrow account access denied" });
+      }
+      if (!escrow.isActive) {
+        return res.status(400).json({ message: "Escrow account is inactive" });
       }
 
       if (existing.status === "settled") {
@@ -252,7 +276,7 @@ export function registerInternalSettlementRoutes(app: Express, isAuthenticated: 
           status: "settled",
           settledAt: now,
           updatedAt: now,
-          ...(escrowAccountId ? { escrowAccountId } : {}),
+          escrowAccountId,
         })
         .where(eq(settlementSessions.sessionId, sessionId))
         .returning();

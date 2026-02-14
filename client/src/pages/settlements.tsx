@@ -475,7 +475,7 @@ export default function SettlementsPage() {
                       </SelectContent>
                     </Select>
                   ) : (
-                    <div className="text-sm text-muted-foreground">No escrow accounts configured. <a href="/escrow" className="underline">Add one</a></div>
+                    <div className="text-sm text-destructive font-medium">No escrow accounts configured. <a href="/escrow" className="underline">Create one first</a> and mark it as default.</div>
                   )}
                 </div>
                 <div className="space-y-2">
@@ -485,7 +485,7 @@ export default function SettlementsPage() {
                 <div className="flex gap-2">
                   <Button
                     onClick={() => confirmMutation.mutate({ sessionId: active.sessionId, notes: confirmNotes, escrowAccountId: selectedEscrowId || undefined })}
-                    disabled={confirmMutation.isPending}
+                    disabled={confirmMutation.isPending || !selectedEscrowId}
                     data-testid="button-confirm-settlement"
                   >
                     <CheckCircle className="h-4 w-4 mr-1" /> Confirm
