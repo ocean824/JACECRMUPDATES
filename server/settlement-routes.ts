@@ -414,11 +414,11 @@ export function registerSettlementRoutes(app: Express) {
           .where(eq(settlementCompliance.sessionId, payload.sid))
           .limit(1);
 
-        if (!complianceRecord || complianceRecord.complianceStatus !== "complete") {
+        if (!complianceRecord || complianceRecord.status !== "complete") {
           return res.status(409).json({
             message: "Compliance must be completed before submitting settlement",
             code: "COMPLIANCE_REQUIRED",
-            complianceStatus: complianceRecord?.complianceStatus || "not_started",
+            complianceStatus: complianceRecord?.status || "not_started",
           });
         }
       }
@@ -672,7 +672,7 @@ export function registerSettlementRoutes(app: Express) {
       try {
         await logAudit(
           "system",
-          "read",
+          "create",
           "settlement_receipt",
           session.sessionId,
           `Receipt downloaded for Trade ${session.tradeId}`,
