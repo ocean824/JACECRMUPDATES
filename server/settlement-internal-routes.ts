@@ -410,6 +410,23 @@ export function registerInternalSettlementRoutes(app: Express, isAuthenticated: 
             .where(eq(settlementSessions.sessionId, sessionId));
 
           console.log(`Auto-created journal entry for settlement ${sessionId}`);
+
+          await logAudit(
+            userId,
+            "create",
+            "journal_entry",
+            journalEntry.id,
+            `Auto-created journal entry ${journalEntry.entryNumber} for settlement ${sessionId}`,
+            {
+              settlementSessionId: sessionId,
+              tradeId: updated.tradeId,
+              amount: updated.amount,
+              debitAccountId: assetAccount.id,
+              creditAccountId: revenueAccount.id,
+              correlationId: `settle-${sessionId}`,
+            },
+            req.ip
+          );
         }
         }
       } catch (journalErr) {
@@ -473,15 +490,18 @@ export function registerInternalSettlementRoutes(app: Express, isAuthenticated: 
           paymentReference: updated.paymentReference,
           receiptId,
           notes,
+          correlationId: `settle-${sessionId}`,
+          escrowAccountId,
         },
         req.ip
       );
 
+      const correlationId = `settle-${sessionId}`;
       const eventKey = `settle:${sessionId}`;
       const webhookPayload = JSON.stringify({
         eventId: `evt_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`,
         eventType: "settlement.completed",
-        correlationId: `trade-${updated.tradeId}`,
+        correlationId,
         data: {
           tradeId: Number(updated.tradeId),
           sessionId,
@@ -639,6 +659,20 @@ export function registerInternalSettlementRoutes(app: Express, isAuthenticated: 
         return res.status(400).json({ message: "tradeId and amount are required" });
       }
 
+      const parsedAmount = parseFloat(String(amount));
+      if (isNaN(parsedAmount) || parsedAmount <= 0) {
+        return res.status(400).json({ message: "amount must be a positive number" });
+      }
+
+      const parsedTradeId = parseInt(String(tradeId), 10);
+      if (isNaN(parsedTradeId) || parsedTradeId <= 0) {
+        return res.status(400).json({ message: "tradeId must be a positive integer" });
+      }
+
+      if (investorEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(investorEmail)) {
+        return res.status(400).json({ message: "investorEmail must be a valid email address" });
+      }
+
       const sessionId = crypto.randomUUID();
       const now = new Date();
       const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
@@ -765,11 +799,13 @@ export function registerInternalSettlementRoutes(app: Express, isAuthenticated: 
     }
   });
 
-  app.get("/api/admin/webhooks/outbox", isAuthenticated, requireInternalRole, async (_req, res) => {
+  app.get("/api/admin/webhooks/outbox", isAuthenticated, requireInternalRole, async (req, res) => {
     try {
+      const userId = getUserId(req);
       const rows = await db
         .select()
         .from(webhookOutbox)
+        .where(eq(webhookOutbox.tenantId, userId))
         .orderBy(desc(webhookOutbox.createdAt))
         .limit(100);
 
