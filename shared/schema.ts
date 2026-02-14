@@ -387,6 +387,7 @@ export const assignments = pgTable("assignments", {
   userId: varchar("user_id").notNull(),
   investorId: varchar("investor_id").references(() => investors.id),
   settlementSessionId: varchar("settlement_session_id").references(() => settlementSessions.id),
+  bondSettlementId: varchar("bond_settlement_id").references(() => bondSettlements.id),
   tradeId: integer("trade_id"),
   bondId: integer("bond_id"),
   bondName: varchar("bond_name", { length: 300 }),
@@ -422,6 +423,7 @@ export const assignmentPayouts = pgTable("assignment_payouts", {
 export const assignmentRelations = relations(assignments, ({ one, many }) => ({
   investor: one(investors, { fields: [assignments.investorId], references: [investors.id] }),
   settlementSession: one(settlementSessions, { fields: [assignments.settlementSessionId], references: [settlementSessions.id] }),
+  bondSettlement: one(bondSettlements, { fields: [assignments.bondSettlementId], references: [bondSettlements.id] }),
   payouts: many(assignmentPayouts),
 }));
 

@@ -485,6 +485,26 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/accounts/recalculate", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const userAccounts = await storage.getAccounts(userId);
+      const { recalculateAccountBalance } = await import("./settlement-internal-routes");
+      const { db } = await import("./db");
+
+      let recalculated = 0;
+      for (const account of userAccounts) {
+        await recalculateAccountBalance(account.id, db);
+        recalculated++;
+      }
+
+      res.json({ success: true, recalculated });
+    } catch (error) {
+      console.error("Error recalculating account balances:", error);
+      res.status(500).json({ message: "Failed to recalculate account balances" });
+    }
+  });
+
   // Journal Entries API
   app.get("/api/journal-entries", isAuthenticated, async (req, res) => {
     try {

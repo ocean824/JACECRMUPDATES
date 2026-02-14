@@ -5,7 +5,7 @@ import fs from "fs";
 import path from "path";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "./db";
-import { documents, investors, settlementCompliance, settlementSessions, webhookOutbox } from "@shared/schema";
+import { accounts, assignments, bondSettlements, documents, investors, journalEntries, journalEntryLines, settlementCompliance, settlementSessions, webhookOutbox } from "@shared/schema";
 import { storage, logAudit } from "./storage";
 import { renderSettlementReceiptPdf } from "./lib/pdf/renderSettlementReceiptPdf";
 
@@ -40,6 +40,39 @@ function ensureUploadDir() {
   if (!fs.existsSync(UPLOAD_DIR)) {
     fs.mkdirSync(UPLOAD_DIR, { recursive: true });
   }
+}
+
+export async function recalculateAccountBalance(accountId: string, dbInstance: typeof db) {
+  const [account] = await dbInstance
+    .select()
+    .from(accounts)
+    .where(eq(accounts.id, accountId))
+    .limit(1);
+
+  if (!account) return;
+
+  const [totals] = await dbInstance
+    .select({
+      totalDebit: sql<string>`COALESCE(SUM(${journalEntryLines.debit}), 0)`,
+      totalCredit: sql<string>`COALESCE(SUM(${journalEntryLines.credit}), 0)`,
+    })
+    .from(journalEntryLines)
+    .where(eq(journalEntryLines.accountId, accountId));
+
+  const totalDebit = parseFloat(totals?.totalDebit || "0");
+  const totalCredit = parseFloat(totals?.totalCredit || "0");
+
+  let balance: number;
+  if (account.accountType === "asset" || account.accountType === "expense") {
+    balance = totalDebit - totalCredit;
+  } else {
+    balance = totalCredit - totalDebit;
+  }
+
+  await dbInstance
+    .update(accounts)
+    .set({ balance: balance.toFixed(2) })
+    .where(eq(accounts.id, accountId));
 }
 
 export function registerInternalSettlementRoutes(app: Express, isAuthenticated: any) {
@@ -224,6 +257,7 @@ export function registerInternalSettlementRoutes(app: Express, isAuthenticated: 
         .where(eq(settlementSessions.sessionId, sessionId))
         .returning();
 
+      let createdAssignmentId: string | null = null;
       try {
         const assignmentData = {
           userId,
@@ -245,10 +279,117 @@ export function registerInternalSettlementRoutes(app: Express, isAuthenticated: 
           status: "active",
           notes: notes || undefined,
         };
-        await (storage as any).createAssignment(userId, assignmentData);
+        const createdAssignment = await (storage as any).createAssignment(userId, assignmentData);
+        createdAssignmentId = createdAssignment?.id || null;
         console.log(`Auto-created assignment for settlement ${sessionId}`);
       } catch (assignErr) {
         console.error("Failed to auto-create assignment:", assignErr);
+      }
+
+      try {
+        if (updated.bondName && updated.investorId) {
+          const matchingBondSettlements = await db
+            .select()
+            .from(bondSettlements)
+            .where(
+              and(
+                eq(bondSettlements.userId, userId),
+                eq(bondSettlements.bondName, updated.bondName),
+                eq(bondSettlements.investorId, updated.investorId),
+                eq(bondSettlements.status, "pending")
+              )
+            );
+
+          if (matchingBondSettlements.length === 1) {
+            const matchingBondSettlement = matchingBondSettlements[0];
+            await db
+              .update(bondSettlements)
+              .set({ status: "settled", updatedAt: now })
+              .where(eq(bondSettlements.id, matchingBondSettlement.id));
+
+            if (createdAssignmentId) {
+              await db
+                .update(assignments)
+                .set({ bondSettlementId: matchingBondSettlement.id })
+                .where(eq(assignments.id, createdAssignmentId));
+            }
+            console.log(`Linked bond settlement ${matchingBondSettlement.id} to assignment for settlement ${sessionId}`);
+          } else if (matchingBondSettlements.length > 1) {
+            console.warn(`Multiple pending bond settlements found for bond "${updated.bondName}" and investor ${updated.investorId}, skipping auto-link to avoid mismatch`);
+          }
+        }
+      } catch (bondLinkErr) {
+        console.error("Failed to link bond settlement:", bondLinkErr);
+      }
+
+      try {
+        if (updated.journalEntryId) {
+          console.log(`Journal entry already exists for settlement ${sessionId}, skipping`);
+        } else {
+        const [assetAccount] = await db
+          .select()
+          .from(accounts)
+          .where(
+            and(
+              eq(accounts.userId, userId),
+              eq(accounts.accountType, "asset"),
+              eq(accounts.isActive, true)
+            )
+          )
+          .limit(1);
+
+        const [revenueAccount] = await db
+          .select()
+          .from(accounts)
+          .where(
+            and(
+              eq(accounts.userId, userId),
+              eq(accounts.accountType, "revenue"),
+              eq(accounts.isActive, true)
+            )
+          )
+          .limit(1);
+
+        if (assetAccount && revenueAccount) {
+          const [journalEntry] = await db
+            .insert(journalEntries)
+            .values({
+              userId,
+              entryNumber: `SETTLE-${sessionId.slice(0, 8)}`,
+              description: `Settlement confirmed for Trade ${updated.tradeId} - ${updated.bondName || "Bond"}`,
+              date: now,
+            })
+            .returning();
+
+          await db.insert(journalEntryLines).values({
+            journalEntryId: journalEntry.id,
+            accountId: assetAccount.id,
+            debit: updated.amount,
+            credit: "0",
+            description: `Debit asset for settlement ${sessionId}`,
+          });
+
+          await db.insert(journalEntryLines).values({
+            journalEntryId: journalEntry.id,
+            accountId: revenueAccount.id,
+            debit: "0",
+            credit: updated.amount,
+            description: `Credit revenue for settlement ${sessionId}`,
+          });
+
+          await recalculateAccountBalance(assetAccount.id, db);
+          await recalculateAccountBalance(revenueAccount.id, db);
+
+          await db
+            .update(settlementSessions)
+            .set({ journalEntryId: journalEntry.id })
+            .where(eq(settlementSessions.sessionId, sessionId));
+
+          console.log(`Auto-created journal entry for settlement ${sessionId}`);
+        }
+        }
+      } catch (journalErr) {
+        console.error("Failed to auto-create journal entry:", journalErr);
       }
 
       ensureUploadDir();
