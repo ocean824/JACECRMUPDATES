@@ -179,8 +179,8 @@ export interface IStorage {
   deleteJournalEntry(id: string, userId: string): Promise<boolean>;
 
   // Journal Entry Lines
-  getJournalEntryLines(journalEntryId: string): Promise<JournalEntryLine[]>;
-  createJournalEntryLine(line: InsertJournalEntryLine): Promise<JournalEntryLine>;
+  getJournalEntryLines(journalEntryId: string, userId: string): Promise<JournalEntryLine[]>;
+  createJournalEntryLine(line: InsertJournalEntryLine, userId: string): Promise<JournalEntryLine>;
 
   // Tasks (user-scoped)
   getTasks(userId: string): Promise<Task[]>;
@@ -513,14 +513,18 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Journal Entry Lines
-  async getJournalEntryLines(journalEntryId: string): Promise<JournalEntryLine[]> {
+  async getJournalEntryLines(journalEntryId: string, userId: string): Promise<JournalEntryLine[]> {
+    const entry = await this.getJournalEntry(journalEntryId, userId);
+    if (!entry) return [];
     return db
       .select()
       .from(journalEntryLines)
       .where(eq(journalEntryLines.journalEntryId, journalEntryId));
   }
 
-  async createJournalEntryLine(line: InsertJournalEntryLine): Promise<JournalEntryLine> {
+  async createJournalEntryLine(line: InsertJournalEntryLine, userId: string): Promise<JournalEntryLine> {
+    const entry = await this.getJournalEntry(line.journalEntryId, userId);
+    if (!entry) throw new Error("Journal entry not found or access denied");
     const [created] = await db.insert(journalEntryLines).values(line).returning();
     return created;
   }

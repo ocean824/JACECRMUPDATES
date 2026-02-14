@@ -1203,8 +1203,26 @@ export function registerPhase4Routes(app: Express, isAuthenticated: (req: Reques
   app.get("/api/reports/income-statement", isAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
-      const startDate = req.query.startDate ? new Date(req.query.startDate as string) : new Date(new Date().getFullYear(), 0, 1);
-      const endDate = req.query.endDate ? new Date(req.query.endDate as string) : new Date();
+      let startDate = new Date(new Date().getFullYear(), 0, 1);
+      let endDate = new Date();
+      
+      if (req.query.startDate) {
+        const parsed = new Date(req.query.startDate as string);
+        if (isNaN(parsed.getTime())) {
+          return res.status(400).json({ message: "Invalid startDate format" });
+        }
+        startDate = parsed;
+      }
+      if (req.query.endDate) {
+        const parsed = new Date(req.query.endDate as string);
+        if (isNaN(parsed.getTime())) {
+          return res.status(400).json({ message: "Invalid endDate format" });
+        }
+        endDate = parsed;
+      }
+      if (startDate > endDate) {
+        return res.status(400).json({ message: "startDate must be before endDate" });
+      }
       
       const incomeStatement = await (storage as any).getIncomeStatement(userId, startDate, endDate);
       res.json(incomeStatement);

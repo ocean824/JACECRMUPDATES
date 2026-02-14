@@ -1,6 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage, logAudit } from "./storage";
+import { z } from "zod";
 import { getSession } from "./replit_integrations/auth";
 import { setupLocalAuth, isLocalAuthenticated } from "./local-auth";
 import { handleHelpChat, handleVoiceAssistant } from "./help-assistant";
@@ -425,13 +426,24 @@ export async function registerRoutes(
   app.post("/api/accounts", isAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
+
+      const accountSchema = z.object({
+        code: z.string().min(1, "Code is required"),
+        name: z.string().min(1, "Name is required"),
+        accountType: z.enum(["asset", "liability", "equity", "revenue", "expense"], { required_error: "Account type is required" }),
+        description: z.string().nullable().optional(),
+        balance: z.string().optional(),
+        isActive: z.boolean().optional(),
+      });
+      const parsed = accountSchema.parse(req.body);
+
       const accountData = {
-        code: req.body.code,
-        name: req.body.name,
-        accountType: req.body.accountType,
-        description: req.body.description || null,
-        balance: req.body.balance || "0",
-        isActive: req.body.isActive !== false,
+        code: parsed.code,
+        name: parsed.name,
+        accountType: parsed.accountType,
+        description: parsed.description || null,
+        balance: parsed.balance || "0",
+        isActive: parsed.isActive !== false,
       };
       const account = await storage.createAccount(userId, accountData);
       
@@ -440,6 +452,9 @@ export async function registerRoutes(
       
       res.status(201).json(account);
     } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors.map(e => e.message).join(", ") });
+      }
       console.error("Error creating account:", error);
       if (error.code === "23505") {
         return res.status(400).json({ message: "Account code already exists" });
@@ -451,7 +466,18 @@ export async function registerRoutes(
   app.patch("/api/accounts/:id", isAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
-      const account = await storage.updateAccount(req.params.id, userId, req.body);
+
+      const accountUpdateSchema = z.object({
+        code: z.string().min(1).optional(),
+        name: z.string().min(1).optional(),
+        accountType: z.enum(["asset", "liability", "equity", "revenue", "expense"]).optional(),
+        description: z.string().nullable().optional(),
+        balance: z.string().optional(),
+        isActive: z.boolean().optional(),
+      });
+      const parsed = accountUpdateSchema.parse(req.body);
+
+      const account = await storage.updateAccount(req.params.id, userId, parsed);
       if (!account) {
         return res.status(404).json({ message: "Account not found" });
       }
@@ -461,6 +487,9 @@ export async function registerRoutes(
       
       res.json(account);
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors.map(e => e.message).join(", ") });
+      }
       console.error("Error updating account:", error);
       res.status(500).json({ message: "Failed to update account" });
     }
@@ -498,6 +527,9 @@ export async function registerRoutes(
         recalculated++;
       }
 
+      await logAudit(userId, "create", "account_recalculate", undefined,
+        `Recalculated balances for ${recalculated} accounts`);
+
       res.json({ success: true, recalculated });
     } catch (error) {
       console.error("Error recalculating account balances:", error);
@@ -524,7 +556,7 @@ export async function registerRoutes(
       if (!entry) {
         return res.status(404).json({ message: "Journal entry not found" });
       }
-      const lines = await storage.getJournalEntryLines(req.params.id);
+      const lines = await storage.getJournalEntryLines(req.params.id, userId);
       res.json({ ...entry, lines });
     } catch (error) {
       console.error("Error fetching journal entry:", error);
@@ -535,10 +567,18 @@ export async function registerRoutes(
   app.post("/api/journal-entries", isAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
+
+      const journalEntrySchema = z.object({
+        entryNumber: z.string().min(1, "Entry number is required"),
+        description: z.string().optional(),
+        date: z.string().refine((val) => !val || !isNaN(new Date(val).getTime()), "Invalid date").optional(),
+      });
+      const parsed = journalEntrySchema.parse(req.body);
+
       const entryData = {
-        entryNumber: req.body.entryNumber,
-        description: req.body.description,
-        date: req.body.date ? new Date(req.body.date) : new Date(),
+        entryNumber: parsed.entryNumber,
+        description: parsed.description ?? null,
+        date: parsed.date ? new Date(parsed.date) : new Date(),
       };
       const entry = await storage.createJournalEntry(userId, entryData);
       
@@ -547,6 +587,9 @@ export async function registerRoutes(
       
       res.status(201).json(entry);
     } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors.map(e => e.message).join(", ") });
+      }
       console.error("Error creating journal entry:", error);
       if (error.code === "23505") {
         return res.status(400).json({ message: "Entry number already exists" });
@@ -580,6 +623,18 @@ export async function registerRoutes(
       const userId = getUserId(req);
       const { journalEntryId, accountId, debit, credit, description } = req.body;
       
+      const debitNum = parseFloat(debit || "0");
+      const creditNum = parseFloat(credit || "0");
+      if (isNaN(debitNum) || isNaN(creditNum) || debitNum < 0 || creditNum < 0) {
+        return res.status(400).json({ message: "Debit and credit must be non-negative numbers" });
+      }
+      if (debitNum === 0 && creditNum === 0) {
+        return res.status(400).json({ message: "Either debit or credit must be greater than zero" });
+      }
+      if (debitNum > 0 && creditNum > 0) {
+        return res.status(400).json({ message: "A line cannot have both debit and credit greater than zero" });
+      }
+
       const entry = await storage.getJournalEntry(journalEntryId, userId);
       if (!entry) {
         return res.status(403).json({ message: "Journal entry not found or access denied" });
@@ -598,7 +653,11 @@ export async function registerRoutes(
         description: description || null,
       };
       
-      const line = await storage.createJournalEntryLine(lineData);
+      const line = await storage.createJournalEntryLine(lineData, userId);
+
+      await logAudit(userId, "create", "journal_entry_line", line.id,
+        `Created journal entry line: debit=${lineData.debit}, credit=${lineData.credit} for entry ${journalEntryId}`);
+
       res.status(201).json(line);
     } catch (error) {
       console.error("Error creating journal entry line:", error);
@@ -1138,6 +1197,9 @@ export async function registerRoutes(
         .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
         .join("\n");
       
+      await logAudit(userId, "create", "export_accounts", undefined,
+        `Exported ${accountsList.length} accounts to CSV`);
+
       res.setHeader("Content-Type", "text/csv");
       res.setHeader("Content-Disposition", "attachment; filename=accounts.csv");
       res.send(csv);
