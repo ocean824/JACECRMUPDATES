@@ -5,7 +5,7 @@ import fs from "fs";
 import path from "path";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "./db";
-import { accounts, assignments, bondSettlements, documents, escrowAccounts, investors, journalEntries, journalEntryLines, settlementCompliance, settlementSessions, webhookOutbox } from "@shared/schema";
+import { accounts, assignments, bondSettlements, documents, escrowAccounts, investors, journalEntryLines, settlementCompliance, settlementSessions, webhookOutbox } from "@shared/schema";
 import { storage, logAudit } from "./storage";
 import { renderSettlementReceiptPdf } from "./lib/pdf/renderSettlementReceiptPdf";
 
@@ -346,93 +346,6 @@ export function registerInternalSettlementRoutes(app: Express, isAuthenticated: 
         console.error("Failed to link bond settlement:", bondLinkErr);
       }
 
-      try {
-        if (updated.journalEntryId) {
-          console.log(`Journal entry already exists for settlement ${sessionId}, skipping`);
-        } else {
-        const [assetAccount] = await db
-          .select()
-          .from(accounts)
-          .where(
-            and(
-              eq(accounts.userId, userId),
-              eq(accounts.accountType, "asset"),
-              eq(accounts.isActive, true)
-            )
-          )
-          .limit(1);
-
-        const [revenueAccount] = await db
-          .select()
-          .from(accounts)
-          .where(
-            and(
-              eq(accounts.userId, userId),
-              eq(accounts.accountType, "revenue"),
-              eq(accounts.isActive, true)
-            )
-          )
-          .limit(1);
-
-        if (assetAccount && revenueAccount) {
-          const [journalEntry] = await db
-            .insert(journalEntries)
-            .values({
-              userId,
-              entryNumber: `SETTLE-${sessionId.slice(0, 8)}`,
-              description: `Settlement confirmed for Trade ${updated.tradeId} - ${updated.bondName || "Bond"}`,
-              date: now,
-            })
-            .returning();
-
-          await db.insert(journalEntryLines).values({
-            journalEntryId: journalEntry.id,
-            accountId: assetAccount.id,
-            debit: updated.amount,
-            credit: "0",
-            description: `Debit asset for settlement ${sessionId}`,
-          });
-
-          await db.insert(journalEntryLines).values({
-            journalEntryId: journalEntry.id,
-            accountId: revenueAccount.id,
-            debit: "0",
-            credit: updated.amount,
-            description: `Credit revenue for settlement ${sessionId}`,
-          });
-
-          await recalculateAccountBalance(assetAccount.id, db);
-          await recalculateAccountBalance(revenueAccount.id, db);
-
-          await db
-            .update(settlementSessions)
-            .set({ journalEntryId: journalEntry.id })
-            .where(eq(settlementSessions.sessionId, sessionId));
-
-          console.log(`Auto-created journal entry for settlement ${sessionId}`);
-
-          await logAudit(
-            userId,
-            "create",
-            "journal_entry",
-            journalEntry.id,
-            `Auto-created journal entry ${journalEntry.entryNumber} for settlement ${sessionId}`,
-            {
-              settlementSessionId: sessionId,
-              tradeId: updated.tradeId,
-              amount: updated.amount,
-              debitAccountId: assetAccount.id,
-              creditAccountId: revenueAccount.id,
-              correlationId: `settle-${sessionId}`,
-            },
-            req.ip
-          );
-        }
-        }
-      } catch (journalErr) {
-        console.error("Failed to auto-create journal entry:", journalErr);
-      }
-
       ensureUploadDir();
       const receiptId = `REC-${now.getTime()}-${sessionId.slice(0, 8)}`;
       const receiptBuffer = await renderSettlementReceiptPdf({
@@ -500,7 +413,7 @@ export function registerInternalSettlementRoutes(app: Express, isAuthenticated: 
       const eventKey = `settle:${sessionId}`;
       const webhookPayload = JSON.stringify({
         eventId: `evt_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`,
-        eventType: "settlement.completed",
+        eventType: "trade.settled",
         correlationId,
         data: {
           tradeId: Number(updated.tradeId),
@@ -519,14 +432,14 @@ export function registerInternalSettlementRoutes(app: Express, isAuthenticated: 
         await db.insert(webhookOutbox).values({
           tenantId: userId,
           destination: "BONDAI",
-          eventType: "settlement.completed",
+          eventType: "trade.settled",
           eventKey,
           payloadJson: webhookPayload,
           status: "PENDING",
           nextAttemptAt: new Date(),
         }).onConflictDoNothing();
         webhookEnqueued = true;
-        console.log(`[OUTBOX] Enqueued settlement.completed for ${eventKey}`);
+        console.log(`[OUTBOX] Enqueued trade.settled for ${eventKey}`);
       } catch (err: any) {
         console.error("[OUTBOX] Failed to enqueue webhook:", err?.message);
       }
@@ -720,7 +633,7 @@ export function registerInternalSettlementRoutes(app: Express, isAuthenticated: 
 
       const payload = {
         eventId: `evt_preview_${Date.now()}`,
-        eventType: "settlement.completed",
+        eventType: "trade.settled",
         correlationId: `trade-${session.tradeId}`,
         data: {
           tradeId: Number(session.tradeId),
@@ -766,7 +679,7 @@ export function registerInternalSettlementRoutes(app: Express, isAuthenticated: 
       const eventKey = `settle:${sessionId}:resend:${Date.now()}`;
       const payload = JSON.stringify({
         eventId: `evt_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`,
-        eventType: "settlement.completed",
+        eventType: "trade.settled",
         correlationId: `trade-${session.tradeId}`,
         data: {
           tradeId: Number(session.tradeId),
@@ -783,7 +696,7 @@ export function registerInternalSettlementRoutes(app: Express, isAuthenticated: 
       await db.insert(webhookOutbox).values({
         tenantId: userId,
         destination: "BONDAI",
-        eventType: "settlement.completed",
+        eventType: "trade.settled",
         eventKey,
         payloadJson: payload,
         status: "PENDING",
