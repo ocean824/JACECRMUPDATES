@@ -260,6 +260,22 @@ let stripeInitStatus = { migrated: false, tables: 0, migrations: 0, error: null 
         console.log(`Added admin role for existing user: ${seedEmail}`);
       }
     }
+
+    const envAdminId = "env-admin-001";
+    const [envAdminRole] = await db.select().from(userRoles).where(eq(userRoles.userId, envAdminId)).limit(1);
+    if (!envAdminRole) {
+      await db.insert(userRoles).values({ userId: envAdminId, role: "admin" });
+      console.log(`Seeded admin role for env-admin: ${envAdminId}`);
+    }
+
+    const adminUsers = await db.select().from(users).where(eq(users.isAdmin, "true"));
+    for (const adminUser of adminUsers) {
+      const [role] = await db.select().from(userRoles).where(eq(userRoles.userId, adminUser.id)).limit(1);
+      if (!role) {
+        await db.insert(userRoles).values({ userId: adminUser.id, role: "admin" });
+        console.log(`Seeded admin role for user: ${adminUser.email}`);
+      }
+    }
   } catch (seedErr: any) {
     console.error("Admin seed failed:", seedErr.message);
   }
