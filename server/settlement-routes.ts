@@ -5,7 +5,7 @@ import fs from "fs";
 import path from "path";
 import { db } from "./db";
 import { desc, eq, sql } from "drizzle-orm";
-import { investors, settlementSessions, settlementCompliance, documents } from "@shared/schema";
+import { investors, settlementSessions, settlementCompliance, journalEntries, journalEntryLines, accounts, documents } from "@shared/schema";
 import { logAudit } from "./storage";
 import { storage } from "./storage";
 import { renderSettlementReceiptPdf } from "./lib/pdf/renderSettlementReceiptPdf";
@@ -486,6 +486,62 @@ export function registerSettlementRoutes(app: Express) {
         console.error("Failed to generate settlement receipt PDF:", pdfErr);
       }
 
+      let journalEntryId: string | null = null;
+      try {
+        const [debitAccount] = await db
+          .select()
+          .from(accounts)
+          .where(eq(accounts.accountType, "asset"))
+          .limit(1);
+
+        const [creditAccount] = await db
+          .select()
+          .from(accounts)
+          .where(eq(accounts.accountType, "revenue"))
+          .limit(1);
+
+        if (debitAccount && creditAccount) {
+          const amountStr = Number(updated.amount).toFixed(2);
+          const entryNumber = `SETTLE-${updated.sessionId.substring(0, 8)}`;
+          const description = `Assignment Unit Purchase - Trade #${updated.tradeId} - $${amountStr}`;
+
+          const [journalEntry] = await db
+            .insert(journalEntries)
+            .values({
+              userId: "system",
+              entryNumber,
+              description,
+              date: now,
+            })
+            .returning();
+
+          await db.insert(journalEntryLines).values({
+            journalEntryId: journalEntry.id,
+            accountId: debitAccount.id,
+            debit: amountStr,
+            credit: "0",
+            description: `Debit Cash/Escrow - Trade #${updated.tradeId}`,
+          });
+
+          await db.insert(journalEntryLines).values({
+            journalEntryId: journalEntry.id,
+            accountId: creditAccount.id,
+            debit: "0",
+            credit: amountStr,
+            description: `Credit Bond Revenue - Trade #${updated.tradeId}`,
+          });
+
+          journalEntryId = journalEntry.id;
+
+          await db
+            .update(settlementSessions)
+            .set({ journalEntryId })
+            .where(eq(settlementSessions.sessionId, payload.sid));
+        }
+      } catch (journalErr: any) {
+        console.error("Failed to create journal entry for settlement:", journalErr);
+      }
+
       try {
         await logAudit(
           "system",
@@ -498,6 +554,15 @@ export function registerSettlementRoutes(app: Express) {
         );
       } catch {
       }
+
+      sendBondAISettlementWebhook("trade.settled", updated.tradeId, updated.sessionId, {
+        investorEmail: updated.investorEmail,
+        amount: updated.amount,
+        paymentReference: updated.paymentReference || paymentReference,
+        paidAt: new Date().toISOString(),
+        ipAddress: updated.ipAddress,
+        userAgent: updated.userAgent,
+      }).catch(err => console.error("[JACE WEBHOOK] trade.settled fire-and-forget error:", err));
 
       res.json({
         success: true,

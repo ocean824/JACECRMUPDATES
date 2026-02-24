@@ -3,7 +3,6 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { db } from "./db";
 import { users, pendingRegistrations, usedPins } from "@shared/models/auth";
-import { userRoles } from "@shared/schema";
 import { eq, and, ne } from "drizzle-orm";
 import { z } from "zod";
 import { sendAdminApprovalNotification, sendPinToUser } from "./email-service";
@@ -371,23 +370,8 @@ export function setupLocalAuth(app: Express) {
       const adminPassword = process.env.ADMIN_PASSWORD;
       
       if (adminLogin && adminPassword && email === adminLogin && password === adminPassword) {
+        // Admin login via secrets - create/update admin session
         const adminId = "env-admin-001";
-
-        try {
-          const [existingRole] = await db
-            .select()
-            .from(userRoles)
-            .where(eq(userRoles.userId, adminId))
-            .limit(1);
-          if (!existingRole) {
-            await db.insert(userRoles).values({ userId: adminId, role: "admin" });
-          } else if (existingRole.role !== "admin") {
-            await db.update(userRoles).set({ role: "admin", updatedAt: new Date() }).where(eq(userRoles.userId, adminId));
-          }
-        } catch (roleErr) {
-          console.error("Failed to ensure admin role for env-admin:", roleErr);
-        }
-
         (req.session as any).userId = adminId;
         (req.session as any).user = {
           id: adminId,
