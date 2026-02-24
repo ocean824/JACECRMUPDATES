@@ -310,26 +310,30 @@ export function registerInternalSettlementRoutes(app: Express, isAuthenticated: 
         console.error("Failed to auto-create assignment:", assignErr);
       }
 
+      let linkedBondSettlementId: string | null = null;
       try {
-        if (updated.bondName && updated.investorId) {
-          const matchingBondSettlements = await db
+        if (updated.bondName) {
+          const matchingConditions = [
+            eq(bondSettlements.userId, userId),
+            eq(bondSettlements.bondName, updated.bondName),
+            eq(bondSettlements.status, "pending"),
+          ];
+          if (updated.investorId) {
+            matchingConditions.push(eq(bondSettlements.investorId, updated.investorId));
+          }
+
+          const matchingBondSettlementsResult = await db
             .select()
             .from(bondSettlements)
-            .where(
-              and(
-                eq(bondSettlements.userId, userId),
-                eq(bondSettlements.bondName, updated.bondName),
-                eq(bondSettlements.investorId, updated.investorId),
-                eq(bondSettlements.status, "pending")
-              )
-            );
+            .where(and(...matchingConditions));
 
-          if (matchingBondSettlements.length === 1) {
-            const matchingBondSettlement = matchingBondSettlements[0];
+          if (matchingBondSettlementsResult.length === 1) {
+            const matchingBondSettlement = matchingBondSettlementsResult[0];
             await db
               .update(bondSettlements)
               .set({ status: "settled", updatedAt: now })
               .where(eq(bondSettlements.id, matchingBondSettlement.id));
+            linkedBondSettlementId = matchingBondSettlement.id;
 
             if (createdAssignmentId) {
               await db
@@ -338,12 +342,41 @@ export function registerInternalSettlementRoutes(app: Express, isAuthenticated: 
                 .where(eq(assignments.id, createdAssignmentId));
             }
             console.log(`Linked bond settlement ${matchingBondSettlement.id} to assignment for settlement ${sessionId}`);
-          } else if (matchingBondSettlements.length > 1) {
-            console.warn(`Multiple pending bond settlements found for bond "${updated.bondName}" and investor ${updated.investorId}, skipping auto-link to avoid mismatch`);
+          } else if (matchingBondSettlementsResult.length > 1) {
+            console.warn(`Multiple pending bond settlements found for bond "${updated.bondName}", skipping auto-link to avoid mismatch`);
+          }
+
+          if (!linkedBondSettlementId) {
+            const [newBondSettlement] = await db
+              .insert(bondSettlements)
+              .values({
+                userId,
+                investorId: updated.investorId || null,
+                bondName: updated.bondName,
+                faceValue: updated.amount || "0",
+                purchasePrice: updated.amount || null,
+                couponRate: updated.couponRate || null,
+                purchaseDate: now,
+                settlementDate: now,
+                maturityDate: updated.maturityDate ? new Date(updated.maturityDate) : null,
+                status: "settled",
+                notes: `Auto-created from settlement confirmation. Trade #${updated.tradeId}, Session ${sessionId}`,
+              })
+              .returning();
+
+            linkedBondSettlementId = newBondSettlement.id;
+
+            if (createdAssignmentId) {
+              await db
+                .update(assignments)
+                .set({ bondSettlementId: newBondSettlement.id })
+                .where(eq(assignments.id, createdAssignmentId));
+            }
+            console.log(`Auto-created bond settlement ${newBondSettlement.id} for settlement ${sessionId}`);
           }
         }
       } catch (bondLinkErr) {
-        console.error("Failed to link bond settlement:", bondLinkErr);
+        console.error("Failed to link/create bond settlement:", bondLinkErr);
       }
 
       ensureUploadDir();
