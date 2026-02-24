@@ -235,6 +235,36 @@ let stripeInitStatus = { migrated: false, tables: 0, migrations: 0, error: null 
   await registerRoutes(httpServer, app);
 
   try {
+    const bcrypt = await import("bcryptjs");
+    const { db } = await import("./db");
+    const { users, userRoles } = await import("@shared/schema");
+    const { eq } = await import("drizzle-orm");
+
+    const seedEmail = "admin1@jacemgmtllc.com";
+    const [existing] = await db.select().from(users).where(eq(users.email, seedEmail)).limit(1);
+    if (!existing) {
+      const hashedPw = await bcrypt.default.hash("Theadmin12726", 12);
+      const [newUser] = await db.insert(users).values({
+        email: seedEmail,
+        firstName: "Admin",
+        lastName: "One",
+        password: hashedPw,
+        isAdmin: "true",
+      }).returning();
+      await db.insert(userRoles).values({ userId: newUser.id, role: "admin" });
+      console.log(`Seeded admin user: ${seedEmail}`);
+    } else {
+      const [existingRole] = await db.select().from(userRoles).where(eq(userRoles.userId, existing.id)).limit(1);
+      if (!existingRole) {
+        await db.insert(userRoles).values({ userId: existing.id, role: "admin" });
+        console.log(`Added admin role for existing user: ${seedEmail}`);
+      }
+    }
+  } catch (seedErr: any) {
+    console.error("Admin seed failed:", seedErr.message);
+  }
+
+  try {
     initAgentRegistry();
     registerAgentRoutes(app, isLocalAuthenticated);
     console.log("Agent runtime registered successfully");
