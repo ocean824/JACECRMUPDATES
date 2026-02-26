@@ -48,7 +48,7 @@ integrations = ["javascript_log_in_with_replit:2.0.0", "javascript_database:1.0.
 BONDAI_INTEGRATION_API_KEY = "bai_jace_int_7b134fbfd80289a701c1aeb9c39b1d64"
 JACE_ONBOARDING_JWT_SECRET = "JWT79870e54bab0947244263eef92bcaa0238ff1e3d01edc7f5ef283f9c0d5cc8f8"
 JACE_ENCRYPTION_KEY_BASE64 = "oe+VCOpIX4aG0Xn902O31MHsPQlOL19o5crTClHEpi0="
-ONBOARDING_DEFAULT_OWNER_USER_ID = "1"
+ONBOARDING_DEFAULT_OWNER_USER_ID = "env-admin-001"
 BONDAI_CORS_ORIGINS = "https://qa.judgmentbonds.com,https://jace-enterprise-crm.replit.app"
 BONDAI_ALLOWED_FRAME_ANCESTORS = "'self' https://*.replit.app https://*.judgmentbonds.com https://judgmentbonds.com"
 AI_INTEGRATIONS_OPENAI_BASE_URL = "http://localhost:1106/modelfarm/openai"

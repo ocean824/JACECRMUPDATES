@@ -237,8 +237,8 @@ let stripeInitStatus = { migrated: false, tables: 0, migrations: 0, error: null 
   try {
     const bcrypt = await import("bcryptjs");
     const { db } = await import("./db");
-    const { users, userRoles } = await import("@shared/schema");
-    const { eq } = await import("drizzle-orm");
+    const { users, userRoles, escrowAccounts, accounts } = await import("@shared/schema");
+    const { eq, and } = await import("drizzle-orm");
 
     const seedEmail = "admin1@jacemgmtllc.com";
     const [existing] = await db.select().from(users).where(eq(users.email, seedEmail)).limit(1);
@@ -276,6 +276,61 @@ let stripeInitStatus = { migrated: false, tables: 0, migrations: 0, error: null 
         console.log(`Seeded admin role for user: ${adminUser.email}`);
       }
     }
+
+    const seedUserIds = new Set<string>();
+    if (existing?.id) seedUserIds.add(existing.id);
+    seedUserIds.add(envAdminId);
+    for (const adminUser of adminUsers) {
+      seedUserIds.add(adminUser.id);
+    }
+
+    for (const seedUserId of seedUserIds) {
+
+    const [existingEscrow] = await db.select().from(escrowAccounts).where(eq(escrowAccounts.userId, seedUserId)).limit(1);
+    if (!existingEscrow) {
+      await db.insert(escrowAccounts).values({
+        userId: seedUserId,
+        accountName: "Primary Escrow Account",
+        bankName: "DUMMY BANK",
+        accountType: "checking",
+        accountNumberLast4: "0000",
+        routingNumberLast4: "0000",
+        balance: "0",
+        currency: "USD",
+        isActive: true,
+        isDefault: true,
+        notes: "Default escrow account (dummy placeholder)",
+      });
+      console.log(`Seeded default escrow account for user: ${seedUserId}`);
+    }
+
+    const defaultAccounts = [
+      { code: "1000", name: "Cash", accountType: "asset" as const },
+      { code: "1100", name: "Accounts Receivable", accountType: "asset" as const },
+      { code: "2000", name: "Accounts Payable", accountType: "liability" as const },
+      { code: "3000", name: "Owner's Equity", accountType: "equity" as const },
+      { code: "4000", name: "Revenue", accountType: "revenue" as const },
+      { code: "5000", name: "Operating Expenses", accountType: "expense" as const },
+      { code: "5100", name: "Cost of Goods Sold", accountType: "expense" as const },
+    ];
+    for (const acct of defaultAccounts) {
+      const [existingAcct] = await db.select().from(accounts).where(
+        and(eq(accounts.userId, seedUserId), eq(accounts.code, acct.code))
+      ).limit(1);
+      if (!existingAcct) {
+        await db.insert(accounts).values({
+          userId: seedUserId,
+          code: acct.code,
+          name: acct.name,
+          accountType: acct.accountType,
+          balance: "0",
+          isActive: true,
+        });
+        console.log(`Seeded account: ${acct.code} ${acct.name} for ${seedUserId}`);
+      }
+    }
+
+    } // end for-of seedUserIds
   } catch (seedErr: any) {
     console.error("Admin seed failed:", seedErr.message);
   }
