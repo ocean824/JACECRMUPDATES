@@ -233,11 +233,13 @@ export default function SettlementsPage() {
     setMode("confirm");
     const defaultAccount = (escrowAccounts.data || []).find((a) => a.isDefault && a.isActive);
     setSelectedEscrowId(defaultAccount?.id || "");
+    setOpen(true);
   }
 
   function openCancel(sessionId: string) {
     setActiveSessionId(sessionId);
     setMode("cancel");
+    setOpen(true);
   }
 
   function receiptUrl(sessionId: string) {
