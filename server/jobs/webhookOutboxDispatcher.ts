@@ -25,7 +25,20 @@ async function claimRows(): Promise<Array<typeof webhookOutbox.$inferSelect>> {
     )
     RETURNING *
   `);
-  return rows.rows as any[];
+  return (rows.rows as any[]).map((r: any) => ({
+    id: r.id,
+    sessionId: r.session_id,
+    eventType: r.event_type,
+    eventKey: r.event_key,
+    payloadJson: r.payload_json,
+    status: r.status,
+    attemptCount: r.attempt_count,
+    lastStatusCode: r.last_status_code,
+    lastError: r.last_error,
+    nextAttemptAt: r.next_attempt_at,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  }));
 }
 
 async function processBatch(): Promise<number> {
