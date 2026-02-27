@@ -58,6 +58,7 @@ BONDAI_API_URL = "https://qa.judgmentbonds.com"
 BONDAI_WEBHOOK_URL = "https://qa.judgmentbonds.com/api/jace/webhook"
 JACE_BASE_URL = "https://jace-enterprise-crm.replit.app"
 JACE_CRM_BASE_URL = "https://jace-enterprise-crm.replit.app"
+BONDAI_WEBHOOK_SECRET = "bondai-test-secret-2026"
 
 [userenv.production]
 NODE_ENV = "production"
