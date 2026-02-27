@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { CheckCircle, XCircle, Download, RefreshCw, Inbox, FileText, IdCard, ShieldCheck, Landmark, Eye, Send, Loader2, Plus } from "lucide-react";
+import { CheckCircle, XCircle, Download, RefreshCw, Inbox, FileText, IdCard, ShieldCheck, Landmark, Eye, Send, Loader2, Plus, DollarSign, TrendingUp, Users, ShieldAlert, Radio } from "lucide-react";
 
 type SettlementSession = {
   id: string;
@@ -130,6 +130,20 @@ export default function SettlementsPage() {
   });
 
   const inboxCount = inbox.data?.length || 0;
+
+  const inboxMetrics = useMemo(() => {
+    const rows = inbox.data || [];
+    const allRows = recent.data || [];
+    const totalAmount = rows.reduce((sum, r) => sum + Number(r.amount || 0), 0);
+    const avgTradeSize = rows.length > 0 ? totalAmount / rows.length : 0;
+    const uniqueInvestors = new Set(rows.map(r => r.investorEmail).filter(Boolean)).size;
+    const complianceComplete = rows.filter(r => r.complianceStatus === "complete").length;
+    const complianceRate = rows.length > 0 ? Math.round((complianceComplete / rows.length) * 100) : 0;
+    const settledRows = allRows.filter(r => r.status === "settled");
+    const webhookDelivered = settledRows.filter(r => r.webhookStatus === "SENT").length;
+    const webhookRate = settledRows.length > 0 ? Math.round((webhookDelivered / settledRows.length) * 100) : 0;
+    return { totalAmount, avgTradeSize, uniqueInvestors, complianceRate, complianceComplete, webhookRate, webhookDelivered, settledCount: settledRows.length };
+  }, [inbox.data, recent.data]);
 
   useEffect(() => {
     if (!location.startsWith("/settlements")) return;
@@ -449,6 +463,46 @@ export default function SettlementsPage() {
             <div className="text-3xl font-bold" data-testid="text-pending-count">{summary.data?.pendingCount ?? 0}</div>
           </CardContent>
         </Card>
+      </div>
+
+      <div className="overflow-x-auto pb-1" data-testid="metrics-strip">
+        <div className="flex gap-3 min-w-max">
+          <div className="flex items-center gap-2 rounded-lg border bg-card px-4 py-3 shadow-sm min-w-[160px]" data-testid="metric-total-amount">
+            <DollarSign className="h-5 w-5 text-green-600 shrink-0" />
+            <div>
+              <div className="text-xs text-muted-foreground font-medium">Total Amount</div>
+              <div className="text-lg font-bold">{formatMoney(String(inboxMetrics.totalAmount))}</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 rounded-lg border bg-card px-4 py-3 shadow-sm min-w-[160px]" data-testid="metric-avg-trade">
+            <TrendingUp className="h-5 w-5 text-blue-600 shrink-0" />
+            <div>
+              <div className="text-xs text-muted-foreground font-medium">Avg Trade Size</div>
+              <div className="text-lg font-bold">{formatMoney(String(inboxMetrics.avgTradeSize))}</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 rounded-lg border bg-card px-4 py-3 shadow-sm min-w-[140px]" data-testid="metric-investors">
+            <Users className="h-5 w-5 text-violet-600 shrink-0" />
+            <div>
+              <div className="text-xs text-muted-foreground font-medium">Investors</div>
+              <div className="text-lg font-bold">{inboxMetrics.uniqueInvestors}</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 rounded-lg border bg-card px-4 py-3 shadow-sm min-w-[160px]" data-testid="metric-compliance">
+            <ShieldAlert className="h-5 w-5 text-amber-600 shrink-0" />
+            <div>
+              <div className="text-xs text-muted-foreground font-medium">Compliance</div>
+              <div className="text-lg font-bold">{inboxMetrics.complianceRate}% <span className="text-xs font-normal text-muted-foreground">({inboxMetrics.complianceComplete}/{inboxCount})</span></div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 rounded-lg border bg-card px-4 py-3 shadow-sm min-w-[170px]" data-testid="metric-webhooks">
+            <Radio className="h-5 w-5 text-teal-600 shrink-0" />
+            <div>
+              <div className="text-xs text-muted-foreground font-medium">Webhooks Delivered</div>
+              <div className="text-lg font-bold">{inboxMetrics.webhookRate}% <span className="text-xs font-normal text-muted-foreground">({inboxMetrics.webhookDelivered}/{inboxMetrics.settledCount})</span></div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <Card>
