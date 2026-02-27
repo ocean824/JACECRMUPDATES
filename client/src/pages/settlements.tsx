@@ -526,13 +526,13 @@ export default function SettlementsPage() {
       </Card>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-5xl">
-          <DialogHeader>
+        <DialogContent className="max-w-5xl max-h-[85vh] flex flex-col">
+          <DialogHeader className="shrink-0">
             <DialogTitle>Settlement Inbox</DialogTitle>
             <DialogDescription>New settlement submissions appear here. Confirm only after internal escrow verification.</DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="space-y-4 overflow-y-auto flex-1 pr-1">
             <div className="text-sm text-muted-foreground">{inboxCount} submitted settlement(s) awaiting confirmation.</div>
             <InboxTable rows={inbox.data || []} />
 
