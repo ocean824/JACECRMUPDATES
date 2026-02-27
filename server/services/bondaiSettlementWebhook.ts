@@ -41,6 +41,7 @@ export async function sendBondAISettlementWebhook(
   };
 
   const body = JSON.stringify(payload);
+  const timestamp = Math.floor(Date.now() / 1000).toString();
 
   const signature = crypto
     .createHmac("sha256", secret)
@@ -49,6 +50,8 @@ export async function sendBondAISettlementWebhook(
 
   try {
     console.log(`[JACE WEBHOOK] Sending ${eventType} for trade ${tradeId} to ${webhookUrl}`);
+    console.log(`[JACE WEBHOOK] Payload: ${body.substring(0, 500)}`);
+    console.log(`[JACE WEBHOOK] Headers: X-Jace-Signature=${signature.substring(0, 16)}..., X-Jace-Timestamp=${timestamp}`);
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
@@ -58,6 +61,7 @@ export async function sendBondAISettlementWebhook(
       headers: {
         "Content-Type": "application/json",
         "X-Jace-Signature": signature,
+        "X-Jace-Timestamp": timestamp,
       },
       body,
       signal: controller.signal,
@@ -65,11 +69,15 @@ export async function sendBondAISettlementWebhook(
     clearTimeout(timeout);
 
     const respText = await response.text().catch(() => "");
-    console.log(`[JACE WEBHOOK] Response: ${response.status} ${respText.substring(0, 200)}`);
+    console.log(`[JACE WEBHOOK] Response: ${response.status} ${respText.substring(0, 500)}`);
+
+    if (!response.ok) {
+      console.error(`[JACE WEBHOOK] Non-OK response for ${eventType} trade ${tradeId}: status=${response.status}, body=${respText.substring(0, 500)}`);
+    }
 
     return { success: response.ok, statusCode: response.status };
   } catch (err: any) {
-    console.error(`[JACE WEBHOOK] Failed to send ${eventType}:`, err?.message);
+    console.error(`[JACE WEBHOOK] Failed to send ${eventType} for trade ${tradeId}:`, err?.message);
     return { success: false, error: err?.message || "Unknown error" };
   }
 }

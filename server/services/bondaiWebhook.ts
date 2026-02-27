@@ -26,6 +26,8 @@ export async function sendWebhookPayload(
     return { success: false, error: "JACE_WEBHOOK_SECRET not configured" };
   }
 
+  const timestamp = Math.floor(Date.now() / 1000).toString();
+
   const signature = crypto
     .createHmac("sha256", secret)
     .update(payloadJson)
@@ -36,11 +38,14 @@ export async function sendWebhookPayload(
     const timeout = setTimeout(() => controller.abort(), 15_000);
 
     try {
+      console.log(`${TAG} Attempting ${eventType} [${eventKey}] to ${webhookUrl}`);
+
       const response = await fetch(webhookUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "X-Jace-Signature": signature,
+          "X-Jace-Timestamp": timestamp,
         },
         body: payloadJson,
         signal: controller.signal,
@@ -72,7 +77,8 @@ export async function sendWebhookPayload(
       },
     });
 
-    console.log(`${TAG} Delivered ${eventType} [${eventKey}] -> ${response.status}`);
+    const respText = await response.text().catch(() => "");
+    console.log(`${TAG} Delivered ${eventType} [${eventKey}] -> ${response.status} ${respText.substring(0, 200)}`);
     return { success: true, statusCode: response.status };
   } catch (err: any) {
     console.error(`${TAG} All retries exhausted for ${eventType} [${eventKey}]:`, err?.message);
