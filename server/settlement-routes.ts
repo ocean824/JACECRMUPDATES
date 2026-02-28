@@ -4,7 +4,7 @@ import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 import { db } from "./db";
-import { desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { investors, settlementSessions, settlementCompliance, journalEntries, journalEntryLines, accounts, documents } from "@shared/schema";
 import { logAudit } from "./storage";
 import { storage } from "./storage";
@@ -488,16 +488,18 @@ export function registerSettlementRoutes(app: Express) {
 
       let journalEntryId: string | null = null;
       try {
+        const ownerUserId = process.env.ONBOARDING_DEFAULT_OWNER_USER_ID || "env-admin-001";
+
         const [debitAccount] = await db
           .select()
           .from(accounts)
-          .where(eq(accounts.accountType, "asset"))
+          .where(and(eq(accounts.accountType, "asset"), eq(accounts.userId, ownerUserId)))
           .limit(1);
 
         const [creditAccount] = await db
           .select()
           .from(accounts)
-          .where(eq(accounts.accountType, "revenue"))
+          .where(and(eq(accounts.accountType, "revenue"), eq(accounts.userId, ownerUserId)))
           .limit(1);
 
         if (debitAccount && creditAccount) {
@@ -508,7 +510,7 @@ export function registerSettlementRoutes(app: Express) {
           const [journalEntry] = await db
             .insert(journalEntries)
             .values({
-              userId: "system",
+              userId: ownerUserId,
               entryNumber,
               description,
               date: now,
