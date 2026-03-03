@@ -1,0 +1,44 @@
+Objective
+Fix three issues found in the deployed app:
+
+"View Details" button on Journal Entries page does nothing (no click handler)
+Admin "Confirm" on Settlement inbox does not create a journal entry
+Outbox webhook dispatcher crashes with (0 , OY.default) is not a function — a p-retry ESM/CJS import issue in the production build
+Tasks
+T001: Fix p-retry Import in Outbox Webhook Sender (Production Build Crash)
+Blocked By: []
+Details:
+The outbox webhook sender (server/services/bondaiWebhook.ts) imports p-retry as import pRetry from "p-retry" — a default import
+In production, esbuild bundles this as (0, OY.default) which evaluates to undefined because p-retry is a pure ESM package that doesn't have a default export in CJS interop
+Fix: Change to dynamic import or use a compatible import pattern. The simplest fix is to replace p-retry with a manual retry loop (3 retries, exponential backoff) to eliminate the dependency entirely
+This is why all outbox webhook deliveries are failing in production — the dispatcher retries but hits the same error every time
+Files: server/services/bondaiWebhook.ts
+Acceptance: Outbox webhook sender works in production without p-retry import errors
+T002: Add Journal Entry Creation to Admin Confirm Route
+Blocked By: []
+Details:
+The admin confirm handler in server/settlement-internal-routes.ts (around line 349-445) creates a receipt PDF, audit log, assignment, and outbox webhook — but does NOT create a journal entry
+Add journal entry creation (debit asset, credit revenue) matching the pattern in server/settlement-routes.ts lines 492-543
+Use userId from the authenticated admin session (already available in the confirm handler)
+Scope account lookups to the admin's userId so correct accounts are used
+Files: server/settlement-internal-routes.ts
+Acceptance: Admin confirming a settlement creates a double-entry journal entry visible on the Accounting page
+T003: Fix "View Details" Button on Journal Entries Page
+Blocked By: []
+Details:
+The "View Details" DropdownMenuItem (line 460-463 in client/src/pages/journal.tsx) has no onClick handler
+Best approach: Open a detail dialog showing the journal entry's line items (debit/credit accounts, amounts) since there's no separate journal detail page
+Add a state variable for the selected entry, fetch its lines via GET /api/journal-entries/:id/lines, and display in a Dialog
+Need to verify the API endpoint exists; if not, add it
+Files: client/src/pages/journal.tsx, server/routes.ts (if API needed)
+Acceptance: Clicking "View Details" opens a dialog showing the entry's debit/credit line items with account names and amounts
+T004: Deploy and Verify All Fixes
+Blocked By: [T001, T002, T003]
+Details:
+Restart app and verify:
+"View Details" dialog opens with journal entry line items
+Outbox webhook sender delivers successfully (no p-retry crash)
+Admin confirm creates journal entry visible on the Accounting page
+Check deployment logs for successful webhook delivery
+Files: N/A
+Acceptance: All three issues resolved and verified

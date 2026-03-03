@@ -5,7 +5,7 @@ import fs from "fs";
 import path from "path";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "./db";
-import { accounts, assignments, bondSettlements, documents, escrowAccounts, investors, journalEntryLines, settlementCompliance, settlementSessions, webhookOutbox } from "@shared/schema";
+import { accounts, assignments, bondSettlements, documents, escrowAccounts, investors, journalEntries, journalEntryLines, settlementCompliance, settlementSessions, webhookOutbox } from "@shared/schema";
 import { storage, logAudit } from "./storage";
 import { renderSettlementReceiptPdf } from "./lib/pdf/renderSettlementReceiptPdf";
 
@@ -408,6 +408,64 @@ export function registerInternalSettlementRoutes(app: Express, isAuthenticated: 
         },
         req.ip
       );
+
+      let journalEntryId: string | null = null;
+      try {
+        const ownerUserId = process.env.ONBOARDING_DEFAULT_OWNER_USER_ID || userId;
+
+        const [debitAccount] = await db
+          .select()
+          .from(accounts)
+          .where(and(eq(accounts.accountType, "asset"), eq(accounts.userId, ownerUserId)))
+          .limit(1);
+
+        const [creditAccount] = await db
+          .select()
+          .from(accounts)
+          .where(and(eq(accounts.accountType, "revenue"), eq(accounts.userId, ownerUserId)))
+          .limit(1);
+
+        if (debitAccount && creditAccount) {
+          const amountStr = Number(updated.amount).toFixed(2);
+          const entryNumber = `SETTLE-${sessionId.substring(0, 8)}`;
+          const description = `Assignment Unit Purchase - Trade #${updated.tradeId} - $${amountStr}`;
+
+          const [journalEntry] = await db
+            .insert(journalEntries)
+            .values({
+              userId: ownerUserId,
+              entryNumber,
+              description,
+              date: now,
+            })
+            .returning();
+
+          await db.insert(journalEntryLines).values({
+            journalEntryId: journalEntry.id,
+            accountId: debitAccount.id,
+            debit: amountStr,
+            credit: "0",
+            description: `Debit Cash/Escrow - Trade #${updated.tradeId}`,
+          });
+
+          await db.insert(journalEntryLines).values({
+            journalEntryId: journalEntry.id,
+            accountId: creditAccount.id,
+            debit: "0",
+            credit: amountStr,
+            description: `Credit Bond Revenue - Trade #${updated.tradeId}`,
+          });
+
+          journalEntryId = journalEntry.id;
+
+          await db
+            .update(settlementSessions)
+            .set({ journalEntryId })
+            .where(eq(settlementSessions.sessionId, sessionId));
+        }
+      } catch (journalErr: any) {
+        console.error("Failed to create journal entry for settlement confirm:", journalErr);
+      }
 
       const correlationId = `settle-${sessionId}`;
       const eventKey = `settle:${sessionId}`;

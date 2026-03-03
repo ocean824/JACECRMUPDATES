@@ -48,7 +48,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { JournalEntry, Account } from "@shared/schema";
+import type { JournalEntry, JournalEntryLine, Account } from "@shared/schema";
 
 const lineSchema = z.object({
   accountId: z.string().min(1, "Account is required"),
@@ -343,14 +343,31 @@ function JournalEntryFormDialog({
   );
 }
 
+interface JournalEntryDetail extends JournalEntry {
+  lines?: (JournalEntryLine & { accountName?: string })[];
+}
+
 export default function JournalPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
   const { toast } = useToast();
 
   const { data: entries, isLoading } = useQuery<JournalEntry[]>({
     queryKey: ["/api/journal-entries"],
   });
+
+  const { data: entryDetail, isLoading: isDetailLoading } = useQuery<JournalEntryDetail>({
+    queryKey: ["/api/journal-entries", selectedEntryId],
+    enabled: !!selectedEntryId && detailOpen,
+  });
+
+  const { data: accountsList } = useQuery<Account[]>({
+    queryKey: ["/api/accounts"],
+  });
+
+  const accountMap = new Map(accountsList?.map((a) => [a.id, a.name]) ?? []);
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -457,7 +474,13 @@ export default function JournalPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setSelectedEntryId(entry.id);
+                                setDetailOpen(true);
+                              }}
+                              data-testid={`button-view-entry-${entry.id}`}
+                            >
                               <Eye className="h-4 w-4 mr-2" />
                               View Details
                             </DropdownMenuItem>
@@ -498,6 +521,79 @@ export default function JournalPage() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
       />
+
+      <Dialog open={detailOpen} onOpenChange={(open) => { setDetailOpen(open); if (!open) setSelectedEntryId(null); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Journal Entry Details</DialogTitle>
+            <DialogDescription>
+              {entryDetail?.entryNumber} — {entryDetail?.description}
+            </DialogDescription>
+          </DialogHeader>
+          {isDetailLoading ? (
+            <div className="space-y-3 py-4">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-4 w-1/2" />
+            </div>
+          ) : entryDetail ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-muted-foreground">Entry #</span>
+                  <p className="font-mono font-medium">{entryDetail.entryNumber}</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Date</span>
+                  <p>{new Date(entryDetail.date).toLocaleDateString()}</p>
+                </div>
+              </div>
+              <div className="text-sm">
+                <span className="text-muted-foreground">Description</span>
+                <p>{entryDetail.description}</p>
+              </div>
+              {entryDetail.lines && entryDetail.lines.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium mb-2">Line Items</h4>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Account</TableHead>
+                        <TableHead className="text-right">Debit</TableHead>
+                        <TableHead className="text-right">Credit</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {entryDetail.lines.map((line, idx) => (
+                        <TableRow key={line.id || idx}>
+                          <TableCell className="text-sm">
+                            {accountMap.get(line.accountId) || line.accountId}
+                            {line.description && (
+                              <p className="text-xs text-muted-foreground">{line.description}</p>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-sm">
+                            {Number(line.debit) > 0 ? `$${Number(line.debit).toLocaleString("en-US", { minimumFractionDigits: 2 })}` : "—"}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-sm">
+                            {Number(line.credit) > 0 ? `$${Number(line.credit).toLocaleString("en-US", { minimumFractionDigits: 2 })}` : "—"}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                  <div className="flex justify-end gap-6 mt-2 text-sm font-medium border-t pt-2">
+                    <span>Total Debit: ${entryDetail.lines.reduce((sum, l) => sum + Number(l.debit || 0), 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+                    <span>Total Credit: ${entryDetail.lines.reduce((sum, l) => sum + Number(l.credit || 0), 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-muted-foreground py-4">Entry not found.</p>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1,5 +1,4 @@
 import crypto from "crypto";
-import pRetry from "p-retry";
 
 const TAG = "[WEBHOOK-SENDER]";
 
@@ -7,6 +6,10 @@ export interface WebhookSendResult {
   success: boolean;
   statusCode?: number;
   error?: string;
+}
+
+async function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export async function sendWebhookPayload(
@@ -33,12 +36,15 @@ export async function sendWebhookPayload(
     .update(payloadJson)
     .digest("hex");
 
-  const doSend = async () => {
+  const maxRetries = 3;
+  let lastError: string = "";
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15_000);
 
     try {
-      console.log(`${TAG} Attempting ${eventType} [${eventKey}] to ${webhookUrl}`);
+      console.log(`${TAG} Attempt ${attempt}/${maxRetries} for ${eventType} [${eventKey}] to ${webhookUrl}`);
 
       const response = await fetch(webhookUrl, {
         method: "POST",
@@ -52,40 +58,40 @@ export async function sendWebhookPayload(
       });
       clearTimeout(timeout);
 
-      if (!response.ok && response.status >= 500) {
-        const text = await response.text().catch(() => "");
-        throw new Error(`HTTP ${response.status}: ${text.substring(0, 200)}`);
+      if (response.ok) {
+        const respText = await response.text().catch(() => "");
+        console.log(`${TAG} Delivered ${eventType} [${eventKey}] -> ${response.status} ${respText.substring(0, 200)}`);
+        return { success: true, statusCode: response.status };
       }
 
-      return response;
-    } catch (err) {
+      const text = await response.text().catch(() => "");
+      lastError = `HTTP ${response.status}: ${text.substring(0, 200)}`;
+
+      if (response.status >= 500 && attempt < maxRetries) {
+        const delay = Math.min(1000 * Math.pow(2, attempt - 1), 8000);
+        console.warn(`${TAG} Attempt ${attempt} failed for ${eventType} [${eventKey}]: ${lastError}, retrying in ${delay}ms`);
+        await sleep(delay);
+        continue;
+      }
+
+      console.error(`${TAG} Non-retryable response for ${eventType} [${eventKey}]: ${lastError}`);
+      return { success: false, statusCode: response.status, error: lastError };
+    } catch (err: any) {
       clearTimeout(timeout);
-      throw err;
+      lastError = err?.message || "Unknown error";
+
+      if (attempt < maxRetries) {
+        const delay = Math.min(1000 * Math.pow(2, attempt - 1), 8000);
+        console.warn(`${TAG} Attempt ${attempt} failed for ${eventType} [${eventKey}]: ${lastError}, retrying in ${delay}ms`);
+        await sleep(delay);
+        continue;
+      }
     }
-  };
-
-  try {
-    const response = await pRetry(doSend, {
-      retries: 3,
-      minTimeout: 1_000,
-      maxTimeout: 8_000,
-      factor: 2,
-      onFailedAttempt: (err: any) => {
-        console.warn(
-          `${TAG} Attempt ${err.attemptNumber} failed for ${eventType} [${eventKey}]: ${(err as Error).message}`
-        );
-      },
-    });
-
-    const respText = await response.text().catch(() => "");
-    console.log(`${TAG} Delivered ${eventType} [${eventKey}] -> ${response.status} ${respText.substring(0, 200)}`);
-    return { success: true, statusCode: response.status };
-  } catch (err: any) {
-    console.error(`${TAG} All retries exhausted for ${eventType} [${eventKey}]:`, err?.message);
-    return {
-      success: false,
-      statusCode: err?.response?.status,
-      error: err?.message || "Delivery failed after retries",
-    };
   }
+
+  console.error(`${TAG} All retries exhausted for ${eventType} [${eventKey}]:`, lastError);
+  return {
+    success: false,
+    error: lastError || "Delivery failed after retries",
+  };
 }
