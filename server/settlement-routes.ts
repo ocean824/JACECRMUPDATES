@@ -557,14 +557,14 @@ export function registerSettlementRoutes(app: Express) {
       } catch {
       }
 
-      sendBondAISettlementWebhook("trade.settled", updated.tradeId, updated.sessionId, {
+      sendBondAISettlementWebhook("settlement.completed", updated.tradeId, updated.sessionId, {
         investorEmail: updated.investorEmail,
         amount: updated.amount,
         paymentReference: updated.paymentReference || paymentReference,
         paidAt: new Date().toISOString(),
         ipAddress: updated.ipAddress,
         userAgent: updated.userAgent,
-      }).catch(err => console.error("[JACE WEBHOOK] trade.settled fire-and-forget error:", err));
+      }).catch(err => console.error("[JACE WEBHOOK] settlement.completed fire-and-forget error:", err));
 
       res.json({
         success: true,

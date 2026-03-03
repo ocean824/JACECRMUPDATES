@@ -2,6 +2,7 @@ import crypto from "crypto";
 
 export type SettlementWebhookEvent =
   | "trade.settled"
+  | "settlement.completed"
   | "settlement.failed"
   | "settlement.cancelled";
 
