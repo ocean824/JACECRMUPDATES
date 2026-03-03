@@ -259,7 +259,7 @@ export function registerAssignmentRoutes(app: Express, isAuthenticated: (req: Re
 
       try {
         const { sendBondAISettlementWebhook } = await import("./services/bondaiSettlementWebhook");
-        await sendBondAISettlementWebhook("trade.settled", tradeId, bondaiSessionId || req.params.id, {
+        await sendBondAISettlementWebhook("settlement.settled", tradeId, bondaiSessionId || req.params.id, {
           investorEmail: assignment.investorEmail,
           amount: assignment.totalAmount,
           paymentReference: paymentReference || null,

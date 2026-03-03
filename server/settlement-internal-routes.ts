@@ -413,7 +413,7 @@ export function registerInternalSettlementRoutes(app: Express, isAuthenticated: 
       const eventKey = `settle:${sessionId}`;
       const webhookPayload = JSON.stringify({
         eventId: `evt_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`,
-        eventType: "trade.settled",
+        eventType: "settlement.settled",
         correlationId,
         data: {
           tradeId: Number(updated.tradeId),
@@ -432,14 +432,14 @@ export function registerInternalSettlementRoutes(app: Express, isAuthenticated: 
         await db.insert(webhookOutbox).values({
           tenantId: userId,
           destination: "BONDAI",
-          eventType: "trade.settled",
+          eventType: "settlement.settled",
           eventKey,
           payloadJson: webhookPayload,
           status: "PENDING",
           nextAttemptAt: new Date(),
         }).onConflictDoNothing();
         webhookEnqueued = true;
-        console.log(`[OUTBOX] Enqueued trade.settled for ${eventKey}`);
+        console.log(`[OUTBOX] Enqueued settlement.settled for ${eventKey}`);
       } catch (err: any) {
         console.error("[OUTBOX] Failed to enqueue webhook:", err?.message);
       }
@@ -633,7 +633,7 @@ export function registerInternalSettlementRoutes(app: Express, isAuthenticated: 
 
       const payload = {
         eventId: `evt_preview_${Date.now()}`,
-        eventType: "trade.settled",
+        eventType: "settlement.settled",
         correlationId: `trade-${session.tradeId}`,
         data: {
           tradeId: Number(session.tradeId),
@@ -679,7 +679,7 @@ export function registerInternalSettlementRoutes(app: Express, isAuthenticated: 
       const eventKey = `settle:${sessionId}:resend:${Date.now()}`;
       const payload = JSON.stringify({
         eventId: `evt_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`,
-        eventType: "trade.settled",
+        eventType: "settlement.settled",
         correlationId: `trade-${session.tradeId}`,
         data: {
           tradeId: Number(session.tradeId),
@@ -696,7 +696,7 @@ export function registerInternalSettlementRoutes(app: Express, isAuthenticated: 
       await db.insert(webhookOutbox).values({
         tenantId: userId,
         destination: "BONDAI",
-        eventType: "trade.settled",
+        eventType: "settlement.settled",
         eventKey,
         payloadJson: payload,
         status: "PENDING",
