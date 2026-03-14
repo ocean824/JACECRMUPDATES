@@ -1,0 +1,2 @@
+attached_assets/Jace-Enterprise-CRM_AGENTPACK_TIGHTENED_PROMPTS_DB_MATRIX.zip filter=lfs diff=lfs merge=lfs -text
+attached_assets/Jace-Enterprise-CRM_FINAL_ALL_PATCHES_REPLIT_UI_DIRECTMODE.zip filter=lfs diff=lfs merge=lfs -text
